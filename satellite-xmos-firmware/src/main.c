@@ -462,7 +462,7 @@ void startup_task(void *arg)
 #endif
 
 #if ON_TILE(1)
-    speaker_pipeline_init(NULL, NULL);
+    //speaker_pipeline_init(NULL, NULL);
 #endif
 
     audio_pipeline_init(NULL, NULL);
