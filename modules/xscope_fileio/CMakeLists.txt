@@ -12,4 +12,5 @@ target_include_directories(xscope_fileio
 target_compile_definitions(xscope_fileio
     INTERFACE
         TEST_WAV_XSCOPE=1)
-        
+
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/xscope_fileio/host)
