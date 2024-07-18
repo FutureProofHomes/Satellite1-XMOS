@@ -77,6 +77,6 @@ for ((i = 0; i < ${#examples[@]}; i += 1)); do
     echo '******************************************************'
     echo '* Add extra files'
     echo '******************************************************'
-    cd ${path}; cp LICENSE.rst ${DIST_DIR}
-    cd ${path}; cp README.rst ${DIST_DIR}
+    cd ${path}; cp LICENSE.md ${DIST_DIR}
+    cd ${path}; cp README.md ${DIST_DIR}
 done
