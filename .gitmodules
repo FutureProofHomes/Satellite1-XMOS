@@ -37,3 +37,6 @@
 [submodule "modules/lib_qspi_fast_read"]
 	path = modules/lib_qspi_fast_read
 	url = git@github.com:xmos/lib_qspi_fast_read.git
+[submodule "modules/xscope_fileio/xscope_fileio"]
+	path = modules/xscope_fileio/xscope_fileio
+	url = git@github.com:xmos/xscope_fileio.git
