@@ -1,10 +1,9 @@
 # Satellite XMOS firmware
 
 ## Variants
-*satellite_firmware_fixed_delay.xe*
+*satellite_firmware_bypass.xe*
 
 Initial variant which bypasses the mic-pipeline, so the raw mic signal is passed to the ESP32.
-(please ignore the fixed_delay suffix for now, the target will be renamed.)
 
 ## Pre-Requirements
 
@@ -14,12 +13,12 @@ Initial variant which bypasses the mic-pipeline, so the raw mic signal is passed
 Running without flashing:
 
 ```bash
-xrun --xscope satellite_firmware_fixed_delay.xe
+xrun --xscope satellite_firmware_bypass.xe
 ```
 
 Flashing:
 ```bash
-xflash --quad-spi-clock 50MHz --factory satellite_firmware_fixed_delay.xe --boot-partition-size 0x100000 --data satellite_firmware_fixed_delay_data_partition.bin
+xflash --quad-spi-clock 50MHz --factory satellite_firmware_bypass.xe --boot-partition-size 0x100000 --data satellite_firmware_bypass_data_partition.bin
 ```
 
 
@@ -42,7 +41,7 @@ On Linux and Mac run:
 cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
 cd build
 
-make satellite_firmware_fixed_delay
+make satellite_firmware_bypass
 ```
 
 On Windows run:
@@ -50,7 +49,7 @@ On Windows run:
 cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
 cd build
 
-ninja satellite_firmware_fixed_delay
+ninja satellite_firmware_bypass
 ```
 
 From the build folder, create the data partition containing the filesystem and
@@ -60,14 +59,14 @@ On Linux and Mac run:
 
 
 ```bash
-make flash_app_satellite_firmware_fixed_delay
+make flash_app_satellite_firmware_bypass
 ```
 
 On Windows run:
 
 
 ```bash
-ninja flash_app_satellite_firmware_fixed_delay
+ninja flash_app_satellite_firmware_bypass
 ```
 
 Once flashed, the application will run.
