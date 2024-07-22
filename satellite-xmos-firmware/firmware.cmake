@@ -61,6 +61,7 @@ option(ENABLE_ALL_FFVA_PIPELINES  "Create all FFVA pipeline configurations"  OFF
 
 if(ENABLE_ALL_FFVA_PIPELINES)
     set(FFVA_PIPELINES_INT
+        bypass
         fixed_delay
         adec
         adec_altarch
