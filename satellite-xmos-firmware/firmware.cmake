@@ -75,7 +75,8 @@ if(ENABLE_ALL_FFVA_PIPELINES)
     )
 else()
     set(FFVA_PIPELINES_INT
-        fixed_delay
+        #fixed_delay
+        bypass
     )
 
     set(FFVA_PIPELINES_UA

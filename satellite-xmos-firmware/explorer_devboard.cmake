@@ -8,12 +8,22 @@ ${APP_COMPILE_DEFINITIONS}
     appconfI2S_MODE=appconfI2S_MODE_MASTER
     appconfI2S_AUDIO_SAMPLE_RATE=16000
     appconfI2S_ESP_ENABLED=1
-    appconfPIPELINE_BYPASS=1
+    #appconfPIPELINE_BYPASS=1
     ## VK Voice uses 12288000 for RPI integration, EXPLORER Board uses default 24576000
     # MIC_ARRAY_CONFIG_MCLK_FREQ=12288000
 )
 
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
+    if(${FFVA_AP} STREQUAL bypass )
+      set(PL_NAME fixed_delay)
+      list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=1)
+    else()
+      set(PL_NAME ${FFVA_AP})
+      list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=0)
+    endif()
+
+    message(${FFVA_INT_COMPILE_DEFINITIONS})
+    
     #**********************
     # Tile Targets
     #**********************
@@ -31,7 +41,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             sln_voice::app::ffva::xcore_ai_explorer
-            sln_voice::app::ffva::ap::${FFVA_AP}
+            sln_voice::app::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
@@ -51,7 +61,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             sln_voice::app::ffva::xcore_ai_explorer
-            sln_voice::app::ffva::ap::${FFVA_AP}
+            sln_voice::app::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
@@ -59,7 +69,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     #**********************
     # Merge binaries
-    #**********************
+    #**********************    
     merge_binaries(satellite_firmware_${FFVA_AP} tile0_satellite_firmware_${FFVA_AP} tile1_satellite_firmware_${FFVA_AP} 1)
 
     #**********************
