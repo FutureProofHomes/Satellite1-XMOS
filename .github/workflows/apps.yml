@@ -50,7 +50,7 @@ jobs:
 
       - name: Build
         run: |
-          docker run --rm -u $(id -u):$(id -g) -w /ws -v ${{github.workspace}}:/ws ${XCORE_BUILDER} bash -l tools/ci/build_host_apps.sh
+          docker run --rm -u $(id -u):$(id -g) -w /ws -v ${{github.workspace}}:/ws ${XCORE_BUILDER} bash -l build/build_host_apps.sh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
@@ -80,11 +80,11 @@ jobs:
 
       - name: Build
         run: |
-          docker run --rm -u $(id -u):$(id -g) -w /ws -v ${{github.workspace}}:/ws ${XCORE_BUILDER} bash -l tools/ci/build_firmware.sh tools/ci/firmwares.txt
+          docker run --rm -u $(id -u):$(id -g) -w /ws -v ${{github.workspace}}:/ws ${XCORE_BUILDER} bash -l build/build_firmware.sh build/firmwares.txt
   
       - name: Save metadata
         run: |
-          bash tools/ci/log_metadata.sh ./dist/build_metadata.json
+          bash build/log_metadata.sh ./dist/build_metadata.json
 
       - name: Determine artifact name
         run: |
