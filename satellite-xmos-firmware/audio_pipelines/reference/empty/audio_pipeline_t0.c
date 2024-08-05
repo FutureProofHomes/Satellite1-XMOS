@@ -1,4 +1,4 @@
-// Copyright 2022-2023 XMOS LIMITED.
+// Copyright 2022-2024 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 /* STD headers */
@@ -19,16 +19,13 @@
 /* App headers */
 #include "app_conf.h"
 #include "audio_pipeline.h"
+#include "audio_pipeline_dsp.h"
 
 #if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
 #error This pipeline is only configured for 240 frame advance
 #endif
 
-typedef struct {
-    int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    int32_t aec_reference_audio_samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    int32_t mic_samples_passthrough[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-} frame_data_t;
+#if ON_TILE(0)
 
 static void *audio_pipeline_input_i(void *input_app_data)
 {
@@ -99,3 +96,5 @@ void audio_pipeline_init(
                         appconfAUDIO_PIPELINE_TASK_PRIORITY,
                         stage_count);
 }
+
+#endif /* ON_TILE(0)*/
