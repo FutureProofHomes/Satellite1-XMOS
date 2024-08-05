@@ -119,6 +119,7 @@ int speaker_pipeline_output(void *output_app_data,
                         size_t ch_count,
                         size_t frame_count)
 {
+    return AUDIO_PIPELINE_FREE_FRAME;
 }
 
 
@@ -462,7 +463,7 @@ void startup_task(void *arg)
 #endif
 
 #if ON_TILE(1)
-    //speaker_pipeline_init(NULL, NULL);
+    speaker_pipeline_init(NULL, NULL);
 #endif
 
     audio_pipeline_init(NULL, NULL);
