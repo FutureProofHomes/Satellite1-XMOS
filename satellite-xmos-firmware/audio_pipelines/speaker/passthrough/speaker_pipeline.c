@@ -35,9 +35,6 @@ static void *audio_pipeline_input_i(void *input_app_data)
     frame_data = pvPortMalloc(sizeof(frame_data_t));
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
-    return frame_data;
-
-    
     speaker_pipeline_input(input_app_data,
                        (int32_t **)frame_data->samples,
                        2,

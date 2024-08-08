@@ -1,0 +1,1 @@
+add_subdirectory(i2s_sync)

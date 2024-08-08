@@ -42,6 +42,7 @@
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
+
 #if appconfI2S_ENABLED && (appconfI2S_MODE == appconfI2S_MODE_SLAVE)
 void i2s_slave_intertile(void *args) {
     (void) args;
@@ -119,6 +120,27 @@ int speaker_pipeline_output(void *output_app_data,
                         size_t ch_count,
                         size_t frame_count)
 {
+    (void) output_app_data;
+
+#if appconfI2S_ENABLED
+
+    xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+    /* I2S expects sample channel format */
+    int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
+    int32_t *tmpptr = (int32_t *)output_audio_frames;
+    for (int j=0; j<frame_count; j++) {
+        /* ASR output is first */
+        tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
+        tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
+    }
+
+    rtos_i2s_tx(i2s_ctx,
+                (int32_t*) tmp,
+                frame_count,
+                portMAX_DELAY);
+
+#endif    
+    
     return AUDIO_PIPELINE_FREE_FRAME;
 }
 
@@ -181,7 +203,7 @@ void audio_pipeline_input(void *input_app_data,
                    ch_cnt);
 #endif
 
-#if appconfI2S_ENABLED
+#if appconfI2S_ENABLED && 0
     if (!appconfUSB_ENABLED || aec_ref_source == appconfAEC_REF_I2S) {
         /* This shouldn't need to block given it shares a clock with the PDM mics */
 
@@ -213,24 +235,28 @@ int audio_pipeline_output(void *output_app_data,
                         size_t frame_count)
 {
     (void) output_app_data;
-#if appconfI2S_ENABLED
+
+    size_t words_remaining = frame_count * 2;
+    
+
+#if appconfI2S_ENABLED && 1
 #if appconfI2S_MODE == appconfI2S_MODE_MASTER
 #if !appconfI2S_TDM_ENABLED
     xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
     /* I2S expects sample channel format */
-    int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfI2S_AUDIO_OUTPUTS][appconfAUDIO_PIPELINE_CHANNELS];
+    int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
     for (int j=0; j<frame_count; j++) {
         /* ASR output is first */
-        tmp[j][0][0] = *(tmpptr+j+(2*frame_count));    // ref 0 -> DAC
-        tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // ref 1 -> DAC
+        //tmp[j][0][0] = *(tmpptr+j+(2*frame_count));    // ref 0 -> DAC
+        //tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // ref 1 -> DAC
 #if appconfI2S_ESP_ENABLED
-        tmp[j][1][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
-        tmp[j][1][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
+        tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
+        tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
 #endif
     }
 
-    rtos_i2s_tx(i2s_ctx,
+    rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,
                 frame_count,
                 portMAX_DELAY);

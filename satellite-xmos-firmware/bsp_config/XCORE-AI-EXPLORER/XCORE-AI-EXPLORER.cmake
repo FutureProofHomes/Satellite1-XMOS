@@ -18,7 +18,9 @@ target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
         core::general
         rtos::freertos
         rtos::drivers::general
-        rtos::drivers::audio
+        #rtos::drivers::audio
+        rtos::drivers::mic_array
+        fph::i2s_sync
         rtos::drivers::usb
         rtos::drivers::dfu_image
         sln_voice::app::ffva::dac::aic3204
