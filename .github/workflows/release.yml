@@ -63,8 +63,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 1
-          submodules: recursive
+          fetch-depth: 0
           path: ${{ env.TMP_SOURCES_DIR }}
 
       # NOTE:
@@ -94,6 +93,7 @@ jobs:
           PRERELEASE_SUFFIX: ${{ github.ref_name == 'staging' && 'beta' || 'alpha' }}
           DRY_RUN: false # Set the tag to the commit.
           INITIAL_VERSION: 1.0.0
+          SOURCE: tmp/src # Relative Path to sources
       - name: Get previous tag
         id: previous_tag
         run: |
