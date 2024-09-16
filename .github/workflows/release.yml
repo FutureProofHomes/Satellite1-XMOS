@@ -57,7 +57,7 @@ jobs:
 
   release_sources:
     name: Release sources
-    needs: event_configuration
+    needs: build_apps
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
