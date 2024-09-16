@@ -1,0 +1,116 @@
+# This workflow uses other callable workflows containing actions that are not
+# certified by GitHub. They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support documentation.
+#
+# This workflow triggers on multiple event sources and is intended as the
+# top-level CI for building artifacts during PRs and creation of release tags
+# (note the tags format specified below).
+
+name: Build and Release Artifacts
+
+on:
+  push:
+    branches:
+      - "develop"
+      - "main"
+      - "feature/32-release-actions"
+  # Allow manually triggering of the workflow.
+  workflow_dispatch:
+
+
+env:
+  TMP_SOURCES_DIR: ${{ github.workspace }}/tmp/src
+  RELEASE_SOURCES_DIR: ${{ github.workspace }}/release/src
+permissions:
+  contents: write
+jobs:
+  event_configuration:
+    name: Determine event configuration
+    runs-on: ubuntu-latest
+    outputs:
+      examples_artifact_name: ${{ steps.artifact_names.outputs.EXAMPLES_ARTIFACT_NAME }}
+      src_artifact_name: ${{ steps.artifact_names.outputs.SOURCES_ARTIFACT_NAME }}
+    steps:
+      - name: Determine artifact names
+        id: artifact_names
+        run: |
+          if [ "$IS_RELEASE" = "true" ]; then
+            if [ "$IS_TAGGED" = "true" ]; then
+              version=$(echo "${{ github.ref_name }}" | sed "s/\./_/g")
+            else
+              version="test"
+            fi
+            echo "EXAMPLES_ARTIFACT_NAME=XM-014871-SM_xcore_voice_example_apps_$version" >> $GITHUB_OUTPUT
+            echo "SOURCES_ARTIFACT_NAME=XM-014872-SM_xcore_voice_sources_$version" >> $GITHUB_OUTPUT
+          else
+            echo "EXAMPLES_ARTIFACT_NAME=satellite_firmware_apps" >> $GITHUB_OUTPUT
+            echo "SOURCES_ARTIFACT_NAME=satellite_firmware_sources" >> $GITHUB_OUTPUT
+          fi
+
+  build_apps:
+    name: Build example applications
+    needs: event_configuration
+    uses: ./.github/workflows/apps.yml
+    with:
+      is_release: true
+      examples_artifact_name: ${{ needs.event_configuration.outputs.examples_artifact_name }}
+
+  release_sources:
+    name: Release sources
+    needs: event_configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: recursive
+          path: ${{ env.TMP_SOURCES_DIR }}
+
+      # NOTE:
+      # Sources must be pre-zipped or added to an archive such as a tarball to
+      # prevent loss of file permissions such as the executable bash scripts.
+      # The side-effect of this is that the uploaded artifact will be
+      # double-zipped. This is a reported limitation (as of 2023-02) in:
+      # https://github.com/actions/upload-artifact
+      # Also some 3rd party sources contain symlinks thus the --symlinks option
+      # specified below.
+      - name: Prepare artifact
+        run: |
+          cd $TMP_SOURCES_DIR
+          mkdir -p $RELEASE_SOURCES_DIR
+          zip -r --symlinks $RELEASE_SOURCES_DIR/build.zip .
+
+      - name: Bump version and push tag
+        if: ${{ !github.event.inputs.tag }}
+        uses: anothrNick/github-tag-action@1.70.0
+        id: bump
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # To create a major bump add #major to commit message
+          DEFAULT_BUMP: ${{ github.ref_name == 'main' && 'minor' || github.ref_name == 'staging' && 'minor' || 'patch' }}
+          WITH_V: true
+          PRERELEASE: ${{ github.ref_name != 'main' }}
+          PRERELEASE_SUFFIX: ${{ github.ref_name == 'staging' && 'beta' || 'alpha' }}
+          DRY_RUN: false # Set the tag to the commit.
+          INITIAL_VERSION: 1.0.0
+      - name: Get previous tag
+        id: previous_tag
+        run: |
+          echo "previous_tag=$(git describe --abbrev=0 --tags)" >> $GITHUB_OUTPUT
+
+
+      - name: Release Changelog Builder
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          fromTag: ${{ steps.previous_tag.outputs.previous_tag }}
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.RELEASE_SOURCES_DIR }}/build.zip
+          generate_release_notes: true
+          append_body: true
+          body: ${{ steps.changelog.outputs.changelog }}
+          tag_name: ${{ steps.bump.outputs.new_tag }}
