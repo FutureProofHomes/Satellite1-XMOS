@@ -1,4 +1,4 @@
-
+query_tools_version()
 set(FFVA_INT_COMPILE_DEFINITIONS
 ${APP_COMPILE_DEFINITIONS}
     appconfEXTERNAL_MCLK=0
@@ -77,7 +77,8 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #**********************
     create_run_target(satellite_firmware_${FFVA_AP})
     create_debug_target(satellite_firmware_${FFVA_AP})
-
+    create_upgrade_img_target(satellite_firmware_${FFVA_AP} ${XTC_VERSION_MAJOR} ${XTC_VERSION_MINOR})
+    
     #**********************
     # Create data partition support targets
     #**********************
@@ -123,7 +124,14 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         #[[ Copy Files ]]               "${DATA_PARTITION_FILE_LIST}"
         #[[ Dependencies ]]             "${DATA_PARTITION_FILE_LIST}"
     )
+        
+    create_flash_image_target(
+        #[[ Target ]]                  ${TARGET_NAME}
+        #[[ Boot Partition Size ]]     0x100000
+    #   #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
+    #   #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
 
+    )
     create_flash_app_target(
         #[[ Target ]]                  ${TARGET_NAME}
         #[[ Boot Partition Size ]]     0x100000
