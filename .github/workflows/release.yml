@@ -57,7 +57,9 @@ jobs:
 
   release_sources:
     name: Release sources
-    needs: build_apps
+    needs:
+      - event_configuration
+      - build_apps
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -101,7 +103,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.RELEASE_SOURCES_DIR }}/build.zip
+          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ needs.event_configuration.outputs.examples_artifact_name }}
           generate_release_notes: true
           append_body: true
           body: ${{ steps.changelog.outputs.changelog }}
@@ -113,6 +115,6 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.SECOND_REPO_PAT }}" \
             https://api.github.com/repos/FutureProofHomes/Documentation/actions/workflows/update-binaries-xmos/dispatches \
-            -d '{"ref":"main", "inputs": {"xmos_release_tag": "${{ needs.prepare.outputs.next_tag }}"}}'
+            -d '{"ref":"main", "inputs": {"xmos_release_tag": "${{ steps.bump.outputs.next_tag }}"}}'
         env:
           SECOND_REPO_PAT: ${{ secrets.SECOND_REPO_PAT }}
