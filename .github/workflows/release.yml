@@ -69,7 +69,6 @@ jobs:
 
 
       - name: Bump version and push tag
-        if: ${{ !github.event.inputs.tag }}
         uses: anothrNick/github-tag-action@1.70.0
         id: bump
         env:
@@ -114,7 +113,7 @@ jobs:
           curl -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.SECOND_REPO_PAT }}" \
-            https://api.github.com/repos/FutureProofHomes/Documentation/actions/workflows/update-binaries-xmos/dispatches \
-            -d '{"ref":"main", "inputs": {"xmos_release_tag": "${{ steps.bump.outputs.next_tag }}"}}'
+            https://api.github.com/repos/FutureProofHomes/Documentation/actions/workflows/update-binaries-xmos.yaml/dispatches \
+            -d '{"ref":"main", "inputs": {"xmos_release_tag": "${{ steps.bump.outputs.new_tag }}"}}'
         env:
           SECOND_REPO_PAT: ${{ secrets.SECOND_REPO_PAT }}
