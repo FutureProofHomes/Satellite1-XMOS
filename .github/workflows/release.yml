@@ -94,15 +94,22 @@ jobs:
           fromTag: ${{ steps.previous_tag.outputs.previous_tag }}
 
       - name: Get Release Bianries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ needs.event_configuration.outputs.examples_artifact_name }}
           path: ${{ env.RELEASE_SOURCES_DIR }}
 
+      - name: Zip Release Binaries
+        run: |
+          cd ${{ env.RELEASE_SOURCES_DIR }}
+          zip -r --symlinks ${{ env.RELEASE_SOURCES_DIR }}/${{ needs.event_configuration.outputs.examples_artifact_name }}.zip .
+
+      - run: tree ${{ env.RELEASE_SOURCES_DIR }}
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ needs.event_configuration.outputs.examples_artifact_name }}
+          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ needs.event_configuration.outputs.examples_artifact_name }}.zip
           generate_release_notes: true
           append_body: true
           body: ${{ steps.changelog.outputs.changelog }}
