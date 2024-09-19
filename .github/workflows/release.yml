@@ -76,13 +76,13 @@ jobs:
           DRY_RUN: false # Set the tag to the commit.
           INITIAL_VERSION: 1.0.0
 
-      - name: Release Changelog Builder
-        id: changelog
-        uses: mikepenz/release-changelog-builder-action@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          fromTag: ${{ steps.previous_tag.outputs.previous_tag }}
+      # - name: Release Changelog Builder
+      #   id: changelog
+      #   uses: mikepenz/release-changelog-builder-action@v5
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     fromTag: ${{ steps.previous_tag.outputs.previous_tag }}
 
       - name: Get Release Bianries
         uses: actions/download-artifact@v4
@@ -103,7 +103,7 @@ jobs:
           files: ${{ env.RELEASE_SOURCES_DIR }}/${{ env.EXAMPLES_ARTIFACT_NAME }}.zip
           generate_release_notes: true
           append_body: true
-          body: ${{ steps.changelog.outputs.changelog }}
+          # body: ${{ steps.changelog.outputs.changelog }}
           tag_name: ${{ steps.bump.outputs.new_tag }}
 
       - name: Update Documentation
