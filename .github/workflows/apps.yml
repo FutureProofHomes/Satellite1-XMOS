@@ -58,25 +58,25 @@ jobs:
           name: ${{ env.HOST_APPS_ARTIFACT_NAME }}
           path: ./dist_host
 
-  # build_firmware:
-  #   name: Build satellite xmos firmware
-  #   runs-on: ubuntu-latest
-  #   needs: build_host_apps
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v3
-  #       with:
-  #         submodules: recursive
+  build_firmware:
+    name: Build satellite xmos firmware
+    runs-on: ubuntu-latest
+    needs: build_host_apps
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-  #     - name: Pull Docker builder
-  #       run: |
-  #         docker pull ${XCORE_BUILDER}
+      - name: Pull Docker builder
+        run: |
+          docker pull ${XCORE_BUILDER}
 
-  #     - name: Download host build artifacts
-  #       uses: actions/download-artifact@v3
-  #       with:
-  #         name: ${{ env.HOST_APPS_ARTIFACT_NAME }}
-  #         path: ./dist_host
+      - name: Download host build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.HOST_APPS_ARTIFACT_NAME }}
+          path: ./dist_host
 
       - name: Build
         run: |
