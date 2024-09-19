@@ -97,7 +97,7 @@ jobs:
       - name: Get Release Bianries
         uses: actions/download-artifact@v3
         with:
-          name: build_artifacts
+          name: ${{ needs.event_configuration.outputs.examples_artifact_name }}
           path: ${{ env.RELEASE_SOURCES_DIR }}
 
       - name: Create release
