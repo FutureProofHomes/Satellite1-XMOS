@@ -21,44 +21,35 @@ on:
 env:
   TMP_SOURCES_DIR: ${{ github.workspace }}/tmp/src
   RELEASE_SOURCES_DIR: ${{ github.workspace }}/release/src
+  EXAMPLES_ARTIFACT_NAME: "satellite_firmware_apps"
 permissions:
   contents: write
 jobs:
-  event_configuration:
-    name: Determine event configuration
-    runs-on: ubuntu-latest
-    outputs:
-      examples_artifact_name: ${{ steps.artifact_names.outputs.EXAMPLES_ARTIFACT_NAME }}
-      src_artifact_name: ${{ steps.artifact_names.outputs.SOURCES_ARTIFACT_NAME }}
-    steps:
-      - name: Determine artifact names
-        id: artifact_names
-        run: |
-          if [ "$IS_RELEASE" = "true" ]; then
-            if [ "$IS_TAGGED" = "true" ]; then
-              version=$(echo "${{ github.ref_name }}" | sed "s/\./_/g")
-            else
-              version="test"
-            fi
-            echo "EXAMPLES_ARTIFACT_NAME=XM-014871-SM_xcore_voice_example_apps_$version" >> $GITHUB_OUTPUT
-            echo "SOURCES_ARTIFACT_NAME=XM-014872-SM_xcore_voice_sources_$version" >> $GITHUB_OUTPUT
-          else
-            echo "EXAMPLES_ARTIFACT_NAME=satellite_firmware_apps" >> $GITHUB_OUTPUT
-            echo "SOURCES_ARTIFACT_NAME=satellite_firmware_sources" >> $GITHUB_OUTPUT
-          fi
+  # event_configuration:
+  #   name: Determine event configuration
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     examples_artifact_name: ${{ steps.artifact_names.outputs.EXAMPLES_ARTIFACT_NAME }}
+  #   steps:
+  #     - name: Determine artifact names
+  #       id: artifact_names
+  #       run: |
+  #         if [ "$IS_RELEASE" = "true" ]; then
+  #           echo "EXAMPLES_ARTIFACT_NAME=XM-014871-SM_xcore_voice_example_apps_release" >> $GITHUB_OUTPUT
+  #         else
+  #           echo "EXAMPLES_ARTIFACT_NAME=satellite_firmware_apps" >> $GITHUB_OUTPUT
+  #         fi
 
   build_apps:
     name: Build example applications
-    needs: event_configuration
     uses: ./.github/workflows/apps.yml
     with:
       is_release: true
-      examples_artifact_name: ${{ needs.event_configuration.outputs.examples_artifact_name }}
+      examples_artifact_name: satellite_firmware_apps
 
   release_sources:
     name: Release sources
     needs:
-      - event_configuration
       - build_apps
     runs-on: ubuntu-latest
     steps:
@@ -88,26 +79,28 @@ jobs:
       - name: Release Changelog Builder
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           fromTag: ${{ steps.previous_tag.outputs.previous_tag }}
 
       - name: Get Release Bianries
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.event_configuration.outputs.examples_artifact_name }}
+          name: ${{ env.EXAMPLES_ARTIFACT_NAME }}
           path: ${{ env.RELEASE_SOURCES_DIR }}
 
       - name: Zip Release Binaries
         run: |
           cd ${{ env.RELEASE_SOURCES_DIR }}
-          zip -r --symlinks ${{ env.RELEASE_SOURCES_DIR }}/${{ needs.event_configuration.outputs.examples_artifact_name }}.zip .
+          zip -r --symlinks ${{ env.RELEASE_SOURCES_DIR }}/${{ env.EXAMPLES_ARTIFACT_NAME }}.zip .
 
       - run: tree ${{ env.RELEASE_SOURCES_DIR }}
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ needs.event_configuration.outputs.examples_artifact_name }}.zip
+          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ env.EXAMPLES_ARTIFACT_NAME }}.zip
           generate_release_notes: true
           append_body: true
           body: ${{ steps.changelog.outputs.changelog }}
