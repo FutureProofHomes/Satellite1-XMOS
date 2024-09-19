@@ -109,7 +109,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changelog }}
           tag_name: ${{ steps.bump.outputs.new_tag }}
 
-      - name: Update Doccumentation
+      - name: Update Documentation
         run: |
           curl -X POST \
             -H "Accept: application/vnd.github+json" \
