@@ -149,7 +149,7 @@ static void i2s_send(rtos_i2s_t *ctx, size_t num_out, int32_t *i2s_sample_buf)
         size_t buffer_words_read_1 = 0;
     
         //no callback support for second send buffer yet
-        if (words_available >= 2) {
+        if (words_available_1 >= 2) {
             memcpy(i2s_sample_buf + 2, &ctx->send_buffer_1.buf[ctx->send_buffer_1.read_index], 2 * sizeof(int32_t));
             buffer_words_read_1 = 2;
         } else {
@@ -166,7 +166,7 @@ static void i2s_send(rtos_i2s_t *ctx, size_t num_out, int32_t *i2s_sample_buf)
         }
 
         if (ctx->send_buffer_1.required_free_count > 0) {
-            words_available = ctx->send_buffer_1.total_written - ctx->send_buffer_1.total_read;
+            words_available_1 = ctx->send_buffer_1.total_written - ctx->send_buffer_1.total_read;
             size_t words_free = ctx->send_buffer_1.buf_size - words_available_1;
 
             if (words_free >= ctx->send_buffer_1.required_free_count) {

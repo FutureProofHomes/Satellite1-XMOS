@@ -20,14 +20,8 @@
 #error appconfI2S_AUDIO_SAMPLE_RATE must be 48000 to use I2S TDM
 #endif
 
-#if XK_VOICE_L71
-#if appconfSPI_OUTPUT_ENABLED
-#error SPI audio output not currently supported on XK-VOICE-L71 board
-#endif
-#endif
-
-#if appconfI2S_ESP_ENABLED && (appconfI2S_AUDIO_SAMPLE_RATE != appconfAUDIO_PIPELINE_SAMPLE_RATE)
-#error Resampling is not implemented yet for multiple I2S data channels 
+#if appconfI2S_TDM_ENABLED
+#error TDM mode not longer supported in this firmware version
 #endif
 
 #endif /* APP_CONF_CHECK_H_ */

@@ -42,46 +42,10 @@
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
+#if appconfI2S_ENABLED
 
-#if appconfI2S_ENABLED && (appconfI2S_MODE == appconfI2S_MODE_SLAVE)
-void i2s_slave_intertile(void *args) {
-    (void) args;
-    int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfAUDIO_PIPELINE_CHANNELS];
-
-    while(1) {
-        memset(tmp, 0x00, sizeof(tmp));
-
-        size_t bytes_received = 0;
-        bytes_received = rtos_intertile_rx_len(
-                intertile_ctx,
-                appconfI2S_OUTPUT_SLAVE_PORT,
-                portMAX_DELAY);
-
-        xassert(bytes_received == sizeof(tmp));
-
-        rtos_intertile_rx_data(
-                intertile_ctx,
-                tmp,
-                bytes_received);
-
-        rtos_i2s_tx(i2s_ctx,
-                    (int32_t*) tmp,
-                    appconfAUDIO_PIPELINE_FRAME_ADVANCE,
-                    portMAX_DELAY);
-
-
-#if ON_TILE(1) && appconfRECOVER_MCLK_I2S_APP_PLL
-    sw_pll_ctx_t* i2s_callback_args = (sw_pll_ctx_t*) args;
-    port_clear_buffer(i2s_callback_args->p_bclk_count);
-    port_in(i2s_callback_args->p_bclk_count);                                  // Block until BCLK transition to synchronise. Will consume up to 1/64 of a LRCLK cycle
-    uint16_t mclk_pt = port_get_trigger_time(i2s_callback_args->p_mclk_count); // Immediately sample mclk_count
-    uint16_t bclk_pt = port_get_trigger_time(i2s_callback_args->p_bclk_count); // Now grab bclk_count (which won't have changed)
-
-    sw_pll_do_control(i2s_callback_args->sw_pll, mclk_pt, bclk_pt);
-#endif
-
-    }
-}
+#if ON_TILE(1)
+rtos_osal_queue_t *ref_input_queue;
 #endif
 
 void speaker_pipeline_input(void *input_app_data,
@@ -89,13 +53,13 @@ void speaker_pipeline_input(void *input_app_data,
                         size_t ch_count,
                         size_t frame_count)
 {
-#if appconfI2S_ENABLED
+
     if (!appconfUSB_ENABLED || aec_ref_source == appconfAEC_REF_I2S) {
         /* This shouldn't need to block given it shares a clock with the PDM mics */
 
-        xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+        xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
         /* I2S provides sample channel format */
-        int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfI2S_AUDIO_INPUTS][appconfAUDIO_PIPELINE_CHANNELS];
+        int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][appconfI2S_AUDIO_INPUTS][appconfAUDIO_PIPELINE_CHANNELS];
         int32_t *tmpptr = (int32_t *)input_audio_frames;
 
         size_t rx_count =
@@ -111,8 +75,6 @@ void speaker_pipeline_input(void *input_app_data,
             *(tmpptr + i + frame_count) = tmp[i][0][1];
         }
     }
-#endif
-
 }
 
 int speaker_pipeline_output(void *output_app_data,
@@ -122,11 +84,9 @@ int speaker_pipeline_output(void *output_app_data,
 {
     (void) output_app_data;
 
-#if appconfI2S_ENABLED
-
-    xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+    xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
     /* I2S expects sample channel format */
-    int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
+    int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
     for (int j=0; j<frame_count; j++) {
         /* ASR output is first */
@@ -134,16 +94,41 @@ int speaker_pipeline_output(void *output_app_data,
         tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
     }
 
-    rtos_i2s_tx(i2s_ctx,
+    rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,
                 frame_count,
                 portMAX_DELAY);
-
-#endif    
     
+
+#if ON_TILE(1) && 1
+    void* frame_data;
+    frame_data = pvPortMalloc( appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ));
+    static int64_t sum[2];
+    static int32_t src_data[2][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned (8)));
+    
+    if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {
+        int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];    
+        
+        for( int frame=0; frame < frame_count; frame +=3 ){
+            sum[0] = src_ds3_voice_add_sample(0, src_data[0][0], src_ff3v_fir_coefs[0], tmp[frame][0][0]);
+            sum[1] = src_ds3_voice_add_sample(0, src_data[1][0], src_ff3v_fir_coefs[0], tmp[frame][0][1]);
+
+            sum[0] = src_ds3_voice_add_sample(sum[0], src_data[0][1], src_ff3v_fir_coefs[1], tmp[frame+1][0][0]);
+            sum[1] = src_ds3_voice_add_sample(sum[1], src_data[1][1], src_ff3v_fir_coefs[1], tmp[frame+1][0][1]);
+
+            tmp_out[frame/3][0][0] = src_ds3_voice_add_final_sample(sum[0], src_data[0][2], src_ff3v_fir_coefs[2], tmp[frame+2][0][0]);
+            tmp_out[frame/3][0][1] = src_ds3_voice_add_final_sample(sum[1], src_data[1][2], src_ff3v_fir_coefs[2], tmp[frame+2][0][1]);
+        }
+        memcpy( frame_data, tmp_out, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
+    } else {
+      memcpy( frame_data, tmp, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
+    }
+    (void) rtos_osal_queue_send(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
+#endif    
+
     return AUDIO_PIPELINE_FREE_FRAME;
 }
-
+#endif
 
 
 void audio_pipeline_input(void *input_app_data,
@@ -169,6 +154,21 @@ void audio_pipeline_input(void *input_app_data,
             flushed = 1;
         }
     }
+
+#if ON_TILE(1) && 1
+    void *frame_data;
+    (void) rtos_osal_queue_receive(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
+    int32_t *tmpptr = (int32_t *)input_audio_frames;
+    int32_t *refptr = (int32_t *)frame_data;
+
+    for (int i=0; i<frame_count; i++) {
+        /* ref is first */
+        *(tmpptr + i) = *(refptr++);
+        *(tmpptr + i + frame_count) = *(refptr++);
+    }
+    rtos_osal_free(frame_data);
+#endif
+
 
     /*
      * NOTE: ALWAYS receive the next frame from the PDM mics,
@@ -236,16 +236,15 @@ int audio_pipeline_output(void *output_app_data,
 {
     (void) output_app_data;
 
-    size_t words_remaining = frame_count * 2;
-    
 
 #if appconfI2S_ENABLED && 1
 #if appconfI2S_MODE == appconfI2S_MODE_MASTER
 #if !appconfI2S_TDM_ENABLED
     xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
     /* I2S expects sample channel format */
-    int32_t tmp[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
+    int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
+#if 0    
     for (int j=0; j<frame_count; j++) {
         /* ASR output is first */
         //tmp[j][0][0] = *(tmpptr+j+(2*frame_count));    // ref 0 -> DAC
@@ -255,10 +254,25 @@ int audio_pipeline_output(void *output_app_data,
         tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
 #endif
     }
+#endif
 
-    rtos_i2s_tx_1(i2s_ctx,
+#if 1    
+    static int32_t src_data[2][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned(8)));
+    for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
+        tmp[out_frame][0][0] = src_us3_voice_input_sample(src_data[0], src_ff3v_fir_coefs[2], *(tmpptr+in_frame+(0*frame_count)));
+        tmp[out_frame][0][1] = src_us3_voice_input_sample(src_data[1], src_ff3v_fir_coefs[2], *(tmpptr+in_frame+(1*frame_count)));
+        
+        tmp[out_frame+1][0][0] = src_us3_voice_get_next_sample(src_data[0], src_ff3v_fir_coefs[1]);
+        tmp[out_frame+1][0][1] = src_us3_voice_get_next_sample(src_data[1], src_ff3v_fir_coefs[1]);
+
+        tmp[out_frame+2][0][0] = src_us3_voice_get_next_sample(src_data[0], src_ff3v_fir_coefs[0]);
+        tmp[out_frame+2][0][1] = src_us3_voice_get_next_sample(src_data[1], src_ff3v_fir_coefs[0]);
+    }
+#endif    
+   
+    rtos_i2s_tx(i2s_ctx,
                 (int32_t*) tmp,
-                frame_count,
+                appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE,
                 portMAX_DELAY);
 #else
     int32_t *tmpptr = (int32_t *)output_audio_frames;
@@ -397,10 +411,10 @@ size_t i2s_send_downsample_cb(rtos_i2s_t *ctx, void *app_data, int32_t *i2s_fram
 
 void i2s_rate_conversion_enable(void)
 {
-#if !appconfI2S_TDM_ENABLED
-    rtos_i2s_send_filter_cb_set(i2s_ctx, i2s_send_upsample_cb, NULL);
-#endif
+    //rtos_i2s_send_filter_cb_set(i2s_ctx, i2s_send_upsample_cb, NULL);
+#if 0
     rtos_i2s_receive_filter_cb_set(i2s_ctx, i2s_send_downsample_cb, NULL);
+#endif
 }
 
 void vApplicationMallocFailedHook(void)
@@ -489,6 +503,8 @@ void startup_task(void *arg)
 #endif
 
 #if ON_TILE(1)
+    ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );
+    rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
     speaker_pipeline_init(NULL, NULL);
 #endif
 

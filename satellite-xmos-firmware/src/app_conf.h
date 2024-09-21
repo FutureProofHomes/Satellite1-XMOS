@@ -45,9 +45,12 @@
 #define appconfPDM_CLOCK_FREQUENCY              MIC_ARRAY_CONFIG_PDM_FREQ
 #define appconfAUDIO_PIPELINE_SAMPLE_RATE       16000
 #define appconfAUDIO_PIPELINE_CHANNELS          MIC_ARRAY_CONFIG_MIC_COUNT
+#define appconfAUDIO_SPK_PL_SR_FACTOR           3
 
 /* If in channel sample format, appconfAUDIO_PIPELINE_FRAME_ADVANCE == MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME*/
 #define appconfAUDIO_PIPELINE_FRAME_ADVANCE     MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME
+#define appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE appconfAUDIO_SPK_PL_SR_FACTOR * appconfAUDIO_PIPELINE_FRAME_ADVANCE
+
 
 /* Enable audio response output */
 #ifndef appconfAUDIO_PLAYBACK_ENABLED
@@ -163,7 +166,7 @@
 #endif
 
 #if appconfI2S_ESP_ENABLED
-#define appconfI2S_AUDIO_INPUTS    2
+#define appconfI2S_AUDIO_INPUTS    1
 #define appconfI2S_AUDIO_OUTPUTS   2
 #else
 #define appconfI2S_AUDIO_INPUTS    1

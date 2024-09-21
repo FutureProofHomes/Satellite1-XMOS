@@ -164,16 +164,17 @@ static void i2s_init(void)
 #if ON_TILE(I2S_TILE_NO)
     rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
     port_t p_i2s_dout[appconfI2S_AUDIO_OUTPUTS] = {
-            PORT_I2S_DAC_DATA
 #if appconfI2S_ESP_ENABLED
            ,PORT_I2S_ESP_DATA_OUT
 #endif            
+           PORT_I2S_DAC_DATA
     };
     port_t p_i2s_din[appconfI2S_AUDIO_INPUTS] = {
 #if appconfI2S_ESP_ENABLED
-           PORT_I2S_ESP_DATA_IN,
-#endif            
+           PORT_I2S_ESP_DATA_IN
+#else
            PORT_I2S_ADC_DATA
+#endif            
     };
 
     rtos_i2s_master_init(
