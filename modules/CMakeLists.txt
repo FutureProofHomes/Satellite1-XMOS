@@ -4,6 +4,7 @@ add_subdirectory(core)
 add_subdirectory(io)
 add_subdirectory(lib_qspi_fast_read)
 add_subdirectory(rtos)
+add_subdirectory(fph)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A)
     ## Need to guard so host targets will not be built

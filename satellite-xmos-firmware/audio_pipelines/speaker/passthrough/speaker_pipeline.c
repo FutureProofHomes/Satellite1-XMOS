@@ -20,12 +20,12 @@
 #include "app_conf.h"
 #include "speaker_pipeline.h"
 
-#if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
-#error This pipeline is only configured for 240 frame advance
+#if appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_SPK_PL_SR_FACTOR != appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE
+#error The speaker pipeline frame advance needs to be set according the sample rate of both pipelines
 #endif
 
 typedef struct {
-    int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE];
 } frame_data_t;
 
 static void *audio_pipeline_input_i(void *input_app_data)
@@ -35,13 +35,10 @@ static void *audio_pipeline_input_i(void *input_app_data)
     frame_data = pvPortMalloc(sizeof(frame_data_t));
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
-    return frame_data;
-
-    
     speaker_pipeline_input(input_app_data,
                        (int32_t **)frame_data->samples,
                        2,
-                       appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+                       appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 
     return frame_data;
 }
@@ -52,7 +49,7 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
     return speaker_pipeline_output(output_app_data,
                                (int32_t **)frame_data->samples,
                                2,
-                               appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+                               appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 }
 
 void empty_stage(void)
