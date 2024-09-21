@@ -1,4 +1,4 @@
-
+query_tools_version()
 set(FFVA_INT_COMPILE_DEFINITIONS
 ${APP_COMPILE_DEFINITIONS}
     appconfEXTERNAL_MCLK=0
@@ -27,7 +27,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #**********************
     # Tile Targets
     #**********************
-    set(TARGET_NAME tile0_satellite_firmware_${FFVA_AP})
+    set(TARGET_NAME tile0_satellite1_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
@@ -47,7 +47,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
 
-    set(TARGET_NAME tile1_satellite_firmware_${FFVA_AP})
+    set(TARGET_NAME tile1_satellite1_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
@@ -70,18 +70,19 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #**********************
     # Merge binaries
     #**********************    
-    merge_binaries(satellite_firmware_${FFVA_AP} tile0_satellite_firmware_${FFVA_AP} tile1_satellite_firmware_${FFVA_AP} 1)
+    merge_binaries(satellite1_firmware_${FFVA_AP} tile0_satellite1_firmware_${FFVA_AP} tile1_satellite1_firmware_${FFVA_AP} 1)
 
     #**********************
     # Create run and debug targets
     #**********************
-    create_run_target(satellite_firmware_${FFVA_AP})
-    create_debug_target(satellite_firmware_${FFVA_AP})
-
+    create_run_target(satellite1_firmware_${FFVA_AP})
+    create_debug_target(satellite1_firmware_${FFVA_AP})
+    create_upgrade_img_target(satellite1_firmware_${FFVA_AP} ${XTC_VERSION_MAJOR} ${XTC_VERSION_MINOR})
+    
     #**********************
     # Create data partition support targets
     #**********************
-    set(TARGET_NAME satellite_firmware_${FFVA_AP})
+    set(TARGET_NAME satellite1_firmware_${FFVA_AP})
     set(DATA_PARTITION_FILE ${TARGET_NAME}_data_partition.bin)
     set(FATFS_FILE ${TARGET_NAME}_fat.fs)
     set(FATFS_CONTENTS_DIR ${TARGET_NAME}_fatmktmp)
@@ -123,7 +124,14 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         #[[ Copy Files ]]               "${DATA_PARTITION_FILE_LIST}"
         #[[ Dependencies ]]             "${DATA_PARTITION_FILE_LIST}"
     )
+        
+    create_flash_image_target(
+        #[[ Target ]]                  ${TARGET_NAME}
+        #[[ Boot Partition Size ]]     0x100000
+    #   #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
+    #   #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
 
+    )
     create_flash_app_target(
         #[[ Target ]]                  ${TARGET_NAME}
         #[[ Boot Partition Size ]]     0x100000
