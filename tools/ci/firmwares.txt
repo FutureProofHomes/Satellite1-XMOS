@@ -1,1 +1,1 @@
-satellite1_bypass  satellite_firmware_bypass No  XCORE_AI_EXPLORER   xmos_cmake_toolchain/xs3a.cmake
+satellite1_bypass  satellite1_firmware_bypass No  XCORE_AI_EXPLORER   xmos_cmake_toolchain/xs3a.cmake
