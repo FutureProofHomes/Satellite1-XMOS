@@ -76,7 +76,7 @@ if(ENABLE_ALL_FFVA_PIPELINES)
     )
 else()
     set(FFVA_PIPELINES_INT
-        #fixed_delay
+        adec
         bypass
     )
 
@@ -89,3 +89,4 @@ endif()
 # XMOS Firmware Targets
 #**********************
 include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/dev_usb_record.cmake)
