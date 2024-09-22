@@ -70,8 +70,7 @@
           <Tile Number="1" Reference="tile[1]">
             <!-- Mic related ports -->
             <Port Location="XS1_PORT_1G" Name="PORT_PDM_CLK"/>
-            <Port Location="XS1_PORT_1F" Name="PORT_PDM_DATA"/>
-
+            <Port Location="XS1_PORT_4B" Name="PORT_PDM_DATA"/> 
             <!-- Audio ports -->
             <Port Location="XS1_PORT_1D" Name="PORT_MCLK_IN"/>
             
