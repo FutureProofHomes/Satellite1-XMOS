@@ -21,6 +21,7 @@
 #define SPI_OUTPUT_TILE_NO 1
 #define MICARRAY_TILE_NO   1
 #define I2S_TILE_NO        1
+#define SPEAKER_PIPELINE_TILE_NO I2S_TILE_NO 
 
 /** TILE 0 Clock Blocks */
 #define FLASH_CLKBLK  XS1_CLKBLK_1
