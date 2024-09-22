@@ -1,1 +1,2 @@
 add_subdirectory(i2s_sync)
+add_subdirectory(rtos_mic_array)
