@@ -21,8 +21,6 @@
 #include "device_control_i2c.h"
 #endif
 
-extern void i2s_rate_conversion_enable(void);
-
 static void gpio_start(void)
 {
     rtos_gpio_rpc_config(gpio_ctx_t0, appconfGPIO_T0_RPC_PORT, appconfGPIO_RPC_PRIORITY);
@@ -127,10 +125,6 @@ static void i2s_start(void)
     rtos_i2s_rpc_config(i2s_ctx, appconfI2S_RPC_PORT, appconfI2S_RPC_PRIORITY);
 
 #if ON_TILE(I2S_TILE_NO)
-    if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {
-        i2s_rate_conversion_enable();
-    }
-
     rtos_i2s_start(
             i2s_ctx,
             rtos_i2s_mclk_bclk_ratio(appconfAUDIO_CLOCK_FREQUENCY, appconfI2S_AUDIO_SAMPLE_RATE),

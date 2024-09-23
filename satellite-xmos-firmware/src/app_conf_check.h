@@ -16,12 +16,13 @@
 #error Cannot use wakeword engine in USB configurations
 #endif
 
-#if appconfI2S_TDM_ENABLED && appconfI2S_AUDIO_SAMPLE_RATE != 3*appconfAUDIO_PIPELINE_SAMPLE_RATE
-#error appconfI2S_AUDIO_SAMPLE_RATE must be 48000 to use I2S TDM
-#endif
-
 #if appconfI2S_TDM_ENABLED
 #error TDM mode not longer supported in this firmware version
 #endif
+
+#if (appconfI2S_MODE == appconfI2S_MODE_SLAVE)
+#error I2S_MODE_SLAVE not longer supported in this firmware version
+#endif
+
 
 #endif /* APP_CONF_CHECK_H_ */
