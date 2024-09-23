@@ -223,7 +223,7 @@ int audio_pipeline_output(void *output_app_data,
     int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
     
-#if 1  //upsample to 48kHz  
+#if 0  //upsample to 48kHz  
     static int32_t src_data[2][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned(8)));
     for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
         tmp[out_frame][0][0] = src_us3_voice_input_sample(src_data[0], src_ff3v_fir_coefs[2], *(tmpptr+in_frame+(0*frame_count)));
@@ -234,6 +234,18 @@ int audio_pipeline_output(void *output_app_data,
 
         tmp[out_frame+2][0][0] = src_us3_voice_get_next_sample(src_data[0], src_ff3v_fir_coefs[0]);
         tmp[out_frame+2][0][1] = src_us3_voice_get_next_sample(src_data[1], src_ff3v_fir_coefs[0]);
+    }
+#elif 1
+    // duplicate to 48kHz
+    for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
+        tmp[out_frame][0][0] = *(tmpptr + in_frame + (0*frame_count));
+        tmp[out_frame][0][1] = *(tmpptr + in_frame + (1*frame_count));
+        
+        tmp[out_frame+1][0][0] = *(tmpptr + in_frame + (0*frame_count));
+        tmp[out_frame+1][0][1] = *(tmpptr + in_frame + (1*frame_count));
+
+        tmp[out_frame+2][0][0] = *(tmpptr + in_frame + (0*frame_count));
+        tmp[out_frame+2][0][1] = *(tmpptr + in_frame + (1*frame_count));
     }
 #else
     for (int j=0; j<frame_count; j++) {
