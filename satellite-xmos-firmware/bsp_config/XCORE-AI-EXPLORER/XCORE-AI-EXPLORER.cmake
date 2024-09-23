@@ -19,7 +19,8 @@ target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
         rtos::freertos
         rtos::drivers::general
         #rtos::drivers::audio
-        rtos::drivers::mic_array
+        #rtos::drivers::mic_array
+        fph::rtos_mic_array
         fph::i2s_sync
         rtos::drivers::usb
         rtos::drivers::dfu_image
@@ -47,6 +48,8 @@ target_compile_definitions(sln_voice_app_ffva_board_support_xcore_ai_explorer
         MIC_ARRAY_CONFIG_PDM_FREQ=3072000
         MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME=240
         MIC_ARRAY_CONFIG_MIC_COUNT=2
+        MIC_ARRAY_CONFIG_MIC_INPUT=8
+        MIC_ARRAY_CONFIG_USE_DDR=1
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_B=XS1_CLKBLK_2
         MIC_ARRAY_CONFIG_PORT_MCLK=PORT_MCLK_IN
