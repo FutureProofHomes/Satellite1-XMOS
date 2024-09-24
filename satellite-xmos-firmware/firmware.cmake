@@ -88,5 +88,6 @@ endif()
 #**********************
 # XMOS Firmware Targets
 #**********************
+include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/dev_usb_record.cmake)
