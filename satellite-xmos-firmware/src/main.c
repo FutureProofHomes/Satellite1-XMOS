@@ -163,12 +163,13 @@ void audio_pipeline_input(void *input_app_data,
     (void) rtos_osal_queue_receive(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
     int32_t *tmpptr = (int32_t *)input_audio_frames;
     int32_t *refptr = (int32_t *)frame_data;
-
+#if 1
     for (int i=0; i<frame_count; i++) {
         /* ref is first */
         *(tmpptr + i) = *(refptr++);
         *(tmpptr + i + frame_count) = *(refptr++);
     }
+#endif
     rtos_osal_free(frame_data);
 #endif
 
@@ -184,7 +185,7 @@ void audio_pipeline_input(void *input_app_data,
                       frame_count,
                       portMAX_DELAY);
 
-#if appconfUSB_ENABLED
+#if appconfUSB_ENABLED 
     int32_t **usb_mic_audio_frame = NULL;
     size_t ch_cnt = 2;  /* ref frames */
 
@@ -222,37 +223,26 @@ int audio_pipeline_output(void *output_app_data,
     /* I2S expects sample channel format */
     int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
+
+    if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {    
+        // duplicate to 48kHz
+        for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
+            int32_t smpl_ch0 = *(tmpptr + in_frame + (0 * frame_count));
+            int32_t smpl_ch1 = *(tmpptr + in_frame + (1 * frame_count));
+            tmp[out_frame][0][0] = smpl_ch0;
+            tmp[out_frame][0][1] = smpl_ch1;
+            tmp[out_frame+1][0][0] = smpl_ch0;
+            tmp[out_frame+1][0][1] = smpl_ch1;
+            tmp[out_frame+2][0][0] = smpl_ch0;
+            tmp[out_frame+2][0][1] = smpl_ch1;
+        }
+    } else {
+        for (int j=0; j<frame_count; j++) {
+            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
+            tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
+        }
+    }    
     
-#if 0  //upsample to 48kHz  
-    static int32_t src_data[2][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned(8)));
-    for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
-        tmp[out_frame][0][0] = src_us3_voice_input_sample(src_data[0], src_ff3v_fir_coefs[2], *(tmpptr+in_frame+(0*frame_count)));
-        tmp[out_frame][0][1] = src_us3_voice_input_sample(src_data[1], src_ff3v_fir_coefs[2], *(tmpptr+in_frame+(1*frame_count)));
-        
-        tmp[out_frame+1][0][0] = src_us3_voice_get_next_sample(src_data[0], src_ff3v_fir_coefs[1]);
-        tmp[out_frame+1][0][1] = src_us3_voice_get_next_sample(src_data[1], src_ff3v_fir_coefs[1]);
-
-        tmp[out_frame+2][0][0] = src_us3_voice_get_next_sample(src_data[0], src_ff3v_fir_coefs[0]);
-        tmp[out_frame+2][0][1] = src_us3_voice_get_next_sample(src_data[1], src_ff3v_fir_coefs[0]);
-    }
-#elif 1
-    // duplicate to 48kHz
-    for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
-        tmp[out_frame][0][0] = *(tmpptr + in_frame + (0*frame_count));
-        tmp[out_frame][0][1] = *(tmpptr + in_frame + (1*frame_count));
-        
-        tmp[out_frame+1][0][0] = *(tmpptr + in_frame + (0*frame_count));
-        tmp[out_frame+1][0][1] = *(tmpptr + in_frame + (1*frame_count));
-
-        tmp[out_frame+2][0][0] = *(tmpptr + in_frame + (0*frame_count));
-        tmp[out_frame+2][0][1] = *(tmpptr + in_frame + (1*frame_count));
-    }
-#else
-    for (int j=0; j<frame_count; j++) {
-        tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
-        tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
-    }
-#endif    
     
     rtos_i2s_tx(i2s_ctx,
                 (int32_t*) tmp,
