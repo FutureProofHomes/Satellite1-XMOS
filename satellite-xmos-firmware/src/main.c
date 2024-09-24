@@ -163,13 +163,13 @@ void audio_pipeline_input(void *input_app_data,
     (void) rtos_osal_queue_receive(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
     int32_t *tmpptr = (int32_t *)input_audio_frames;
     int32_t *refptr = (int32_t *)frame_data;
-#if 1
+
     for (int i=0; i<frame_count; i++) {
         /* ref is first */
         *(tmpptr + i) = *(refptr++);
         *(tmpptr + i + frame_count) = *(refptr++);
     }
-#endif
+
     rtos_osal_free(frame_data);
 #endif
 
