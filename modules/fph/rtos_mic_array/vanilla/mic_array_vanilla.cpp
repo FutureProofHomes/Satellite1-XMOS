@@ -68,6 +68,10 @@
 # define MIC_ARRAY_CONFIG_MIC_INPUT        (MIC_ARRAY_CONFIG_MIC_COUNT)
 #endif
 
+#ifndef MIC_ARRAY_CONFIG_MIC_DDR_INTERLEAVE
+# define MIC_ARRAY_CONFIG_MIC_DDR_INTERLEAVE  (0)
+#endif
+
 ////// Additional macros derived from others
 
 #define MIC_ARRAY_CONFIG_MCLK_DIVIDER     ((MIC_ARRAY_CONFIG_MCLK_FREQ)       \
@@ -111,6 +115,14 @@ void ma_vanilla_init()
 {
   mics.Init();
   mics.SetPort(pdm_res.p_pdm_mics);
+#if MIC_ARRAY_CONFIG_MIC_DDR_INTERLEAVE  
+  unsigned inter_leave_map[MIC_ARRAY_CONFIG_MIC_COUNT];
+  for(int i=0; i < MIC_ARRAY_CONFIG_MIC_COUNT; i+=2 ){
+    inter_leave_map[i]   = i/2; 
+    inter_leave_map[i+1] = i/2 + MIC_ARRAY_CONFIG_MIC_INPUT/2;
+  }
+  mics.PdmRx.MapChannels(inter_leave_map);
+#endif  
   mic_array_resources_configure(&pdm_res, MIC_ARRAY_CONFIG_MCLK_DIVIDER);
   mic_array_pdm_clock_start(&pdm_res);
 }
