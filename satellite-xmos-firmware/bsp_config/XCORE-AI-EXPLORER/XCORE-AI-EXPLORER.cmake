@@ -22,6 +22,7 @@ target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
         #rtos::drivers::mic_array
         fph::rtos_mic_array
         fph::i2s_sync
+        fph::rtos_ws2812
         rtos::drivers::usb
         rtos::drivers::dfu_image
         sln_voice::app::ffva::dac::aic3204

@@ -210,6 +210,14 @@ static void usb_init(void)
 #endif
 }
 
+static void ws2812_init(void)
+{
+#if ON_TILE(WS2812_TILE_NO)
+   rtos_ws2812_init(ws2812_ctx, PORT_LED_RING, LED_RING_PORT_PIN, LED_RING_NUM_LEDS); 
+#endif    
+}
+
+
 void platform_init(chanend_t other_tile_c)
 {
     rtos_intertile_init(intertile_ctx, other_tile_c);
@@ -223,4 +231,5 @@ void platform_init(chanend_t other_tile_c)
     mics_init();
     i2s_init();
     usb_init();
+    ws2812_init();
 }
