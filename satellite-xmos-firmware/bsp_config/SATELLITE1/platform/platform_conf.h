@@ -98,6 +98,10 @@
 #define appconfSPI_TASK_PRIORITY                (configMAX_PRIORITIES/2)
 #endif /* appconfSPI_TASK_PRIORITY */
 
+#ifndef appconfDEVICE_CONTROL_SPI_PRIORITY
+#define appconfDEVICE_CONTROL_SPI_PRIORITY      (configMAX_PRIORITIES-2)
+#endif // appconfDEVICE_CONTROL_SPI_PRIORITY
+
 
 /*****************************************/
 /*  CONFIGURATION   */
@@ -115,13 +119,17 @@
 #define appconfPIPELINE_AUDIO_SAMPLE_RATE   16000
 #endif /* appconfPIPELINE_AUDIO_SAMPLE_RATE */
 
+#ifndef appconfDEVICE_CTRL_SPI
+#define appconfDEVICE_CTRL_SPI    0
+#endif /* appconfDEVICE_CTRL_SPI */
+
+#ifndef APP_CONTROL_TRANSPORT_COUNT
+#define APP_CONTROL_TRANSPORT_COUNT (appconfDEVICE_CTRL_SPI)
+#endif // APP_CONTROL_TRANSPORT_COUNT
+
 #ifndef appconfEXTERNAL_MCLK
 #define appconfEXTERNAL_MCLK       0
 #endif /* appconfEXTERNAL_MCLK */
-
-#ifndef appconf_CONTROL_I2C_DEVICE_ADDR
-#define appconf_CONTROL_I2C_DEVICE_ADDR 0x42
-#endif /* appconf_CONTROL_I2C_DEVICE_ADDR*/
 
 #ifndef appconfI2S_MODE_MASTER
 #define appconfI2S_MODE_MASTER     0

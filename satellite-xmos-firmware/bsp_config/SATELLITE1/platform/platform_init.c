@@ -91,15 +91,36 @@ static void gpio_init(void)
 static void spi_init(void)
 {
 #if appconfDEVICE_CTRL_SPI 
-#if ON_TILE(SPI_OUTPUT_TILE_NO)
+    rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
+#if ON_TILE(SPI_CLIENT_TILE_NO)
     rtos_spi_slave_init(spi_slave_ctx,
                         (1 << appconfSPI_IO_CORE),
                         SPI_CLKBLK,
                         SPI_MODE_3,
-                        PORT_XSPI_CLK,
-                        PORT_XSPI_MOSI,
-                        PORT_XSPI_MISO,
-                        PORT_XSPI_CS);
+                        PORT_SPI_SCLK,
+                        PORT_SPI_MOSI,
+                        PORT_SPI_MISO,
+                        PORT_SPI_CS);
+    
+    device_control_init(device_control_spi_ctx,
+                        DEVICE_CONTROL_HOST_MODE,
+                        2, //number of servicers
+                        client_intertile_ctx,
+                        1); 
+    
+    device_control_start(device_control_spi_ctx,
+                         appconfSPI_DEV_CTRL_PORT,
+                         -1);
+#else
+    device_control_init(device_control_spi_ctx,
+                        DEVICE_CONTROL_CLIENT_MODE,
+                        0,
+                        client_intertile_ctx,
+                        1); 
+    
+    device_control_start(device_control_spi_ctx,
+                         appconfSPI_DEV_CTRL_PORT,
+                         appconfSPI_DEV_CTRL_PRIORITY);
 #endif
 #endif
 }
@@ -173,6 +194,14 @@ static void usb_init(void)
 #endif
 }
 
+static void ws2812_init(void)
+{
+#if ON_TILE(WS2812_TILE_NO)
+   rtos_ws2812_init(ws2812_ctx, PORT_LED_RING, LED_RING_PORT_PIN, LED_RING_NUM_LEDS); 
+#endif    
+}
+
+
 void platform_init(chanend_t other_tile_c)
 {
     rtos_intertile_init(intertile_ctx, other_tile_c);
@@ -185,4 +214,5 @@ void platform_init(chanend_t other_tile_c)
     mics_init();
     i2s_init();
     usb_init();
+    ws2812_init();
 }

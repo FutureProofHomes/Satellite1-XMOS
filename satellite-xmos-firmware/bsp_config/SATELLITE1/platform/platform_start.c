@@ -17,6 +17,11 @@
 #include "usb_support.h"
 
 
+#if appconfDEVICE_CTRL_SPI
+#include "device_control_spi.h"
+#endif
+
+
 static void gpio_start(void)
 {
     rtos_gpio_rpc_config(gpio_ctx_t0, appconfGPIO_T0_RPC_PORT, appconfGPIO_RPC_PRIORITY);
@@ -42,8 +47,8 @@ static void flash_start(void)
 
 static void spi_start(void)
 {
-#if appconfDEVICE_CTRL_SPI && ON_TILE(SPI_OUTPUT_TILE_NO)
-#if 0 // do we need this?
+#if appconfDEVICE_CTRL_SPI && ON_TILE(SPI_CLIENT_TILE_NO)
+#if 0 //do we need this?
     const rtos_gpio_port_id_t wifi_rst_port = rtos_gpio_port(WIFI_WUP_RST_N);
     rtos_gpio_port_enable(gpio_ctx_t0, wifi_rst_port);
     rtos_gpio_port_out(gpio_ctx_t0, wifi_rst_port, 0x00);
@@ -53,9 +58,9 @@ static void spi_start(void)
     rtos_gpio_port_out(gpio_ctx_t0, wifi_cs_port, 0x0F);
 #endif
     rtos_spi_slave_start(spi_slave_ctx,
-                         NULL,
-                         (rtos_spi_slave_start_cb_t) spi_slave_start_cb,
-                         (rtos_spi_slave_xfer_done_cb_t) spi_slave_xfer_done_cb,
+                         device_control_spi_ctx,
+                         (rtos_spi_slave_start_cb_t) device_control_spi_start_cb,
+                         (rtos_spi_slave_xfer_done_cb_t) device_control_spi_xfer_done_cb,
                          appconfSPI_INTERRUPT_CORE,
                          appconfSPI_TASK_PRIORITY);
 #endif
@@ -97,6 +102,14 @@ static void usb_start(void)
 #endif
 }
 
+static void ws2812_start(void)
+{
+#if ON_TILE(WS2812_TILE_NO)
+    rtos_ws2812_start(ws2812_ctx);
+#endif    
+}
+
+
 void platform_start(void)
 {
     rtos_intertile_start(intertile_ctx);
@@ -108,4 +121,5 @@ void platform_start(void)
     mics_start();
     i2s_start();
     usb_start();
+    ws2812_start();
 }

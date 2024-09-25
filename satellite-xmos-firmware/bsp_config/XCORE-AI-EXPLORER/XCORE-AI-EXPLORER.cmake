@@ -18,13 +18,11 @@ target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
         core::general
         rtos::freertos
         rtos::drivers::general
-        #rtos::drivers::audio
-        #rtos::drivers::mic_array
+        rtos::drivers::usb
+        rtos::drivers::dfu_image
         fph::rtos_mic_array
         fph::i2s_sync
         fph::rtos_ws2812
-        rtos::drivers::usb
-        rtos::drivers::dfu_image
         sln_voice::app::ffva::dac::aic3204
 )
 target_compile_options(sln_voice_app_ffva_board_support_xcore_ai_explorer

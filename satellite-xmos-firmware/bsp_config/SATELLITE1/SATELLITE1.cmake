@@ -15,12 +15,13 @@ target_include_directories(fph_ffva_board_support_satellite1
 target_link_libraries(fph_ffva_board_support_satellite1
     INTERFACE
         core::general
-        fph::i2s_sync
-        fph::rtos_mic_array
         rtos::freertos
         rtos::drivers::general
         rtos::drivers::usb
         rtos::drivers::dfu_image
+        fph::rtos_mic_array
+        fph::i2s_sync
+        fph::rtos_ws2812
 )
 target_compile_options(fph_ffva_board_support_satellite1
     INTERFACE
