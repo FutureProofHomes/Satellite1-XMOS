@@ -314,6 +314,12 @@ void startup_task(void *arg)
     );
 #endif
 
+#if ON_TILE(WS2812_TILE_NO)
+    static uint8_t neo_pixel_buffer[12 * 3];
+    memset( neo_pixel_buffer, 128, 12 * 3);
+    rtos_ws2812_write( ws2812_ctx, neo_pixel_buffer);
+#endif
+
 #if appconfINTENT_ENABLED && ON_TILE(0)
     led_task_create(appconfLED_TASK_PRIORITY, NULL);
 #endif

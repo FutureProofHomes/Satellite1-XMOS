@@ -83,6 +83,8 @@
 
             <Port Location="XS1_PORT_1M" Name="PORT_I2S_ESP_DATA_OUT"/>
             <Port Location="XS1_PORT_1O" Name="PORT_I2S_ESP_DATA_IN"/>
+
+            <Port Location="XS1_PORT_4C" Name="PORT_LED_RING"/>
           
           </Tile>
         </Node>

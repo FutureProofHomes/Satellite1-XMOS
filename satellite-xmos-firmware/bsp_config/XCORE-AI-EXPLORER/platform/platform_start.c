@@ -143,6 +143,14 @@ static void usb_start(void)
 #endif
 }
 
+static void ws2812_start(void)
+{
+#if ON_TILE(WS2812_TILE_NO)
+    rtos_ws2812_start(ws2812_ctx);
+#endif    
+}
+
+
 void platform_start(void)
 {
     rtos_intertile_start(intertile_ctx);
@@ -157,4 +165,5 @@ void platform_start(void)
     mics_start();
     i2s_start();
     usb_start();
+    ws2812_start();
 }
