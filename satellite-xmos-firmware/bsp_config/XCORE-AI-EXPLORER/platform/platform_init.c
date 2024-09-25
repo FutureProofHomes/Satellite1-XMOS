@@ -88,15 +88,6 @@ static void gpio_init(void)
 
 static void i2c_init(void)
 {
-#if appconfI2C_DFU_ENABLED
-#if ON_TILE(I2C_CTRL_TILE_NO)
-    rtos_i2c_slave_init(i2c_slave_ctx,
-                        (1 << appconfI2C_IO_CORE),
-                        PORT_I2C_SLAVE_SCL,
-                        PORT_I2C_SLAVE_SDA,
-                        appconf_CONTROL_I2C_DEVICE_ADDR);
-#endif
-#else
     static rtos_driver_rpc_t i2c_rpc_config;
 #if ON_TILE(I2C_TILE_NO)
     rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
@@ -118,12 +109,13 @@ static void i2c_init(void)
             &i2c_rpc_config,
             intertile_ctx);
 #endif
-#endif
 }
 
 static void spi_init(void)
 {
-#if appconfSPI_OUTPUT_ENABLED && ON_TILE(SPI_OUTPUT_TILE_NO)
+#if appconfDEVICE_CTRL_SPI 
+    rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
+#if ON_TILE(SPI_CLIENT_TILE_NO)
     rtos_spi_slave_init(spi_slave_ctx,
                         (1 << appconfSPI_IO_CORE),
                         SPI_CLKBLK,
@@ -132,6 +124,27 @@ static void spi_init(void)
                         PORT_SPI_MOSI,
                         PORT_SPI_MISO,
                         PORT_SPI_CS);
+    
+    device_control_init(device_control_spi_ctx,
+                        DEVICE_CONTROL_HOST_MODE,
+                        2, //number of servicers
+                        client_intertile_ctx,
+                        1); 
+    
+    device_control_start(device_control_spi_ctx,
+                         appconfSPI_DEV_CTRL_PORT,
+                         -1);
+#else
+    device_control_init(device_control_spi_ctx,
+                        DEVICE_CONTROL_CLIENT_MODE,
+                        0,
+                        client_intertile_ctx,
+                        1); 
+    
+    device_control_start(device_control_spi_ctx,
+                         appconfSPI_DEV_CTRL_PORT,
+                         appconfSPI_DEV_CTRL_PRIORITY);
+#endif
 #endif
 }
 

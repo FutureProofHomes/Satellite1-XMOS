@@ -24,7 +24,7 @@
 #define appconfGPIO_T0_RPC_PORT        1
 #define appconfGPIO_T1_RPC_PORT        2
 #define appconfDEVICE_CONTROL_USB_PORT 3
-#define appconfDEVICE_CONTROL_I2C_PORT 4
+#define appconfDEVICE_CONTROL_SPI_PORT 4
 #define appconfSPI_AUDIO_PORT          5
 #define appconfWW_SAMPLES_PORT         6
 #define appconfAUDIOPIPELINE_PORT      7

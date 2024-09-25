@@ -33,6 +33,13 @@ typedef struct {
     control_resource_info_t *res_info;
 }servicer_t;
 
+typedef struct {
+    servicer_t *servicer;
+    device_control_t **device_control_ctx;
+    size_t device_control_ctx_count;    
+    void *app_data;
+} servicer_register_ctx_t;
+
 // Servicer device_control callback functions
 /**
  * @brief Device control callback function to handle a read command.

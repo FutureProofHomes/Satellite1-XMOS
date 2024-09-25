@@ -23,8 +23,10 @@
 #include "usb_support.h"
 #include "usb_audio.h"
 #include "audio_pipeline.h"
-#include "dfu_servicer.h"
 #include "speaker_pipeline.h"
+#include "dfu_servicer.h"
+#include "gpio/gpio_servicer.h"
+#include "led_ring/led_ring_servicer.h"
 
 /* Headers used for the WW intent engine */
 #if appconfINTENT_ENABLED
@@ -34,7 +36,7 @@
 #include "gpi_ctrl.h"
 #include "leds.h"
 #endif
-#include "gpio_test/gpio_test.h"
+
 
 /* Config headers for sw_pll */
 #include "sw_pll.h"
@@ -294,31 +296,58 @@ void startup_task(void *arg)
     rtos_printf("Startup task running from tile %d on core %d\n", THIS_XCORE_TILE, portGET_CORE_ID());
     platform_start();
 
+#if appconfDEVICE_CTRL_SPI
+    device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
-#if ON_TILE(1)
-    gpio_test(gpio_ctx_t0);
-#endif
-
-#if appconfI2C_DFU_ENABLED && ON_TILE(I2C_CTRL_TILE_NO)
-    // Initialise control related things
-    servicer_t servicer_dfu;
-    dfu_servicer_init(&servicer_dfu);
-
+#if ON_TILE(0)
+    servicer_t servicer_gpio;
+    gpio_servicer_init(&servicer_gpio);
+    
+    servicer_register_ctx_t gpio_reg_ctx = {
+        &servicer_gpio,
+        device_control_ctx,
+        1,
+        gpio_ctx_t0
+    };
+    
+    
     xTaskCreate(
-        dfu_servicer,
-        "DFU servicer",
-        RTOS_THREAD_STACK_SIZE(dfu_servicer),
-        &servicer_dfu,
-        appconfDEVICE_CONTROL_I2C_PRIORITY,
+        gpio_servicer,
+        "GPIO servicer",
+        RTOS_THREAD_STACK_SIZE(gpio_servicer),
+        &gpio_reg_ctx,
+        appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
 #endif
 
 #if ON_TILE(WS2812_TILE_NO)
     static uint8_t neo_pixel_buffer[12 * 3];
-    memset( neo_pixel_buffer, 128, 12 * 3);
+    memset( neo_pixel_buffer, 0, 12 * 3);
     rtos_ws2812_write( ws2812_ctx, neo_pixel_buffer);
+    
+    servicer_t servicer_led_ring;
+    led_ring_servicer_init(&servicer_led_ring);
+    
+    servicer_register_ctx_t led_ring_reg_ctx = {
+        &servicer_led_ring,
+        device_control_ctx,
+        1,
+        ws2812_ctx
+    };
+    
+    xTaskCreate(
+        led_ring_servicer,
+        "LED-Ring servicer",
+        RTOS_THREAD_STACK_SIZE(led_ring_servicer),
+        &led_ring_reg_ctx,
+        appconfDEVICE_CONTROL_SPI_PRIORITY,
+        NULL
+    );
 #endif
+
+#endif
+
 
 #if appconfINTENT_ENABLED && ON_TILE(0)
     led_task_create(appconfLED_TASK_PRIORITY, NULL);
