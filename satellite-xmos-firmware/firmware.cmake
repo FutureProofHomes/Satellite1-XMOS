@@ -46,7 +46,7 @@ set(APP_LINK_OPTIONS
 
 set(APP_COMMON_LINK_LIBRARIES
     rtos::freertos_usb
-    rtos::sw_services::device_control
+    fph::device_control
     lib_src
     lib_sw_pll
 )

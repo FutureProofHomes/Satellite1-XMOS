@@ -11,9 +11,7 @@ ${APP_COMPILE_DEFINITIONS}
     appconfI2S_MODE=appconfI2S_MODE_MASTER
     appconfI2S_AUDIO_SAMPLE_RATE=48000
     appconfI2S_ESP_ENABLED=1
-
-    ## VK Voice uses 12288000 for RPI integration, EXPLORER Board uses default 24576000
-    # MIC_ARRAY_CONFIG_MCLK_FREQ=12288000
+    appconfDEVICE_CTRL_SPI=1
 )
 
     if(${FFVA_AP} STREQUAL bypass )

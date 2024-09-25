@@ -52,6 +52,8 @@ typedef struct {
             control_resid_t requested_resid;
             control_cmd_t requested_cmd;
             control_status_t last_status;
+            uint8_t* status_buffer;
+            uint8_t status_buffer_len;
         };
     };
 } device_control_t;
@@ -214,6 +216,21 @@ control_ret_t device_control_servicer_cmd_recv(device_control_servicer_t *ctx,
                                                device_control_write_cmd_cb_t write_cmd_cb,
                                                void *app_data,
                                                unsigned timeout);
+
+/**
+ * Set a status for a given resource.
+ *
+ * \param ctx        A pointer to the associated device control instance.
+ * \param resid      The received resource ID.
+ * \param status     The status to set.
+ * 
+ * \retval CONTROL_SUCCESS if \p resid has been registered by a servicer.
+ * 
+ */
+control_ret_t device_control_set_resource_status( device_control_t *ctx,
+                                                  uint8_t status_id,
+                                                  uint8_t resource_status );
+
 
 /**
  * This must be called on the tile that runs the transport layer for the device

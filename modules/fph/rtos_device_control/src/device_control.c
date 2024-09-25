@@ -373,6 +373,23 @@ control_ret_t device_control_request(device_control_t *ctx,
     return ret;
 }
 
+control_ret_t device_control_set_resource_status( device_control_t *ctx,
+                                                  uint8_t status_id,
+                                                  uint8_t resource_status )
+{
+    if ( ctx->resource_table == NULL ) /* off tile case */
+    {  
+        rtos_printf("Attempt to write status buffer from 'off tile'\n");
+    } else { /* on tile case */
+        xassert( status_id < ctx->status_buffer_len);
+        ctx->status_buffer[status_id] = resource_status;
+    }
+    return CONTROL_SUCCESS;
+}
+
+
+
+
 control_ret_t device_control_servicer_register(device_control_servicer_t *ctx,
                                                device_control_t *device_control_ctx[],
                                                size_t device_control_ctx_count,
@@ -453,8 +470,12 @@ control_ret_t device_control_resources_register(device_control_t *ctx,
     }
 
     if (registered_count == ctx->servicer_count) {
+        ctx->status_buffer = rtos_osal_malloc( registered_count );
+        ctx->status_buffer_len = registered_count;
+        memset( ctx->status_buffer, 0, ctx->status_buffer_len );
         return CONTROL_SUCCESS;
     } else {
+        rtos_printf("Device-Control: %d servicer registered, %d expexted\n", registered_count, ctx->servicer_count );
         return CONTROL_REGISTRATION_FAILED;
     }
 }
