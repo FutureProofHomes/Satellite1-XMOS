@@ -58,6 +58,19 @@
       </Nodes>
     </Package>
   </Packages>
+  <Nodes>
+    <Node Id="2" Type="device:" RoutingId="0x8000">
+      <Service Id="0" Proto="xscope_host_data(chanend c);">
+        <Chanend Identifier="c" end="3"/>
+      </Service>
+    </Node>
+  </Nodes>
+  <Links>
+    <Link Encoding="2wire" Delays="5clk" Flags="XSCOPE">
+      <LinkEndpoint NodeId="0" Link="XL0"/>
+      <LinkEndpoint NodeId="2" Chanend="1"/>
+    </Link>
+  </Links>
   <ExternalDevices>
     <Device NodeId="0" Tile="0" Class="SQIFlash" Name="bootFlash" Type="W25Q64JV" PageSize="256" SectorSize="4096" NumPages="32768">
       <Attribute Name="PORT_SQI_CS" Value="PORT_SQI_CS"/>
