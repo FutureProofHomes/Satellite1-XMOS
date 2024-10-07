@@ -13,7 +13,6 @@
 /* App headers */
 #include "platform_conf.h"
 #include "platform/driver_instances.h"
-#include "aic3204.h"
 #include "usb_support.h"
 
 

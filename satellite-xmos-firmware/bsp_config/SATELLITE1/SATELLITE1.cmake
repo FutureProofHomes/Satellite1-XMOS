@@ -25,11 +25,11 @@ target_link_libraries(fph_ffva_board_support_satellite1
 )
 target_compile_options(fph_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/SATTELITE1.xn
+        ${CMAKE_CURRENT_LIST_DIR}/SATELLITE1.xn
 )
 target_link_options(fph_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/SATTELITE1.xn
+        ${CMAKE_CURRENT_LIST_DIR}/SATELLITE1.xn
 )
 target_compile_definitions(fph_ffva_board_support_satellite1
     INTERFACE

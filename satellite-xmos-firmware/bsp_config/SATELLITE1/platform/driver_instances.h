@@ -13,6 +13,7 @@
 #include "rtos_spi_slave.h"
 #include "rtos_ws2812.h"
 #include "device_control.h"
+#include "gpio/gpio_servicer.h"
 
 /* Tile specifiers */
 #define FLASH_TILE_NO      0
@@ -57,5 +58,6 @@ extern rtos_dfu_image_t *dfu_image_ctx;
 extern rtos_ws2812_t *ws2812_ctx;
 
 extern device_control_t *device_control_spi_ctx;
+extern device_control_gpio_ctx_t *device_control_gpio_ctx;
 
 #endif /* DRIVER_INSTANCES_H_ */

@@ -38,3 +38,6 @@ rtos_ws2812_t *ws2812_ctx = &ws2812_ctx_s;
 
 static device_control_t device_control_spi_ctx_s;
 device_control_t *device_control_spi_ctx = &device_control_spi_ctx_s;
+
+static device_control_gpio_ctx_t device_control_gpio_ctx_s;
+device_control_gpio_ctx_t *device_control_gpio_ctx = &device_control_gpio_ctx_s;

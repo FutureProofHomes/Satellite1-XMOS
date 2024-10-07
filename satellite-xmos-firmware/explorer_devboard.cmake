@@ -141,3 +141,4 @@ ${APP_COMPILE_DEFINITIONS}
 
     unset(DATA_PARTITION_FILE_LIST)
 endforeach()
+

@@ -4,6 +4,7 @@
 #include <platform.h>
 #include <xs1.h>
 #include <xcore/channel.h>
+#include <string.h>
 
 /* FreeRTOS headers */
 #include "FreeRTOS.h"
@@ -300,6 +301,8 @@ void startup_task(void *arg)
     device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
 #if ON_TILE(0)
+    gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
+    /*
     servicer_t servicer_gpio;
     gpio_servicer_init(&servicer_gpio);
     
@@ -319,11 +322,12 @@ void startup_task(void *arg)
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
+    */
 #endif
 
 #if ON_TILE(WS2812_TILE_NO)
-    static uint8_t neo_pixel_buffer[12 * 3];
-    memset( neo_pixel_buffer, 0, 12 * 3);
+    static uint8_t neo_pixel_buffer[LED_RING_NUM_LEDS * 3];
+    memset( neo_pixel_buffer, 20, LED_RING_NUM_LEDS * 3);
     rtos_ws2812_write( ws2812_ctx, neo_pixel_buffer);
     
     servicer_t servicer_led_ring;

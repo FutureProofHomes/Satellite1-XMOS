@@ -2,43 +2,41 @@
 
 #include "servicer.h"
 
-#define GPIO_CONTROLLER_SERVICER_RESID        (250)
-#define GPIO_CONTROLLER_SERVICER_RESID_PORTA  (252)
-#define GPIO_CONTROLLER_SERVICER_RESID_PORTB  (254)
-#define NUM_RESOURCES_GPIO_SERVICER           (  3)
+#define GPIO_CONTROLLER_SERVICER_RESID   (210) //not used for now
+#define GPIO_CONTROLLER_RESOURCE_IN_A    (211)
+#define GPIO_CONTROLLER_RESOURCE_IN_B    (212)
+#define GPIO_CONTROLLER_RESOURCE_OUT_A   (221)
+#define GPIO_CONTROLLER_MAX_RESOURCES    (  3)
 
-#define GPIO_CTRL_PORT_A   PORT_LEDS
-#define GPIO_CTRL_PORT_B   PORT_BUTTONS
-
-enum gpio_servicer_res_port_map
+typedef enum gpio_resource_id
 {
-  GPIO_CTRL_RES_IDX_PORT_A  = 0,
-  GPIO_CTRL_RES_IDX_PORT_B,
-  NUM_OF_GPIO_CTRL_PORTS
-};
+  RESOURCE_IN_A = 0,
+  RESOURCE_IN_B = 1,
+  RESOURCE_OUT_A = 2
+} gpio_resource_id_t;
+
+
+typedef struct {
+  size_t  port_id;
+  uint8_t bit_mask;
+  uint8_t bit_shift;
+  bool writeable;
+  gpio_resource_id_t resource_idx;
+  uint8_t status_register;
+} device_control_gpio_ports_t;
 
 
 typedef struct {
     servicer_t  *servicer;
-    rtos_gpio_t *gpio_ctx;    
-}gpio_servicer_ctx_t;
+    rtos_gpio_t *gpio_ctx;
+    device_control_t **device_control_ctx;
+    size_t device_control_ctx_count;
+    uint8_t num_of_ports;
+    device_control_gpio_ports_t *port_defs;
+} device_control_gpio_ctx_t;
 
 
+void gpio_servicer_init(device_control_gpio_ctx_t *ctx, rtos_gpio_t *gpio_ctx, device_control_gpio_ports_t* port_defs, uint8_t num_of_ports );
 
-/**
- * @brief GPIO servicer task.
- *
- * This task handles GPIO commands from the device control interface and relays
- * them to the internal GPIO cntrl.
- *
- * \param args      Pointer to the Servicer's state data structure
- */
-void gpio_servicer(void *args);
 
-// Servicer initialization functions
-/**
- * @brief GPIO servicer initialisation function.
- * \param servicer      Pointer to the Servicer's state data structure
- */
-void gpio_servicer_init(servicer_t *servicer );
-
+void gpio_servicer_start(device_control_gpio_ctx_t *ctx, device_control_t **device_control_ctx, size_t device_control_ctx_count );

@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include "quadflashlib.h"
 
 #include "dfu_common.h"

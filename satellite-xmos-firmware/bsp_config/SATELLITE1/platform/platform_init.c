@@ -201,6 +201,32 @@ static void ws2812_init(void)
 #endif    
 }
 
+static void servicer_init(void)
+{
+#if ON_TILE(0)
+    static device_control_gpio_ports_t gpio_res_info[GPIO_CONTROLLER_MAX_RESOURCES];      
+    gpio_res_info[0].resource_idx = RESOURCE_IN_A;
+    gpio_res_info[0].writeable = false;
+    gpio_res_info[0].port_id = PORT_BUTTONS;
+    gpio_res_info[0].bit_mask = 240;
+    gpio_res_info[0].bit_shift = 4;
+    gpio_res_info[0].status_register = 1;
+
+    
+    gpio_res_info[1].resource_idx = RESOURCE_IN_B;
+    gpio_res_info[1].writeable = false;
+    gpio_res_info[1].port_id = PORT_ROTARY_ENC;
+    gpio_res_info[1].bit_mask = 14;
+    gpio_res_info[1].bit_shift = 1;
+    gpio_res_info[1].status_register = 2;
+
+    gpio_servicer_init( device_control_gpio_ctx,
+                        gpio_ctx_t0,
+                        gpio_res_info,
+                        2 );
+#endif
+}
+
 
 void platform_init(chanend_t other_tile_c)
 {
@@ -215,4 +241,5 @@ void platform_init(chanend_t other_tile_c)
     i2s_init();
     usb_init();
     ws2812_init();
+    servicer_init();
 }

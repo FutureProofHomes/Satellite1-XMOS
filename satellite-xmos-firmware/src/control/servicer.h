@@ -20,7 +20,7 @@ extern device_control_t *device_control_ctxs[1];
 // Structure encapsulating all the information about a resource
 typedef struct
 {
-    control_resid_t resource;
+    control_resid_t resource; //device_control lib
     command_map_t command_map;
 }control_resource_info_t;
 

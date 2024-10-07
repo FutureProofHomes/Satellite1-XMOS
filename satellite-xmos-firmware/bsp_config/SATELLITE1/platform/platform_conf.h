@@ -155,7 +155,7 @@
     0x9F,                   /* QSPI_RDID */ \
     0,                      /* id dummy bytes */ \
     3,                      /* id size in bytes */ \
-    0xEF6017,               /* device id (determined from xflash --spi-read-id 0x9F)*/ \
+    0xEF4017,               /* device id (determined from xflash --spi-read-id 0x9F)*/ \
     0x20,                   /* QSPI_SE */ \
     4096,                   /* Sector erase is always 4KB */ \
     0x06,                   /* QSPI_WREN */ \

@@ -21,10 +21,10 @@ set(APP_COMPILER_FLAGS
     -Os
     -g
     -report
-    -fxscope
+#    -fxscope
     -mcmodel=large
     -Wno-xcore-fptrgroup
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+#    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
 set(APP_COMPILE_DEFINITIONS
@@ -41,7 +41,7 @@ set(APP_LINK_OPTIONS
     -lquadspi
     -report
     -lotp3
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+#    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
 set(APP_COMMON_LINK_LIBRARIES
