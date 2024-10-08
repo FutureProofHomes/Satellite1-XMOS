@@ -2,17 +2,15 @@ query_tools_version()
 
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
-set(FFVA_INT_COMPILE_DEFINITIONS
-${APP_COMPILE_DEFINITIONS}
-    appconfEXTERNAL_MCLK=0
-    appconfI2S_ENABLED=1
-    appconfUSB_ENABLED=0
-    appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
-    appconfI2S_MODE=appconfI2S_MODE_MASTER
-    appconfI2S_AUDIO_SAMPLE_RATE=48000
-    appconfI2S_ESP_ENABLED=1
-    appconfDEVICE_CTRL_SPI=1
-)
+    set(FFVA_INT_COMPILE_DEFINITIONS
+    ${APP_COMPILE_DEFINITIONS}
+        appconfEXTERNAL_MCLK=0
+        appconfI2S_ENABLED=1
+        appconfUSB_ENABLED=0
+        appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
+        appconfI2S_MODE=appconfI2S_MODE_MASTER
+        appconfI2S_AUDIO_SAMPLE_RATE=48000
+    )
 
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)
@@ -27,7 +25,7 @@ ${APP_COMPILE_DEFINITIONS}
     #**********************
     # Tile Targets
     #**********************
-    set(TARGET_NAME tile0_explorer1_firmware_${FFVA_AP})
+    set(TARGET_NAME tile0_satellite1_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
@@ -40,14 +38,14 @@ ${APP_COMPILE_DEFINITIONS}
     target_link_libraries(${TARGET_NAME}
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
-            sln_voice::app::ffva::xcore_ai_explorer
+            fph::ffva::satellite1
             sln_voice::app::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
 
-    set(TARGET_NAME tile1_explorer1_firmware_${FFVA_AP})
+    set(TARGET_NAME tile1_satellite1_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
@@ -60,7 +58,7 @@ ${APP_COMPILE_DEFINITIONS}
     target_link_libraries(${TARGET_NAME}
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
-            sln_voice::app::ffva::xcore_ai_explorer
+            fph::ffva::satellite1
             sln_voice::app::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
     )
@@ -70,19 +68,19 @@ ${APP_COMPILE_DEFINITIONS}
     #**********************
     # Merge binaries
     #**********************    
-    merge_binaries(explorer1_firmware_${FFVA_AP} tile0_explorer1_firmware_${FFVA_AP} tile1_explorer1_firmware_${FFVA_AP} 1)
+    merge_binaries(satellite1_firmware_${FFVA_AP} tile0_satellite1_firmware_${FFVA_AP} tile1_satellite1_firmware_${FFVA_AP} 1)
 
     #**********************
     # Create run and debug targets
     #**********************
-    create_run_target(explorer1_firmware_${FFVA_AP})
-    create_debug_target(explorer1_firmware_${FFVA_AP})
-    create_upgrade_img_target(explorer1_firmware_${FFVA_AP} ${XTC_VERSION_MAJOR} ${XTC_VERSION_MINOR})
+    create_run_target(satellite1_firmware_${FFVA_AP})
+    create_debug_target(satellite1_firmware_${FFVA_AP})
+    create_upgrade_img_target(satellite1_firmware_${FFVA_AP} ${XTC_VERSION_MAJOR} ${XTC_VERSION_MINOR})
     
     #**********************
     # Create data partition support targets
     #**********************
-    set(TARGET_NAME explorer1_firmware_${FFVA_AP})
+    set(TARGET_NAME satellite1_firmware_${FFVA_AP})
     set(DATA_PARTITION_FILE ${TARGET_NAME}_data_partition.bin)
     set(FATFS_FILE ${TARGET_NAME}_fat.fs)
     set(FATFS_CONTENTS_DIR ${TARGET_NAME}_fatmktmp)
@@ -141,4 +139,3 @@ ${APP_COMPILE_DEFINITIONS}
 
     unset(DATA_PARTITION_FILE_LIST)
 endforeach()
-

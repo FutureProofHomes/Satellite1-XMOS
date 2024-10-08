@@ -1,7 +1,7 @@
 
 ## Create custom board targets for application
-add_library(sln_voice_app_ffva_board_support_xcore_ai_explorer INTERFACE)
-target_sources(sln_voice_app_ffva_board_support_xcore_ai_explorer
+add_library(sln_voice_app_ffva_board_support_satellite1 INTERFACE)
+target_sources(sln_voice_app_ffva_board_support_satellite1
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/platform/dac_port.c
         ${CMAKE_CURRENT_LIST_DIR}/platform/app_pll_ctrl.c
@@ -9,31 +9,31 @@ target_sources(sln_voice_app_ffva_board_support_xcore_ai_explorer
         ${CMAKE_CURRENT_LIST_DIR}/platform/platform_init.c
         ${CMAKE_CURRENT_LIST_DIR}/platform/platform_start.c
 )
-target_include_directories(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_include_directories(sln_voice_app_ffva_board_support_satellite1
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
 )
-target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_link_libraries(sln_voice_app_ffva_board_support_satellite1
     INTERFACE
         core::general
         rtos::freertos
         rtos::drivers::general
+        #rtos::drivers::audio
+        rtos::drivers::mic_array
+        fph::i2s_sync
         rtos::drivers::usb
         rtos::drivers::dfu_image
-        fph::rtos_mic_array
-        fph::i2s_sync
-        fph::rtos_ws2812
         sln_voice::app::ffva::dac::aic3204
 )
-target_compile_options(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_compile_options(sln_voice_app_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/XCORE-AI-EXPLORER.xn
+        ${CMAKE_CURRENT_LIST_DIR}/SATTELITE1.xn
 )
-target_link_options(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_link_options(sln_voice_app_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/XCORE-AI-EXPLORER.xn
+        ${CMAKE_CURRENT_LIST_DIR}/SATTELITE1.xn
 )
-target_compile_definitions(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_compile_definitions(sln_voice_app_ffva_board_support_satellite1
     INTERFACE
         XCOREAI_EXPLORER=1
         PLATFORM_SUPPORTS_TILE_0=1
@@ -47,9 +47,6 @@ target_compile_definitions(sln_voice_app_ffva_board_support_xcore_ai_explorer
         MIC_ARRAY_CONFIG_PDM_FREQ=3072000
         MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME=240
         MIC_ARRAY_CONFIG_MIC_COUNT=2
-        MIC_ARRAY_CONFIG_MIC_INPUT=8
-        MIC_ARRAY_CONFIG_USE_DDR=1
-        MIC_ARRAY_CONFIG_MIC_DDR_INTERLEAVE=1
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_B=XS1_CLKBLK_2
         MIC_ARRAY_CONFIG_PORT_MCLK=PORT_MCLK_IN
@@ -58,4 +55,4 @@ target_compile_definitions(sln_voice_app_ffva_board_support_xcore_ai_explorer
 )
 
 ## Create an alias
-add_library(sln_voice::app::ffva::xcore_ai_explorer ALIAS sln_voice_app_ffva_board_support_xcore_ai_explorer)
+add_library(sln_voice::app::ffva::satellite1 ALIAS sln_voice_app_ffva_board_support_satellite1)

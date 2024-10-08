@@ -1,19 +1,18 @@
 
 ## Create custom board targets for application
-add_library(sln_voice_app_ffva_board_support_xcore_ai_explorer INTERFACE)
-target_sources(sln_voice_app_ffva_board_support_xcore_ai_explorer
+add_library(fph_ffva_board_support_satellite1 INTERFACE)
+target_sources(fph_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/platform/dac_port.c
         ${CMAKE_CURRENT_LIST_DIR}/platform/app_pll_ctrl.c
         ${CMAKE_CURRENT_LIST_DIR}/platform/driver_instances.c
         ${CMAKE_CURRENT_LIST_DIR}/platform/platform_init.c
         ${CMAKE_CURRENT_LIST_DIR}/platform/platform_start.c
 )
-target_include_directories(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_include_directories(fph_ffva_board_support_satellite1
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
 )
-target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_link_libraries(fph_ffva_board_support_satellite1
     INTERFACE
         core::general
         rtos::freertos
@@ -23,17 +22,16 @@ target_link_libraries(sln_voice_app_ffva_board_support_xcore_ai_explorer
         fph::rtos_mic_array
         fph::i2s_sync
         fph::rtos_ws2812
-        sln_voice::app::ffva::dac::aic3204
 )
-target_compile_options(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_compile_options(fph_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/XCORE-AI-EXPLORER.xn
+        ${CMAKE_CURRENT_LIST_DIR}/SATELLITE1.xn
 )
-target_link_options(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_link_options(fph_ffva_board_support_satellite1
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/XCORE-AI-EXPLORER.xn
+        ${CMAKE_CURRENT_LIST_DIR}/SATELLITE1.xn
 )
-target_compile_definitions(sln_voice_app_ffva_board_support_xcore_ai_explorer
+target_compile_definitions(fph_ffva_board_support_satellite1
     INTERFACE
         XCOREAI_EXPLORER=1
         PLATFORM_SUPPORTS_TILE_0=1
@@ -58,4 +56,4 @@ target_compile_definitions(sln_voice_app_ffva_board_support_xcore_ai_explorer
 )
 
 ## Create an alias
-add_library(sln_voice::app::ffva::xcore_ai_explorer ALIAS sln_voice_app_ffva_board_support_xcore_ai_explorer)
+add_library(fph::ffva::satellite1 ALIAS fph_ffva_board_support_satellite1)

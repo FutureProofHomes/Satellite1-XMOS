@@ -86,30 +86,7 @@ static void gpio_init(void)
 #endif
 }
 
-static void i2c_init(void)
-{
-    static rtos_driver_rpc_t i2c_rpc_config;
-#if ON_TILE(I2C_TILE_NO)
-    rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
-    rtos_i2c_master_init(
-            i2c_master_ctx,
-            PORT_I2C_SCL, 0, 0,
-            PORT_I2C_SDA, 0, 0,
-            0,
-            100);
 
-    rtos_i2c_master_rpc_host_init(
-            i2c_master_ctx,
-            &i2c_rpc_config,
-            client_intertile_ctx,
-            1);
-#else
-    rtos_i2c_master_rpc_client_init(
-            i2c_master_ctx,
-            &i2c_rpc_config,
-            intertile_ctx);
-#endif
-}
 
 static void spi_init(void)
 {
@@ -177,17 +154,11 @@ static void i2s_init(void)
 #if ON_TILE(I2S_TILE_NO)
     rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
     port_t p_i2s_dout[appconfI2S_AUDIO_OUTPUTS] = {
-#if appconfI2S_ESP_ENABLED
-           PORT_I2S_ESP_DATA_OUT,
-#endif            
-           PORT_I2S_DAC_DATA
+           PORT_I2S_DOUT1,
+           PORT_I2S_DOUT2
     };
     port_t p_i2s_din[appconfI2S_AUDIO_INPUTS] = {
-#if appconfI2S_ESP_ENABLED
-           PORT_I2S_ESP_DATA_IN
-#else
-           PORT_I2S_ADC_DATA
-#endif            
+           PORT_I2S_DIN
     };
 
     rtos_i2s_master_init(
@@ -237,26 +208,24 @@ static void servicer_init(void)
     gpio_res_info[0].resource_idx = RESOURCE_IN_A;
     gpio_res_info[0].writeable = false;
     gpio_res_info[0].port_id = PORT_BUTTONS;
-    gpio_res_info[0].bit_mask = 3;
-    gpio_res_info[0].bit_shift = 0;
-    gpio_res_info[0].status_register = 0;
+    gpio_res_info[0].bit_mask = 240;
+    gpio_res_info[0].bit_shift = 4;
+    gpio_res_info[0].status_register = 1;
+
     
-    gpio_res_info[1].resource_idx = RESOURCE_OUT_A;
-    gpio_res_info[1].writeable = true;
-    gpio_res_info[1].port_id = PORT_LEDS;
-    gpio_res_info[1].bit_mask  = 7;
-    gpio_res_info[1].bit_shift = 0;
-    gpio_res_info[1].status_register = 1;
+    gpio_res_info[1].resource_idx = RESOURCE_IN_B;
+    gpio_res_info[1].writeable = false;
+    gpio_res_info[1].port_id = PORT_ROTARY_ENC;
+    gpio_res_info[1].bit_mask = 14;
+    gpio_res_info[1].bit_shift = 1;
+    gpio_res_info[1].status_register = 2;
 
     gpio_servicer_init( device_control_gpio_ctx,
                         gpio_ctx_t0,
                         gpio_res_info,
                         2 );
-
-    debug_printf("Number of ports after init: %d\n", device_control_gpio_ctx->num_of_ports);
 #endif
 }
-
 
 
 void platform_init(chanend_t other_tile_c)
@@ -267,7 +236,6 @@ void platform_init(chanend_t other_tile_c)
     mclk_init(other_tile_c);
     gpio_init();
     flash_init();
-    i2c_init();
     spi_init();
     mics_init();
     i2s_init();

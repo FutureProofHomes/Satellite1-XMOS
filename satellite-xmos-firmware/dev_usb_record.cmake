@@ -1,6 +1,6 @@
 query_tools_version()
 
-set(FFVA_AP adec)
+set(FFVA_AP bypass)
 set(VARIANT_NAME dev_satellite1_usb_pipeline_analysis)
 
 set(FFVA_INT_COMPILE_DEFINITIONS
@@ -8,14 +8,22 @@ ${APP_COMPILE_DEFINITIONS}
     appconfEXTERNAL_MCLK=0
     appconfI2S_ENABLED=1
     appconfUSB_ENABLED=1
+    appconfUSB_AUDIO_MODE=1 # appconfUSB_AUDIO_TESTING (enables 6 channels)
     appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
     appconfI2S_MODE=appconfI2S_MODE_MASTER
-    appconfI2S_AUDIO_SAMPLE_RATE=16000
+    appconfI2S_AUDIO_SAMPLE_RATE=48000
     appconfI2S_ESP_ENABLED=1
 
     ## VK Voice uses 12288000 for RPI integration, EXPLORER Board uses default 24576000
     # MIC_ARRAY_CONFIG_MCLK_FREQ=12288000
 )
+if(${FFVA_AP} STREQUAL bypass )
+  set(PL_NAME fixed_delay)
+  list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=1)
+else()
+  set(PL_NAME ${FFVA_AP})
+  list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=0)
+endif()
 
 message(${FFVA_INT_COMPILE_DEFINITIONS})
 

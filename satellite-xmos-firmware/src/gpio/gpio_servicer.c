@@ -16,17 +16,25 @@
 
 //#include "platform/app_pll_ctrl.h"
 
-#define GPIO_BITMASK (3)
+control_resid_t port_id_to_cntr_res[GPIO_CONTROLLER_MAX_RESOURCES] = {
+    GPIO_CONTROLLER_RESOURCE_IN_A,
+    GPIO_CONTROLLER_RESOURCE_IN_B,
+    GPIO_CONTROLLER_RESOURCE_OUT_A
+};
 
-
-static rtos_gpio_port_id_t gpio_ctrl_ports[NUM_OF_GPIO_CTRL_PORTS]; 
+static rtos_gpio_port_id_t gpio_ctrl_ports[GPIO_CONTROLLER_MAX_RESOURCES]; 
 static rtos_gpio_t *gpio_servicer_gpio_ctx = NULL;
 
-static control_cmd_info_t gpio_controller_servicer_resid_cmd_map[] = {
+static control_cmd_info_t gpio_servicer_resid_out_cmd_map[] = {
     { GPIO_CONTROLLER_SERVICER_CMD_READ_PORT,  1, sizeof(uint8_t), CMD_READ_ONLY   },
     { GPIO_CONTROLLER_SERVICER_CMD_WRITE_PORT, 1, sizeof(uint8_t), CMD_WRITE_ONLY  },
     { GPIO_CONTROLLER_SERVICER_CMD_SET_PIN,    2, sizeof(uint8_t), CMD_WRITE_ONLY  },
 };
+
+static control_cmd_info_t gpio_servicer_resid_in_cmd_map[] = {
+    { GPIO_CONTROLLER_SERVICER_CMD_READ_PORT,  1, sizeof(uint8_t), CMD_READ_ONLY   },
+};
+
 
 //-----------------Servicer read write callback functions-----------------------//
 DEVICE_CONTROL_CALLBACK_ATTR
@@ -55,11 +63,14 @@ static control_ret_t gpio_servicer_read_cmd(control_resid_t resid, control_cmd_t
     
     rtos_gpio_port_id_t target_port;
     switch( resid ){
-        case GPIO_CONTROLLER_SERVICER_RESID_PORTA:
-            target_port = gpio_ctrl_ports[GPIO_CTRL_RES_IDX_PORT_A];
+        case GPIO_CONTROLLER_RESOURCE_IN_A:
+            target_port = gpio_ctrl_ports[RESOURCE_IN_A];
             break;
-        case GPIO_CONTROLLER_SERVICER_RESID_PORTB:
-            target_port = gpio_ctrl_ports[GPIO_CTRL_RES_IDX_PORT_B];
+        case GPIO_CONTROLLER_RESOURCE_IN_B:
+            target_port = gpio_ctrl_ports[RESOURCE_IN_B];
+            break;
+        case GPIO_CONTROLLER_RESOURCE_OUT_A:
+            target_port = gpio_ctrl_ports[RESOURCE_OUT_A];
             break;
         default:
             debug_printf("GPIO_CONTROLLER_SERVICER unknown resource!!!\n");
@@ -113,20 +124,25 @@ static control_ret_t gpio_servicer_write_cmd(control_resid_t resid, control_cmd_
     
     rtos_gpio_port_id_t target_port;
     switch( resid ){
-        case GPIO_CONTROLLER_SERVICER_RESID_PORTA:
-            target_port = gpio_ctrl_ports[GPIO_CTRL_RES_IDX_PORT_A];
-            break;
-        case GPIO_CONTROLLER_SERVICER_RESID_PORTB:
+        case GPIO_CONTROLLER_RESOURCE_IN_A:
             debug_printf("Writing to PORTB not allowed!!!\n");
             ret = CONTROL_BAD_RESOURCE;
             return ret;  
-            //target_port = gpio_ctrl_ports[GPIO_CTRL_RES_IDX_PORT_B];
+            break;
+        case GPIO_CONTROLLER_RESOURCE_IN_B:
+            debug_printf("Writing to PORTB not allowed!!!\n");
+            ret = CONTROL_BAD_RESOURCE;
+            return ret;  
+            break;
+        case GPIO_CONTROLLER_RESOURCE_OUT_A:
+            target_port = gpio_ctrl_ports[RESOURCE_OUT_A];
             break;
         default:
             debug_printf("GPIO_CONTROLLER_SERVICER unknown resource!!!\n");
             ret = CONTROL_BAD_RESOURCE;
             return ret;  
     }
+    
     
     //handle command
     uint8_t cmd_id = CONTROL_CMD_CLEAR_READ(cmd);
@@ -170,7 +186,7 @@ static void gpio_callback(rtos_gpio_t *ctx, void *app_data, rtos_gpio_port_id_t 
     TaskHandle_t task = app_data;
     BaseType_t yield_required = pdFALSE;
 
-    value = (~value) & GPIO_BITMASK;
+    //value = (~value) & GPIO_BITMASK;
 
     xTaskNotifyFromISR(task, value, eSetValueWithOverwrite, &yield_required);
 
@@ -178,16 +194,17 @@ static void gpio_callback(rtos_gpio_t *ctx, void *app_data, rtos_gpio_port_id_t 
 }
 
 
-void gpio_handler_task( servicer_register_ctx_t *servicer_reg_ctx )
+void gpio_handler_task( device_control_gpio_ctx_t *ctx )
 {
     debug_printf("GPIO handler task on tile %d, core %d.\n", THIS_XCORE_TILE, rtos_core_id_get());
     uint32_t value;
     uint32_t gpio_val;
-    rtos_gpio_t *gpio_ctx = (rtos_gpio_t *) servicer_reg_ctx->app_data;
-    const rtos_gpio_port_id_t gpio_port = rtos_gpio_port(GPIO_CTRL_PORT_B);
-        
-    rtos_gpio_isr_callback_set(gpio_ctx, gpio_port, gpio_callback, xTaskGetCurrentTaskHandle());
-    rtos_gpio_interrupt_enable(gpio_ctx, gpio_port);
+    rtos_gpio_t *gpio_ctx = ctx->gpio_ctx;
+    
+    for( int p=0; p<ctx->num_of_ports; p++){
+      rtos_gpio_isr_callback_set(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx], gpio_callback, xTaskGetCurrentTaskHandle());
+      rtos_gpio_interrupt_enable(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx]);
+    }
 
     for (;;) {
         xTaskNotifyWait(
@@ -196,61 +213,34 @@ void gpio_handler_task( servicer_register_ctx_t *servicer_reg_ctx )
                 &value,          /* Pass out notification value into value */
                 portMAX_DELAY ); /* Wait indefinitely until next notification */
 
-        gpio_val = rtos_gpio_port_in(gpio_ctx, gpio_port);
-        debug_printf("GPIO handler task:  Port B changed to %d.\n", gpio_val );
-        device_control_set_resource_status( servicer_reg_ctx->device_control_ctx[0], 0, gpio_val );
-        
+        for( int p=0; p<ctx->num_of_ports; p++){
+          gpio_val = rtos_gpio_port_in(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx]);
+          gpio_val &= ctx->port_defs[p].bit_mask;
+          gpio_val >>= ctx->port_defs[p].bit_shift;
+          debug_printf("GPIO handler task:  Port %d to %d.\n", p, gpio_val );
+          device_control_set_resource_status( ctx->device_control_ctx[0], ctx->port_defs[p].status_register, gpio_val );    
+        }   
     }
 }
 
 
 
-
-
-
-void gpio_servicer_init(servicer_t *servicer)
-{
-    // Servicer resource info
-    static control_resource_info_t gpio_res_info[NUM_RESOURCES_GPIO_SERVICER];
-
-    memset(servicer, 0, sizeof(servicer_t));
-    servicer->id = GPIO_CONTROLLER_SERVICER_RESID;
-    servicer->start_io = 0;
-    servicer->num_resources = NUM_RESOURCES_GPIO_SERVICER;
-
-    servicer->res_info = &gpio_res_info[0];
-    // Servicer resource
-    servicer->res_info[0].resource = GPIO_CONTROLLER_SERVICER_RESID;
-    servicer->res_info[0].command_map.num_commands = NUM_GPIO_CONTROLLER_SERVICER_RESID_CMDS;
-    servicer->res_info[0].command_map.commands = gpio_controller_servicer_resid_cmd_map;
-    
-    servicer->res_info[1].resource = GPIO_CONTROLLER_SERVICER_RESID_PORTA;
-    servicer->res_info[1].command_map.num_commands = NUM_GPIO_CONTROLLER_SERVICER_RESID_CMDS;
-    servicer->res_info[1].command_map.commands = gpio_controller_servicer_resid_cmd_map;
-
-    servicer->res_info[2].resource = GPIO_CONTROLLER_SERVICER_RESID_PORTB;
-    servicer->res_info[2].command_map.num_commands = NUM_GPIO_CONTROLLER_SERVICER_RESID_CMDS;
-    servicer->res_info[2].command_map.commands = gpio_controller_servicer_resid_cmd_map;
-}
-
-void gpio_servicer(void *args) {
+void gpio_servicer_task(void *args) {
     device_control_servicer_t servicer_ctx;
-
-    servicer_register_ctx_t *servicer_reg_ctx = (servicer_register_ctx_t*)args;
     
-    servicer_t *servicer = servicer_reg_ctx->servicer;
-    rtos_gpio_t *gpio_ctx = (rtos_gpio_t *) servicer_reg_ctx->app_data;
+    device_control_gpio_ctx_t *ctx = (device_control_gpio_ctx_t*) args;
+    servicer_t *servicer = ctx->servicer;
+    rtos_gpio_t *gpio_ctx = ctx->gpio_ctx;
     
     xassert(servicer != NULL);
     xassert(gpio_ctx != NULL);
     
-    gpio_servicer_gpio_ctx = gpio_ctx;
-    gpio_ctrl_ports[GPIO_CTRL_RES_IDX_PORT_A] = rtos_gpio_port(GPIO_CTRL_PORT_A); 
-    gpio_ctrl_ports[GPIO_CTRL_RES_IDX_PORT_B] = rtos_gpio_port(GPIO_CTRL_PORT_B); 
+    debug_printf("Number of ports: %d\n", ctx->num_of_ports);
+    for(int p=0; p < ctx->num_of_ports; p++){
+        debug_printf("Enabling, resource_idx %d, port_idx: .\n", ctx->port_defs[p].resource_idx);
+        rtos_gpio_port_enable(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx]);
+    }
     
-    rtos_gpio_port_enable(gpio_ctx, gpio_ctrl_ports[0]);
-    rtos_gpio_port_enable(gpio_ctx, gpio_ctrl_ports[1]);
-
     control_resid_t *resources = (control_resid_t*)pvPortMalloc(servicer->num_resources * sizeof(control_resid_t));
     for(int i=0; i<servicer->num_resources; i++)
     {
@@ -261,25 +251,64 @@ void gpio_servicer(void *args) {
     debug_printf("Calling device_control_servicer_register(), servicer ID %d, on tile %d, core %d.\n", servicer->id, THIS_XCORE_TILE, rtos_core_id_get());
 
     dc_ret = device_control_servicer_register(&servicer_ctx,
-                                            servicer_reg_ctx->device_control_ctx,
-                                            1,
+                                            ctx->device_control_ctx,
+                                            ctx->device_control_ctx_count,
                                             resources, servicer->num_resources);
     debug_printf("Out of device_control_servicer_register(), servicer ID %d, on tile %d. servicer_ctx address = 0x%x\n", servicer->id, THIS_XCORE_TILE, &servicer_ctx);
 
     vPortFree(resources);
 
-    if (GPIO_CTRL_PORT_B != 0) {
-        xTaskCreate((TaskFunction_t) gpio_handler_task,
-                    "gpio_handler",
-                    RTOS_THREAD_STACK_SIZE(gpio_handler_task),
-                    servicer_reg_ctx,
-                    configMAX_PRIORITIES-1,
-                    NULL);
-    }
-    
+    xTaskCreate((TaskFunction_t) gpio_handler_task,
+                  "gpio_handler",
+                   RTOS_THREAD_STACK_SIZE(gpio_handler_task),
+                   ctx,
+                   configMAX_PRIORITIES-1,
+                   NULL);
     
     for(;;){
         device_control_servicer_cmd_recv(&servicer_ctx, gpio_servicer_read_cmd, gpio_servicer_write_cmd, servicer, RTOS_OSAL_WAIT_FOREVER);
     }
 }
 
+
+void gpio_servicer_init(device_control_gpio_ctx_t *ctx, rtos_gpio_t *gpio_ctx, device_control_gpio_ports_t* port_defs, uint8_t num_of_ports ){
+    static servicer_t servicer;
+    static control_resource_info_t gpio_res_info[GPIO_CONTROLLER_MAX_RESOURCES];
+    
+    ctx->servicer = &servicer;    
+    ctx->gpio_ctx = gpio_ctx;
+    ctx->num_of_ports = num_of_ports;
+    ctx->port_defs = port_defs;
+    
+    memset(&servicer, 0, sizeof(servicer_t));
+    servicer.id = GPIO_CONTROLLER_SERVICER_RESID;
+    servicer.num_resources = num_of_ports;
+    servicer.res_info = &gpio_res_info[0];
+    for( int p=0; p < ctx->num_of_ports; p++ ){
+       if( ctx->port_defs[p].writeable){
+         servicer.res_info[p].resource = port_id_to_cntr_res[ctx->port_defs[p].resource_idx];
+         servicer.res_info[p].command_map.num_commands = 3;
+         servicer.res_info[p].command_map.commands = gpio_servicer_resid_out_cmd_map; 
+       } else {
+         servicer.res_info[p].resource = port_id_to_cntr_res[ctx->port_defs[p].resource_idx];
+         servicer.res_info[p].command_map.num_commands = 1;
+         servicer.res_info[p].command_map.commands = gpio_servicer_resid_in_cmd_map; 
+       }
+       gpio_ctrl_ports[ctx->port_defs[p].resource_idx] = rtos_gpio_port(ctx->port_defs[p].port_id);
+    }
+}
+
+
+void gpio_servicer_start(device_control_gpio_ctx_t *ctx, device_control_t **device_control_ctx, size_t device_control_ctx_count ){
+    ctx->device_control_ctx = device_control_ctx;
+    ctx->device_control_ctx_count = device_control_ctx_count;
+    
+    xTaskCreate(
+        gpio_servicer_task,
+        "GPIO servicer",
+        RTOS_THREAD_STACK_SIZE(gpio_servicer_task),
+        ctx,
+        appconfDEVICE_CONTROL_SPI_PRIORITY,
+        NULL
+    );
+}

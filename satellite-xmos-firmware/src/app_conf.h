@@ -170,7 +170,7 @@
 #define appconfI2S_AUDIO_OUTPUTS   2
 #else
 #define appconfI2S_AUDIO_INPUTS    1
-#define appconfI2S_AUDIO_OUTPUTS   1
+#define appconfI2S_AUDIO_OUTPUTS   2
 #endif
 
 #ifndef appconfEXTERNAL_MCLK

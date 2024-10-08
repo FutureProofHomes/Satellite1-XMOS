@@ -5,7 +5,6 @@
 #define DRIVER_INSTANCES_H_
 
 #include "rtos_gpio.h"
-#include "rtos_i2c_master.h"
 #include "rtos_intertile.h"
 #include "rtos_i2s.h"
 #include "rtos_mic_array.h"
@@ -18,7 +17,6 @@
 
 /* Tile specifiers */
 #define FLASH_TILE_NO      0
-#define I2C_TILE_NO        0
 #define SPI_CLIENT_TILE_NO 0
 
 #define MICARRAY_TILE_NO   1
@@ -43,14 +41,10 @@
 
 /* Port definitions */
 #define PORT_MCLK           PORT_MCLK_IN
-#define PORT_SPI_CS         XS1_PORT_1A
-#define PORT_SPI_SCLK       WIFI_CLK
-#define PORT_SPI_MOSI       WIFI_MOSI
-#define PORT_SPI_MISO       WIFI_MISO
 
 /*LED RING*/
-#define LED_RING_NUM_LEDS   12
-#define LED_RING_PORT_PIN    2
+#define LED_RING_NUM_LEDS   24
+#define LED_RING_PORT_PIN    3
 
 extern rtos_intertile_t *intertile_ctx;
 extern rtos_intertile_t *intertile_usb_audio_ctx;
@@ -58,7 +52,6 @@ extern rtos_qspi_flash_t *qspi_flash_ctx;
 extern rtos_gpio_t *gpio_ctx_t0;
 extern rtos_gpio_t *gpio_ctx_t1;
 extern rtos_mic_array_t *mic_array_ctx;
-extern rtos_i2c_master_t *i2c_master_ctx;
 extern rtos_spi_slave_t *spi_slave_ctx;
 extern rtos_i2s_t *i2s_ctx;
 extern rtos_dfu_image_t *dfu_image_ctx;
