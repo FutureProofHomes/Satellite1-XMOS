@@ -297,6 +297,13 @@ void startup_task(void *arg)
     rtos_printf("Startup task running from tile %d on core %d\n", THIS_XCORE_TILE, portGET_CORE_ID());
     platform_start();
 
+#if ON_TILE(WS2812_TILE_NO)
+    static uint8_t neo_pixel_buffer[LED_RING_NUM_LEDS * 3];
+    memset( neo_pixel_buffer, 20, LED_RING_NUM_LEDS * 3);
+    rtos_ws2812_write( ws2812_ctx, neo_pixel_buffer);
+#endif
+
+
 #if appconfDEVICE_CTRL_SPI
     device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
@@ -326,10 +333,6 @@ void startup_task(void *arg)
 #endif
 
 #if ON_TILE(WS2812_TILE_NO)
-    static uint8_t neo_pixel_buffer[LED_RING_NUM_LEDS * 3];
-    memset( neo_pixel_buffer, 20, LED_RING_NUM_LEDS * 3);
-    rtos_ws2812_write( ws2812_ctx, neo_pixel_buffer);
-    
     servicer_t servicer_led_ring;
     led_ring_servicer_init(&servicer_led_ring);
     
