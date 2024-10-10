@@ -97,14 +97,14 @@ static void spi_init(void)
                         (1 << appconfSPI_IO_CORE),
                         SPI_CLKBLK,
                         SPI_MODE_3,
-                        PORT_SPI_SCLK,
-                        PORT_SPI_MOSI,
-                        PORT_SPI_MISO,
-                        PORT_SPI_CS);
+                        PORT_XSPI_CLK,
+                        PORT_XSPI_MOSI,
+                        PORT_XSPI_MISO,
+                        PORT_XSPI_CS);
     
     device_control_init(device_control_spi_ctx,
                         DEVICE_CONTROL_HOST_MODE,
-                        2, //number of servicers
+                        1, //number of servicers
                         client_intertile_ctx,
                         1); 
     

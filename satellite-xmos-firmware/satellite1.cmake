@@ -10,7 +10,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
         appconfI2S_MODE=appconfI2S_MODE_MASTER
         appconfI2S_AUDIO_SAMPLE_RATE=48000
-        appconfDEVICE_CTRL_SPI=0
+        appconfDEVICE_CTRL_SPI=1
     )
 
     if(${FFVA_AP} STREQUAL bypass )
