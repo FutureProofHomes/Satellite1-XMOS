@@ -223,7 +223,7 @@ static void servicer_init(void)
     gpio_servicer_init( device_control_gpio_ctx,
                         gpio_ctx_t0,
                         gpio_res_info,
-                        2 );
+                        1 );
 #endif
 }
 
