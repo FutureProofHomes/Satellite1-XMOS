@@ -307,7 +307,7 @@ void startup_task(void *arg)
 #if appconfDEVICE_CTRL_SPI
     device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
-#if ON_TILE(0) && 0
+#if ON_TILE(0)
     gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
     /*
     servicer_t servicer_gpio;

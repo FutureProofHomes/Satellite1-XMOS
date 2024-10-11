@@ -239,14 +239,14 @@ static void servicer_init(void)
     gpio_res_info[0].port_id = PORT_BUTTONS;
     gpio_res_info[0].bit_mask = 3;
     gpio_res_info[0].bit_shift = 0;
-    gpio_res_info[0].status_register = 0;
+    gpio_res_info[0].status_register = 1;
     
     gpio_res_info[1].resource_idx = RESOURCE_OUT_A;
     gpio_res_info[1].writeable = true;
     gpio_res_info[1].port_id = PORT_LEDS;
     gpio_res_info[1].bit_mask  = 7;
     gpio_res_info[1].bit_shift = 0;
-    gpio_res_info[1].status_register = 1;
+    gpio_res_info[1].status_register = 3;
 
     gpio_servicer_init( device_control_gpio_ctx,
                         gpio_ctx_t0,
