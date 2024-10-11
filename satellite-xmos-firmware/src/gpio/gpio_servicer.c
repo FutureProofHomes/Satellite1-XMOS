@@ -202,8 +202,11 @@ void gpio_handler_task( device_control_gpio_ctx_t *ctx )
     rtos_gpio_t *gpio_ctx = ctx->gpio_ctx;
     
     for( int p=0; p<ctx->num_of_ports; p++){
-      rtos_gpio_isr_callback_set(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx], gpio_callback, xTaskGetCurrentTaskHandle());
-      rtos_gpio_interrupt_enable(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx]);
+      if( !ctx->port_defs[p].writeable){
+        rtos_gpio_port_pull_up(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx]);
+        rtos_gpio_isr_callback_set(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx], gpio_callback, xTaskGetCurrentTaskHandle());
+        rtos_gpio_interrupt_enable(gpio_ctx, gpio_ctrl_ports[ctx->port_defs[p].resource_idx]);
+      }
     }
 
     for (;;) {
