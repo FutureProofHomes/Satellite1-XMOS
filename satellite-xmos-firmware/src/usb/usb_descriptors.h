@@ -26,8 +26,18 @@ enum {
     ITF_NUM_AUDIO_STREAMING_MIC,
 #endif
     ITF_NUM_DFU_MODE,
+#if appconfUSB_CDC_ENABLED
+    ITF_NUM_CDC,
+    ITF_NUM_CDC_DATA,
+#endif
     ITF_NUM_TOTAL
 };
+
+#define EPNUM_AUDIO       0x01
+#define EPNUM_CDC_NOTIF   0x82
+#define EPNUM_CDC_OUT     0x03
+#define EPNUM_CDC_IN      0x83
+
 
 // Number of DFU alt interfaces
 #define DFU_ALT_COUNT                   3
