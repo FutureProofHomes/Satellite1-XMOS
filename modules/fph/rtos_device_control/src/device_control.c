@@ -9,6 +9,8 @@
 
 #include "device_control.h"
 
+#define MAX_STATUS_BUFFER_LEN 10
+
 typedef struct {
     int cmd;
     void *rsvd;
@@ -471,7 +473,7 @@ control_ret_t device_control_resources_register(device_control_t *ctx,
 
     if (registered_count == ctx->servicer_count) {
         ctx->status_buffer = rtos_osal_malloc( registered_count );
-        ctx->status_buffer_len = registered_count;
+        ctx->status_buffer_len = MAX_STATUS_BUFFER_LEN;
         memset( ctx->status_buffer, 0, ctx->status_buffer_len );
         return CONTROL_SUCCESS;
     } else {
