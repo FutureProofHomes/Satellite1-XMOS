@@ -63,6 +63,12 @@
 /*****************************************/
 /*  I/O and interrupt cores for Tile 0   */
 /*****************************************/
+
+/* Note, USB and SPI are mutually exclusive */
+#define appconfXUD_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
+#define appconfUSB_INTERRUPT_CORE               2 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
+#define appconfUSB_SOF_INTERRUPT_CORE           3 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
+
 #ifndef appconfSPI_IO_CORE
 #define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
 #endif /* appconfSPI_IO_CORE */

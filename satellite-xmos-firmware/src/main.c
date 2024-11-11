@@ -23,6 +23,7 @@
 #include "platform/platform_conf.h"
 #include "usb_support.h"
 #include "usb_audio.h"
+#include "usb_cdc.h"
 #include "audio_pipeline.h"
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
@@ -300,6 +301,9 @@ static void mem_analysis(void)
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
 		vTaskDelay(pdMS_TO_TICKS(5000));
+        
+        cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
+		
 	}
 }
 
@@ -390,6 +394,12 @@ void startup_task(void *arg)
     ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );
     rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
     speaker_pipeline_init(NULL, NULL);
+#endif
+
+#if 0
+#if ON_TILE(0)    
+    rtos_gpio_port_pull_up(gpio_ctx_t0, XS1_PORT_4E);
+#endif
 #endif
 
     audio_pipeline_init(NULL, NULL);

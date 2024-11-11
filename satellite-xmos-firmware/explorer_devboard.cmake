@@ -21,12 +21,14 @@ set(FFVA_INT_COMPILE_DEFINITIONS
 ${APP_COMPILE_DEFINITIONS}
     appconfEXTERNAL_MCLK=0
     appconfI2S_ENABLED=1
-    appconfUSB_ENABLED=0
+    appconfUSB_ENABLED=1
+    appconfUSB_AUDIO_MODE=1
+    appconfUSB_CDC_ENABLED=1
     appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
     appconfI2S_MODE=appconfI2S_MODE_MASTER
     appconfI2S_AUDIO_SAMPLE_RATE=48000
     appconfI2S_ESP_ENABLED=1
-    appconfDEVICE_CTRL_SPI=1
+    appconfDEVICE_CTRL_SPI=0
 )
 
     if(${FFVA_AP} STREQUAL bypass )
