@@ -227,20 +227,22 @@ int audio_pipeline_output(void *output_app_data,
     int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
      
-     // proc 0, AGC audio
-     // proc 1, mic 1 audio with AEC applied
-     // ref 0, overwritten by IC audio
-     // ref 1, overwritten by NS audio
-     // mic 0
-     // mic 1
+     // 0 : proc 0, AEC+IC+NS+AGC audio
+     // 1 : proc 1, mic 1 audio with AEC applied
+     // 2 : ref 0, overwritten by AEC+IC output
+     // 3 : ref 1, overwritten by AEC+IC+NS output
+     // 4 : mic 0
+     // 5 : mic 1
 
      if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {    
         // duplicate to 48kHz
         for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
             // CONF_CHANNEL_0_STAGE : AGC : AEC+IC+NS+AGC : indx 0       
             int32_t smpl_ch0 = *(tmpptr + in_frame + (0 * frame_count));
+            
             // CONF_CHANNEL_1_STAGE : NS :  AEC+IC+NS : indx 3       
             int32_t smpl_ch1 = *(tmpptr + in_frame + (3 * frame_count));
+            
             tmp[out_frame][0][0] = smpl_ch0;
             tmp[out_frame][0][1] = smpl_ch1;
             tmp[out_frame+1][0][0] = smpl_ch0;

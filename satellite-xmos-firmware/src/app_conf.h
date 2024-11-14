@@ -113,7 +113,11 @@
  */
 #define appconfINPUT_SAMPLES_MIC_DELAY_MS        0
 
-#ifdef appconfPIPELINE_BYPASS
+#ifndef appconfPIPELINE_BYPASS
+#define  appconfPIPELINE_BYPASS 0
+#endif
+
+#if appconfPIPELINE_BYPASS
 #define appconfAUDIO_PIPELINE_SKIP_STATIC_DELAY  1
 #define appconfAUDIO_PIPELINE_SKIP_AEC           1
 #define appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR    1
@@ -132,6 +136,8 @@
 #ifndef appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR
 #define appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR    0
 #endif
+
+#define appconfAUDIO_PIPELINE_SKIP_NS            0
 
 #ifndef appconfAUDIO_PIPELINE_SKIP_NS
 #define appconfAUDIO_PIPELINE_SKIP_NS            0
