@@ -77,10 +77,8 @@ for ((i = 0; i < ${#examples[@]}; i += 1)); do
     fi
     
     (cd ${path}/build_${board}; log_errors $CI_BUILD_TOOL create_flash_img_${app_target} $CI_BUILD_TOOL_ARGS)
-    (cd ${path}/build_${board}; md5sum ${app_target}.factory.bin | cut -f 1 -d " " > ${app_target}.factory.md5 )
     (cd ${path}/build_${board}; cp ${app_target}.factory.bin ${app_target}.factory.md5 ${DIST_DIR})
     (cd ${path}/build_${board}; log_errors $CI_BUILD_TOOL create_upgrade_img_${app_target} $CI_BUILD_TOOL_ARGS)
-    (cd ${path}/build_${board}; md5sum ${app_target}.upgrade.bin | cut -f 1 -d " " > ${app_target}.upgrade.md5 )
     (cd ${path}/build_${board}; cp ${app_target}.upgrade.bin ${app_target}.upgrade.md5 ${DIST_DIR})
     
     echo '******************************************************'

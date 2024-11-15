@@ -1,5 +1,6 @@
 include_guard(DIRECTORY)
 
+find_package(Python3 REQUIRED Interpreter)
 ## merge_binaries combines multiple xcore applications into one by extracting
 ## a tile elf and recombining it into another binary.
 ##
@@ -212,6 +213,7 @@ function(create_flash_image_target)
   if(${ARGC} EQUAL 1)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe -o ${ARGV0}.factory.bin
+        COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -221,6 +223,7 @@ function(create_flash_image_target)
   elseif(${ARGC} EQUAL 2)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} -o ${ARGV0}.factory.bin
+        COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -230,6 +233,7 @@ function(create_flash_image_target)
   elseif(${ARGC} EQUAL 3)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
+        COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -239,6 +243,7 @@ function(create_flash_image_target)
   elseif(${ARGC} EQUAL 4)
   add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
+        COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         DEPENDS ${ARGV0} ${ARGV3}
         COMMENT
           "Create factory flash image."
@@ -267,6 +272,7 @@ endmacro()
 macro(create_upgrade_img_target _EXECUTABLE_TARGET_NAME _FACTORY_MAJOR_VER _FACTORY_MINOR_VER)
     add_custom_target(create_upgrade_img_${_EXECUTABLE_TARGET_NAME}
       COMMAND xflash --factory-version ${_FACTORY_MAJOR_VER}.${_FACTORY_MINOR_VER} --upgrade 0 ${_EXECUTABLE_TARGET_NAME}.xe  -o ${_EXECUTABLE_TARGET_NAME}.upgrade.bin
+      COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${_EXECUTABLE_TARGET_NAME}.upgrade.bin', 'rb').read()).hexdigest())" > ${_EXECUTABLE_TARGET_NAME}.upgrade.md5
       DEPENDS ${_EXECUTABLE_TARGET_NAME}
       COMMENT
         "Create upgrade image for application"
