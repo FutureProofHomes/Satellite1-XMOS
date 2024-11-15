@@ -114,7 +114,7 @@
 #define appconfINPUT_SAMPLES_MIC_DELAY_MS        0
 
 #ifndef appconfPIPELINE_BYPASS
-#define  appconfPIPELINE_BYPASS 0
+#define appconfPIPELINE_BYPASS 0
 #endif
 
 #if appconfPIPELINE_BYPASS
@@ -136,8 +136,6 @@
 #ifndef appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR
 #define appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR    0
 #endif
-
-#define appconfAUDIO_PIPELINE_SKIP_NS            0
 
 #ifndef appconfAUDIO_PIPELINE_SKIP_NS
 #define appconfAUDIO_PIPELINE_SKIP_NS            0
@@ -226,12 +224,14 @@
 #include "app_conf_check.h"
 
 /* I/O and interrupt cores for Tile 0 */
-/* Note, USB and SPI are mutually exclusive */
-#define appconfXUD_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
 #define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
-#define appconfUSB_INTERRUPT_CORE               2 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
-#define appconfUSB_SOF_INTERRUPT_CORE           3 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
 #define appconfSPI_INTERRUPT_CORE               2 /* Must be kept off I/O cores. */
+
+#define appconfXUD_IO_CORE                      3 /* Must be kept off core 0 with the RTOS tick ISR */
+#define appconfUSB_INTERRUPT_CORE               4 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
+#define appconfUSB_SOF_INTERRUPT_CORE           5 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
+
+
 
 /* I/O and interrupt cores for Tile 1 */
 #define appconfPDM_MIC_IO_CORE                  1 /* Must be kept off core 0 with the RTOS tick ISR */
