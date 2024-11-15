@@ -77,6 +77,7 @@ if(ENABLE_ALL_FFVA_PIPELINES)
 else()
     set(FFVA_PIPELINES_INT
         adec
+        fixed_delay
         bypass
     )
 

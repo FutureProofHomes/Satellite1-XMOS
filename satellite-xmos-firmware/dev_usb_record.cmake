@@ -44,7 +44,7 @@ target_link_libraries(${TARGET_NAME}
     PUBLIC
         ${APP_COMMON_LINK_LIBRARIES}
         sln_voice::app::ffva::xcore_ai_explorer
-        sln_voice::app::ffva::ap::${PL_NAME}
+        fph::ffva::ap::${PL_NAME}
         sln_voice::app::ffva::sp::passthrough
 )
 target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
@@ -64,7 +64,7 @@ target_link_libraries(${TARGET_NAME}
     PUBLIC
         ${APP_COMMON_LINK_LIBRARIES}
         sln_voice::app::ffva::xcore_ai_explorer
-        sln_voice::app::ffva::ap::${PL_NAME}
+        fph::ffva::ap::${PL_NAME}
         sln_voice::app::ffva::sp::passthrough
 )
 target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
