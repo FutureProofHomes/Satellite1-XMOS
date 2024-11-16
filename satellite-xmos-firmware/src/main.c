@@ -7,6 +7,7 @@
 #include <string.h>
 
 /* FreeRTOS headers */
+#include "FreeRTOSConfig.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "stream_buffer.h"
@@ -98,11 +99,13 @@ int speaker_pipeline_output(void *output_app_data,
         tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
     }
 
+    
     // send to DAC
     rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,
                 frame_count,
                 portMAX_DELAY);
+
     
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     void* frame_data;
@@ -394,12 +397,6 @@ void startup_task(void *arg)
     ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );
     rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
     speaker_pipeline_init(NULL, NULL);
-#endif
-
-#if 0
-#if ON_TILE(0)    
-    rtos_gpio_port_pull_up(gpio_ctx_t0, XS1_PORT_4E);
-#endif
 #endif
 
     audio_pipeline_init(NULL, NULL);
