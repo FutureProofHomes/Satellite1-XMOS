@@ -52,6 +52,15 @@
 #define appconfSPI_DEV_CTRL_PRIORITY (configMAX_PRIORITIES/2)
 #endif /* appconfSPI_DEV_CTRL_PRIORITY */
 
+#ifndef appconfUSB_CDC_PORT
+#define appconfUSB_CDC_PORT 16
+#endif /* appconfUSP_CDC_PORT */
+
+#ifndef appconfUSB_CDC_PRIORITY
+#define appconfUSB_CDC_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_DEV_CTRL_PRIORITY */
+
+
 
 /*****************************************/
 /*  I/O and interrupt cores for Tile 0   */
