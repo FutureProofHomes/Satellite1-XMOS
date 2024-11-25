@@ -333,3 +333,31 @@ function(query_tools_version)
     set(XTC_VERSION_MINOR ${XCC_VERSION_MINOR} PARENT_SCOPE)
     set(XTC_VERSION_PATCH ${XCC_VERSION_PATCH} PARENT_SCOPE)
 endfunction()
+
+# Define a function to read the version from firmware_version.txt and set defines
+function(set_app_version_from_file version_file)
+    # Read the version file
+    file(READ ${version_file} version_content)
+
+    # Extract major, minor, and patch using a regular expression
+    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" version_match "${version_content}")
+
+    # Check if a match was found
+    if (version_match)
+        # Extract the components
+        string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" APP_VERSION_MAJOR "${version_match}")
+        string(REGEX REPLACE "^[0-9]+\\.([0-9]+)\\..*" "\\1" APP_VERSION_MINOR "${version_match}")
+        string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" APP_VERSION_PATCH "${version_match}")
+
+        # Set the defines
+        add_definitions(-DAPP_VERSION_MAJOR=${APP_VERSION_MAJOR})
+        add_definitions(-DAPP_VERSION_MINOR=${APP_VERSION_MINOR})
+        add_definitions(-DAPP_VERSION_PATCH=${APP_VERSION_PATCH})
+
+        # Optionally print the values for debugging
+        message(STATUS "App Version: ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}")
+    else()
+        # Error if the file doesn't contain a valid version string
+        message(FATAL_ERROR "Invalid version format in ${version_file}")
+    endif()
+endfunction()
