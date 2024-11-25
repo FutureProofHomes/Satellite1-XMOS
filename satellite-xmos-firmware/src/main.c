@@ -320,27 +320,25 @@ void startup_task(void *arg)
 
 #if ON_TILE(0)
     gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
-    /*
-    servicer_t servicer_gpio;
-    gpio_servicer_init(&servicer_gpio);
+
+    servicer_t dfu_servicer_ctx;
+    dfu_servicer_init(&dfu_servicer_ctx);
     
-    servicer_register_ctx_t gpio_reg_ctx = {
-        &servicer_gpio,
+    servicer_register_ctx_t dfu_servicer_reg_ctx = {
+        &dfu_servicer_ctx,
         device_control_ctx,
         1,
-        gpio_ctx_t0
+        NULL
     };
-    
-    
+
     xTaskCreate(
-        gpio_servicer,
-        "GPIO servicer",
-        RTOS_THREAD_STACK_SIZE(gpio_servicer),
-        &gpio_reg_ctx,
+        dfu_servicer,
+        "dfu servicer",
+        RTOS_THREAD_STACK_SIZE(dfu_servicer),
+        &dfu_servicer_reg_ctx,
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
-    */
 #endif
 
 #if ON_TILE(WS2812_TILE_NO)

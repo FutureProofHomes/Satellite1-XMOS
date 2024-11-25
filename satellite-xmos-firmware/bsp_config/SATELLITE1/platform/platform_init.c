@@ -104,7 +104,7 @@ static void spi_init(void)
     
     device_control_init(device_control_spi_ctx,
                         DEVICE_CONTROL_HOST_MODE,
-                        2, //number of servicers
+                        3, //number of servicers
                         client_intertile_ctx,
                         1); 
     

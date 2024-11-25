@@ -41,8 +41,10 @@ void dfu_servicer_init(servicer_t *servicer)
 
 void dfu_servicer(void *args) {
     device_control_servicer_t servicer_ctx;
-
-    servicer_t *servicer = (servicer_t*)args;
+    
+    servicer_register_ctx_t *servicer_reg_ctx = (servicer_register_ctx_t*)args;
+    servicer_t *servicer = servicer_reg_ctx->servicer;
+    
     xassert(servicer != NULL);
 
     control_resid_t *resources = (control_resid_t*)pvPortMalloc(servicer->num_resources * sizeof(control_resid_t));
@@ -55,7 +57,7 @@ void dfu_servicer(void *args) {
     debug_printf("Calling device_control_servicer_register(), servicer ID %d, on tile %d, core %d.\n", servicer->id, THIS_XCORE_TILE, rtos_core_id_get());
 
     dc_ret = device_control_servicer_register(&servicer_ctx,
-                                            device_control_ctxs,
+                                            servicer_reg_ctx->device_control_ctx,
                                             1,
                                             resources, servicer->num_resources);
     debug_printf("Out of device_control_servicer_register(), servicer ID %d, on tile %d. servicer_ctx address = 0x%x\n", servicer->id, THIS_XCORE_TILE, &servicer_ctx);

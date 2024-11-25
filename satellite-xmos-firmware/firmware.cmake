@@ -21,10 +21,8 @@ set(APP_COMPILER_FLAGS
     -Os
     -g
     -report
-#    -fxscope
     -mcmodel=large
     -Wno-xcore-fptrgroup
-#    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
 set(APP_COMPILE_DEFINITIONS
@@ -41,7 +39,6 @@ set(APP_LINK_OPTIONS
     -lquadspi
     -report
     -lotp3
-#    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
 set(APP_COMMON_LINK_LIBRARIES
@@ -50,6 +47,8 @@ set(APP_COMMON_LINK_LIBRARIES
     lib_src
     lib_sw_pll
 )
+
+set_app_version_from_file("firmware_version.txt")
 
 #**********************
 # Pipeline Options

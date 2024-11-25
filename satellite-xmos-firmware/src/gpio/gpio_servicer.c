@@ -311,7 +311,7 @@ void gpio_servicer_start(device_control_gpio_ctx_t *ctx, device_control_t **devi
         "GPIO servicer",
         RTOS_THREAD_STACK_SIZE(gpio_servicer_task),
         ctx,
-        appconfDEVICE_CONTROL_SPI_PRIORITY,
+        appconfDEVICE_CONTROL_SPI_PRIORITY-1,
         NULL
     );
 }

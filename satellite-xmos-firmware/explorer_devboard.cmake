@@ -1,5 +1,20 @@
 query_tools_version()
 
+# Append xscope specific settings
+list(APPEND APP_COMPILER_FLAGS
+    -fxscope
+    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+)
+
+list(APPEND APP_COMPILE_DEFINITIONS
+    DEBUG_PRINT_ENABLE_DFU_SERVICER=1
+)
+
+list(APPEND APP_LINK_OPTIONS
+    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+)
+
+
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
 set(FFVA_INT_COMPILE_DEFINITIONS
@@ -128,8 +143,8 @@ ${APP_COMPILE_DEFINITIONS}
     create_flash_image_target(
         #[[ Target ]]                  ${TARGET_NAME}
         #[[ Boot Partition Size ]]     0x100000
-    #   #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
-    #   #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
+        #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
+        #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
 
     )
     create_flash_app_target(
