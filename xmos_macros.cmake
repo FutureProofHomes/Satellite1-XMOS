@@ -336,26 +336,63 @@ endfunction()
 
 # Define a function to read the version from firmware_version.txt and set defines
 function(set_app_version_from_file version_file)
+    # Define an enum mapping for pre-release identifiers
+    set(PRE_RELEASE_ENUM
+        "none=0"
+        "alpha=1"
+        "beta=2"
+        "rc=3"
+        "dev=4"
+    )
+
     # Read the version file
     file(READ ${version_file} version_content)
 
-    # Extract major, minor, and patch using a regular expression
-    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" version_match "${version_content}")
+    # Extract major, minor, patch, pre-release identifier, and counter using regex
+    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${version_content}")
 
     # Check if a match was found
     if (version_match)
-        # Extract the components
+        # Extract the version components
         string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" APP_VERSION_MAJOR "${version_match}")
         string(REGEX REPLACE "^[0-9]+\\.([0-9]+)\\..*" "\\1" APP_VERSION_MINOR "${version_match}")
         string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" APP_VERSION_PATCH "${version_match}")
 
-        # Set the defines
+        # Extract the pre-release identifier and its counter if present
+        string(REGEX REPLACE "^.*[-.]([a-zA-Z]+).*" "\\1" APP_VERSION_PRERELEASE "${version_match}")
+        string(REGEX REPLACE "^.*\\.[a-zA-Z]+\\.([0-9]+).*" "\\1" APP_VERSION_COUNTER "${version_match}")
+
+        # Ensure the pre-release and counter have fallback values if not present
+        if (APP_VERSION_PRERELEASE STREQUAL "${version_match}")
+            set(APP_VERSION_PRERELEASE "none")  # Default to "none" for no pre-release
+        endif()
+        if (APP_VERSION_COUNTER STREQUAL "${version_match}")
+            set(APP_VERSION_COUNTER 0)  # Default to 0 for no counter
+        endif()
+
+        # Map pre-release string to enum value
+        set(PRE_RELEASE_ENUM_VALUE 0)  # Default to 0 (none)
+        foreach(mapping ${PRE_RELEASE_ENUM})
+            string(REGEX MATCH "^(.*)=(.*)$" _ "" ${mapping})
+            if (APP_VERSION_PRERELEASE STREQUAL ${CMAKE_MATCH_1})
+                set(PRE_RELEASE_ENUM_VALUE ${CMAKE_MATCH_2})
+                break()
+            endif()
+        endforeach()
+
+        # Add the version defines
         add_definitions(-DAPP_VERSION_MAJOR=${APP_VERSION_MAJOR})
         add_definitions(-DAPP_VERSION_MINOR=${APP_VERSION_MINOR})
         add_definitions(-DAPP_VERSION_PATCH=${APP_VERSION_PATCH})
+        
+        # Add the pre-release enum value and counter defines
+        add_definitions(-DAPP_VERSION_PRERELEASE=${PRE_RELEASE_ENUM_VALUE})
+        add_definitions(-DAPP_VERSION_COUNTER=${APP_VERSION_COUNTER})
 
         # Optionally print the values for debugging
         message(STATUS "App Version: ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}")
+        message(STATUS "Pre-release Identifier: ${APP_VERSION_PRERELEASE} (Enum=${PRE_RELEASE_ENUM_VALUE})")
+        message(STATUS "Pre-release Counter: ${APP_VERSION_COUNTER}")
     else()
         # Error if the file doesn't contain a valid version string
         message(FATAL_ERROR "Invalid version format in ${version_file}")
