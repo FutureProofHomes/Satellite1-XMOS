@@ -30,7 +30,7 @@ on:
         default: ""
 
 env:
-  XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:latest"
+  XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:3.0"
   HOST_APPS_ARTIFACT_NAME: "host_apps"
   EXAMPLES_ARTIFACT_NAME: "xcore_voice_examples"
 
