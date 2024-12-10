@@ -52,7 +52,7 @@ function(merge_binaries _OUTPUT_TARGET_NAME _BASE_TARGET _OTHER_TARGET _NODE_OR_
         VERBATIM
     )
     set_target_properties(${_OUTPUT_TARGET_NAME} PROPERTIES
-      BINARY_DIR ${BASE_TILE_DIR}
+      RUNTIME_OUTPUT_DIRECTORY ${BASE_TILE_DIR}
       ADDITIONAL_CLEAN_FILES "${OTHER_TILE_NAME}_split"
     )
 endfunction()
@@ -349,18 +349,18 @@ function(set_app_version_from_file version_file)
     file(READ ${version_file} version_content)
 
     # Extract major, minor, patch, pre-release identifier, and counter using regex
-    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${version_content}")
+    string(REGEX MATCH "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${version_content}")
 
     # Check if a match was found
     if (version_match)
         # Extract the version components
-        string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" APP_VERSION_MAJOR "${version_match}")
-        string(REGEX REPLACE "^[0-9]+\\.([0-9]+)\\..*" "\\1" APP_VERSION_MINOR "${version_match}")
-        string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" APP_VERSION_PATCH "${version_match}")
+        string(REGEX REPLACE "^v?([0-9]+)\\..*" "\\1" APP_VERSION_MAJOR "${version_match}")
+        string(REGEX REPLACE "^v?[0-9]+\\.([0-9]+)\\..*" "\\1" APP_VERSION_MINOR "${version_match}")
+        string(REGEX REPLACE "^v?[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" APP_VERSION_PATCH "${version_match}")
 
         # Extract the pre-release identifier and its counter if present
         string(REGEX REPLACE "^.*[-.]([a-zA-Z]+).*" "\\1" APP_VERSION_PRERELEASE "${version_match}")
-        string(REGEX REPLACE "^.*\\.[a-zA-Z]+\\.([0-9]+).*" "\\1" APP_VERSION_COUNTER "${version_match}")
+        string(REGEX REPLACE "^.*[-.][a-zA-Z]+\\.([0-9]+).*" "\\1" APP_VERSION_COUNTER "${version_match}")
 
         # Ensure the pre-release and counter have fallback values if not present
         if (APP_VERSION_PRERELEASE STREQUAL "${version_match}")

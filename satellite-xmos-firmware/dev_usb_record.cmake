@@ -25,7 +25,7 @@ else()
   list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=0)
 endif()
 
-message(${FFVA_INT_COMPILE_DEFINITIONS})
+# message(${FFVA_INT_COMPILE_DEFINITIONS})
 
 #**********************
 # Tile Targets
