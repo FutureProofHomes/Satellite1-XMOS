@@ -18,6 +18,12 @@
 #ifndef APP_VERSION_PATCH
 #define APP_VERSION_PATCH   253
 #endif
+#ifndef APP_VERSION_PRERELEASE
+#define APP_VERSION_PRERELEASE 0
+#endif
+#ifndef APP_VERSION_COUNTER
+#define APP_VERSION_COUNTER 0
+#endif
 
 /* Intertile port settings */
 #define appconfUSB_AUDIO_PORT          0

@@ -146,7 +146,7 @@ control_ret_t dfu_servicer_read_cmd(control_resource_info_t *res_info, control_c
     case DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION:
     {
         debug_printf("DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION\n");
-        static const uint8_t version[3] = {APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH};
+        static const uint8_t version[5] = {APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH, APP_VERSION_PRERELEASE, APP_VERSION_COUNTER};
         memcpy(payload, &version, sizeof(version));
         break;
     }
