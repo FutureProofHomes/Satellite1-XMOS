@@ -1,3 +1,1 @@
-satellite1_adec  satellite1_firmware_adec No  SATELLITE1   xmos_cmake_toolchain/xs3a.cmake
 satellite1_fixed  satellite1_firmware_fixed_delay No  SATELLITE1   xmos_cmake_toolchain/xs3a.cmake
-satellite1_bypass  satellite1_firmware_bypass No  SATELLITE1   xmos_cmake_toolchain/xs3a.cmake
