@@ -107,10 +107,10 @@ jobs:
       - run: tree ${{ env.RELEASE_SOURCES_DIR }}
       
       - name: create tag
-        run: git tag ${{ needs.create_release_tag.outputs.new_tag }}    
-      
-      - name: Push tag
-        run: git push origin ${{ needs.create_release_tag.outputs.new_tag }}    
+        run: |
+          cd ${{ env.RELEASE_SOURCES_DIR }}
+          git tag ${{ needs.create_release_tag.outputs.new_tag }}
+          git push origin ${{ needs.create_release_tag.outputs.new_tag }}    
       
       - name: Create release
         uses: softprops/action-gh-release@v2
