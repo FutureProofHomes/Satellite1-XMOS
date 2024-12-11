@@ -12,32 +12,6 @@ enum {
 };
 
 
-#if 0
-int cdc_printf(const char *format, ...) {
-    // Check if the USB CDC interface is ready
-    if (!tud_cdc_connected()) {
-        return 0;  // Return early if not connected
-    }
-
-    char buffer[128];  // Buffer to store the formatted output
-    va_list args;
-    va_start(args, format);
-    int len = vsnprintf(buffer, sizeof(buffer), format, args);  // Format the string
-    va_end(args);
-
-    if (len > 0) {
-        tud_cdc_write(buffer, len);  // Send formatted output through USB CDC
-        tud_cdc_write_flush();       // Ensure data is sent immediately
-    }
-    else {
-        const char *error_msg = "Error: Failed to format string\n";
-        tud_cdc_write(error_msg, strlen(error_msg));
-        tud_cdc_write_flush();
-    }
-    return len;  // Return the number of characters sent
-}
-#endif
-
 
 // Callback when CDC data is received from the host
 void tud_cdc_rx_cb(uint8_t itf) {
@@ -50,7 +24,6 @@ void tud_cdc_rx_cb(uint8_t itf) {
     tud_cdc_write(buf, count);
     tud_cdc_write_flush();
 }
-
 
 
 int cdc_printf(const char *format, ...) {

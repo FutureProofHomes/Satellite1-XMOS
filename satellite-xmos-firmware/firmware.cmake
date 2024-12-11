@@ -90,4 +90,4 @@ endif()
 #**********************
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/dev_usb_record.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/satellite1_usb_debug.cmake)

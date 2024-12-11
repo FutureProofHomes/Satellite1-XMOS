@@ -1,7 +1,7 @@
 query_tools_version()
 
 set(FFVA_AP bypass)
-set(VARIANT_NAME dev_satellite1_usb_pipeline_analysis)
+set(VARIANT_NAME satellite1_usb_debug)
 
 set(FFVA_INT_COMPILE_DEFINITIONS
 ${APP_COMPILE_DEFINITIONS}
@@ -9,6 +9,7 @@ ${APP_COMPILE_DEFINITIONS}
     appconfI2S_ENABLED=1
     appconfUSB_ENABLED=1
     appconfUSB_AUDIO_MODE=1 # appconfUSB_AUDIO_TESTING (enables 6 channels)
+    appconfUSB_CDC_ENABLED=1
     appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
     appconfI2S_MODE=appconfI2S_MODE_MASTER
     appconfI2S_AUDIO_SAMPLE_RATE=48000

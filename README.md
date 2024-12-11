@@ -13,6 +13,10 @@ A variant which bypasses the mic-pipeline. Hence, the raw mic signal is streamed
 
 Firmware for debugging purposes only. It runs on the  XCORE.AI evaluation board. 
 
+**satellite1_usb_debug**
+
+Firmware for debugging purposes only. It enables basic logging on the satellite1 via usb-cdc. 
+
 ## Firmware Files
 
 **variant_name.factory.bin**

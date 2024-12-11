@@ -145,8 +145,8 @@ ${APP_COMPILE_DEFINITIONS}
     create_flash_image_target(
         #[[ Target ]]                  ${TARGET_NAME}
         #[[ Boot Partition Size ]]     0x100000
-        #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
-        #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
+    #   #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
+    #   #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
 
     )
     create_flash_app_target(

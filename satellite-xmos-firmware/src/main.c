@@ -7,7 +7,6 @@
 #include <string.h>
 
 /* FreeRTOS headers */
-#include "FreeRTOSConfig.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "stream_buffer.h"
@@ -98,14 +97,12 @@ int speaker_pipeline_output(void *output_app_data,
         tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
         tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
     }
-
     
     // send to DAC
     rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,
                 frame_count,
                 portMAX_DELAY);
-
     
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     void* frame_data;
@@ -304,9 +301,6 @@ static void mem_analysis(void)
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
 		vTaskDelay(pdMS_TO_TICKS(5000));
-        
-        cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		
 	}
 }
 
