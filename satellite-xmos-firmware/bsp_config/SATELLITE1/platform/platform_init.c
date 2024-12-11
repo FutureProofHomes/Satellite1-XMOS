@@ -11,6 +11,7 @@
 #include "platform/platform_init.h"
 #include "adaptive_rate_adjust.h"
 #include "usb_support.h"
+#include "usb_cdc.h"
 
 static void mclk_init(chanend_t other_tile_c)
 {
@@ -227,6 +228,18 @@ static void servicer_init(void)
 #endif
 }
 
+static void usb_cdc_init(){
+#if appconfUSB_CDC_ENABLED
+#if ON_TILE(USB_TILE_NO)
+    rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
+    rtos_cdc_rpc_host_init(client_intertile_ctx,1);    
+#else
+    rtos_cdc_rpc_client_init(intertile_ctx);
+#endif
+#endif
+}
+
+
 
 void platform_init(chanend_t other_tile_c)
 {
@@ -242,4 +255,5 @@ void platform_init(chanend_t other_tile_c)
     usb_init();
     ws2812_init();
     servicer_init();
+    usb_cdc_init();    
 }

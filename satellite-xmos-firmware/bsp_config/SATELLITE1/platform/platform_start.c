@@ -14,6 +14,7 @@
 #include "platform_conf.h"
 #include "platform/driver_instances.h"
 #include "usb_support.h"
+#include "usb_cdc.h"
 
 
 #if appconfDEVICE_CTRL_SPI
@@ -108,6 +109,17 @@ static void ws2812_start(void)
 #endif    
 }
 
+static void usb_cdc_start(void)
+{
+#if appconfUSB_CDC_ENABLED
+    rtos_cdc_rpc_config(appconfUSB_CDC_PORT, appconfUSB_CDC_PRIORITY);
+#if ON_TILE(USB_TILE_NO)
+    rtos_cdc_start();
+#endif
+#endif
+}
+
+
 
 void platform_start(void)
 {
@@ -121,4 +133,5 @@ void platform_start(void)
     i2s_start();
     usb_start();
     ws2812_start();
+    usb_cdc_start();
 }

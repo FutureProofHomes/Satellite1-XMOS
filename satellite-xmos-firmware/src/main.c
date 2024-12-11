@@ -23,6 +23,7 @@
 #include "platform/platform_conf.h"
 #include "usb_support.h"
 #include "usb_audio.h"
+#include "usb_cdc.h"
 #include "audio_pipeline.h"
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
@@ -96,7 +97,7 @@ int speaker_pipeline_output(void *output_app_data,
         tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
         tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
     }
-
+    
     // send to DAC
     rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,

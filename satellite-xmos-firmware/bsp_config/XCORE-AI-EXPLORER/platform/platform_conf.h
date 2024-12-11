@@ -59,10 +59,31 @@
 #define appconfSPI_DEV_CTRL_PRIORITY (configMAX_PRIORITIES/2)
 #endif /* appconfSPI_DEV_CTRL_PRIORITY */
 
+#ifndef appconfUSB_CDC_PORT
+#define appconfUSB_CDC_PORT 16
+#endif /* appconfUSP_CDC_PORT */
+
+#ifndef appconfUSB_CDC_PRIORITY
+#define appconfUSB_CDC_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_DEV_CTRL_PRIORITY */
+
+
 
 /*****************************************/
 /*  I/O and interrupt cores for Tile 0   */
 /*****************************************/
+
+/* Note, USB and SPI are mutually exclusive */
+#ifdef appconfXUD_IO_CORE 
+#undef appconfXUD_IO_CORE 
+#undef appconfUSB_INTERRUPT_CORE
+#undef appconfUSB_SOF_INTERRUPT_CORE
+#endif
+
+#define appconfXUD_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
+#define appconfUSB_INTERRUPT_CORE               2 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
+#define appconfUSB_SOF_INTERRUPT_CORE           3 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
+
 #ifndef appconfSPI_IO_CORE
 #define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
 #endif /* appconfSPI_IO_CORE */
