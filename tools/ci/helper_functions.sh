@@ -9,6 +9,7 @@ function log_errors {
     if log=$("$@" 2>&1); then
         echo "'$@' completed successfully!"
     else
+        echo "'$@' failed!"
         echo "$log"
         return 1
     fi

@@ -64,7 +64,9 @@
 #define CFG_TUD_XCORE_IO_CORE_MASK       (1 << appconfXUD_IO_CORE)
 
 //------------- CLASS -------------//
-#define CFG_TUD_CDC               0
+#if appconfUSB_CDC_ENABLED
+#define CFG_TUD_CDC               1
+#endif
 #define CFG_TUD_MSC               0
 #define CFG_TUD_HID               0
 #define CFG_TUD_MIDI              0
@@ -77,6 +79,19 @@
 //--------------------------------------------------------------------
 // DFU buffer size, it has to be set to the buffer size used in TUD_DFU_DESCRIPTOR
 #define CFG_TUD_DFU_XFER_BUFSIZE    4096
+
+#if appconfUSB_CDC_ENABLED
+//--------------------------------------------------------------------
+// Communication Device Class DRIVER CONFIGURATION
+//--------------------------------------------------------------------
+
+// CDC buffer sizes
+#define CFG_TUD_CDC_RX_BUFSIZE (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#define CFG_TUD_CDC_TX_BUFSIZE (TUD_OPT_HIGH_SPEED ? 512 : 64)
+
+// CDC Endpoint transfer buffer size, more is faster
+#define CFG_TUD_CDC_EP_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#endif
 
 //--------------------------------------------------------------------
 // AUDIO CLASS DRIVER CONFIGURATION

@@ -68,7 +68,7 @@ enum e_dfu_controller_servicer_resid_cmds
 // number of values of type dfu_controller_servicer_resid_dfu_transferblock_t expected by DFU_CONTROLLER_SERVICER_RESID_DFU_TRANSFERBLOCK
 #define DFU_CONTROLLER_SERVICER_RESID_DFU_TRANSFERBLOCK_NUM_VALUES (2)
 // number of values of type dfu_controller_servicer_resid_dfu_getversion_t expected by DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION
-#define DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION_NUM_VALUES (3)
+#define DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION_NUM_VALUES (5)
 // number of values of type dfu_controller_servicer_resid_dfu_reboot_t expected by DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT
 #define DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT_NUM_VALUES (1)
 

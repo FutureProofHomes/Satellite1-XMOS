@@ -14,8 +14,8 @@ enable_language(CXX C ASM)
 ## Setup a root path
 set(XMOS_FIRMWARE_ROOT_PATH ${PROJECT_SOURCE_DIR} CACHE STRING "Root folder of xmos_firmware in this cmake project tree")
 
-## Import some helpful macros
-include(modules/rtos/tools/cmake_utils/xmos_macros.cmake)
+## Import xmos macros
+include(xmos_macros.cmake)
 
 ## Add frameworks
 add_subdirectory(modules)

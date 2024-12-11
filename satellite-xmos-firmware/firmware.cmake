@@ -21,10 +21,8 @@ set(APP_COMPILER_FLAGS
     -Os
     -g
     -report
-    -fxscope
     -mcmodel=large
     -Wno-xcore-fptrgroup
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
 set(APP_COMPILE_DEFINITIONS
@@ -41,15 +39,16 @@ set(APP_LINK_OPTIONS
     -lquadspi
     -report
     -lotp3
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
 set(APP_COMMON_LINK_LIBRARIES
     rtos::freertos_usb
-    rtos::sw_services::device_control
+    fph::device_control
     lib_src
     lib_sw_pll
 )
+
+set_app_version_from_file("firmware_version.txt")
 
 #**********************
 # Pipeline Options
@@ -76,7 +75,8 @@ if(ENABLE_ALL_FFVA_PIPELINES)
     )
 else()
     set(FFVA_PIPELINES_INT
-        #fixed_delay
+        adec
+        fixed_delay
         bypass
     )
 
@@ -88,4 +88,6 @@ endif()
 #**********************
 # XMOS Firmware Targets
 #**********************
+include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/satellite1_usb_debug.cmake)

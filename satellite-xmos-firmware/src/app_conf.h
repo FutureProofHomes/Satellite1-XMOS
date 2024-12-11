@@ -18,13 +18,19 @@
 #ifndef APP_VERSION_PATCH
 #define APP_VERSION_PATCH   253
 #endif
+#ifndef APP_VERSION_PRERELEASE
+#define APP_VERSION_PRERELEASE 0
+#endif
+#ifndef APP_VERSION_COUNTER
+#define APP_VERSION_COUNTER 0
+#endif
 
 /* Intertile port settings */
 #define appconfUSB_AUDIO_PORT          0
 #define appconfGPIO_T0_RPC_PORT        1
 #define appconfGPIO_T1_RPC_PORT        2
 #define appconfDEVICE_CONTROL_USB_PORT 3
-#define appconfDEVICE_CONTROL_I2C_PORT 4
+#define appconfDEVICE_CONTROL_SPI_PORT 4
 #define appconfSPI_AUDIO_PORT          5
 #define appconfWW_SAMPLES_PORT         6
 #define appconfAUDIOPIPELINE_PORT      7
@@ -45,9 +51,12 @@
 #define appconfPDM_CLOCK_FREQUENCY              MIC_ARRAY_CONFIG_PDM_FREQ
 #define appconfAUDIO_PIPELINE_SAMPLE_RATE       16000
 #define appconfAUDIO_PIPELINE_CHANNELS          MIC_ARRAY_CONFIG_MIC_COUNT
+#define appconfAUDIO_SPK_PL_SR_FACTOR           3
 
 /* If in channel sample format, appconfAUDIO_PIPELINE_FRAME_ADVANCE == MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME*/
 #define appconfAUDIO_PIPELINE_FRAME_ADVANCE     MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME
+#define appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE appconfAUDIO_SPK_PL_SR_FACTOR * appconfAUDIO_PIPELINE_FRAME_ADVANCE
+
 
 /* Enable audio response output */
 #ifndef appconfAUDIO_PLAYBACK_ENABLED
@@ -110,7 +119,11 @@
  */
 #define appconfINPUT_SAMPLES_MIC_DELAY_MS        0
 
-#ifdef appconfPIPELINE_BYPASS
+#ifndef appconfPIPELINE_BYPASS
+#define appconfPIPELINE_BYPASS 0
+#endif
+
+#if appconfPIPELINE_BYPASS
 #define appconfAUDIO_PIPELINE_SKIP_STATIC_DELAY  1
 #define appconfAUDIO_PIPELINE_SKIP_AEC           1
 #define appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR    1
@@ -163,11 +176,11 @@
 #endif
 
 #if appconfI2S_ESP_ENABLED
-#define appconfI2S_AUDIO_INPUTS    2
+#define appconfI2S_AUDIO_INPUTS    1
 #define appconfI2S_AUDIO_OUTPUTS   2
 #else
 #define appconfI2S_AUDIO_INPUTS    1
-#define appconfI2S_AUDIO_OUTPUTS   1
+#define appconfI2S_AUDIO_OUTPUTS   2
 #endif
 
 #ifndef appconfEXTERNAL_MCLK
@@ -217,12 +230,14 @@
 #include "app_conf_check.h"
 
 /* I/O and interrupt cores for Tile 0 */
-/* Note, USB and SPI are mutually exclusive */
-#define appconfXUD_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
 #define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
-#define appconfUSB_INTERRUPT_CORE               2 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
-#define appconfUSB_SOF_INTERRUPT_CORE           3 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
 #define appconfSPI_INTERRUPT_CORE               2 /* Must be kept off I/O cores. */
+
+#define appconfXUD_IO_CORE                      3 /* Must be kept off core 0 with the RTOS tick ISR */
+#define appconfUSB_INTERRUPT_CORE               4 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
+#define appconfUSB_SOF_INTERRUPT_CORE           5 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
+
+
 
 /* I/O and interrupt cores for Tile 1 */
 #define appconfPDM_MIC_IO_CORE                  1 /* Must be kept off core 0 with the RTOS tick ISR */

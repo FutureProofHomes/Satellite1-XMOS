@@ -108,7 +108,8 @@ target_link_libraries(adec_altarch_aec_ic_ns_agc_2mic_2ref
 add_library(empty_2mic_2ref INTERFACE)
 target_sources(empty_2mic_2ref
     INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/empty/audio_pipeline.c
+        ${CMAKE_CURRENT_LIST_DIR}/empty/audio_pipeline_t0.c
+        ${CMAKE_CURRENT_LIST_DIR}/empty/audio_pipeline_t1.c
 )
 target_include_directories(empty_2mic_2ref
     INTERFACE
@@ -126,7 +127,7 @@ target_link_libraries(empty_2mic_2ref
 ## Create aliases for sln_voice example designs
 ##*********************************************
 
-add_library(sln_voice::app::ffva::ap::adec_altarch ALIAS adec_altarch_aec_ic_ns_agc_2mic_2ref)
-add_library(sln_voice::app::ffva::ap::fixed_delay ALIAS fixed_delay_aec_ic_ns_agc_2mic_2ref)
-add_library(sln_voice::app::ffva::ap::adec ALIAS adec_aec_ic_ns_agc_2mic_2ref)
-add_library(sln_voice::app::ffva::ap::empty ALIAS empty_2mic_2ref)
+add_library(fph::ffva::ap::adec_altarch ALIAS adec_altarch_aec_ic_ns_agc_2mic_2ref)
+add_library(fph::ffva::ap::fixed_delay ALIAS fixed_delay_aec_ic_ns_agc_2mic_2ref)
+add_library(fph::ffva::ap::adec ALIAS adec_aec_ic_ns_agc_2mic_2ref)
+add_library(fph::ffva::ap::empty ALIAS empty_2mic_2ref)
