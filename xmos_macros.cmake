@@ -334,7 +334,29 @@ function(query_tools_version)
     set(XTC_VERSION_PATCH ${XCC_VERSION_PATCH} PARENT_SCOPE)
 endfunction()
 
-# Define a function to read the version from firmware_version.txt and set defines
+
+
+function(get_latest_git_tag RESULT_VARIABLE)
+    # Run the Git command to get the latest tag
+    execute_process(
+        COMMAND git describe --tags --abbrev=0
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+
+    # Check if a tag was found
+    if(GIT_TAG)
+        set(${RESULT_VARIABLE} "${GIT_TAG}" PARENT_SCOPE)
+    else()
+        # Fallback value if no tag is found
+        set(${RESULT_VARIABLE} "no-tag-found" PARENT_SCOPE)
+    endif()
+endfunction()
+
+
+# Read the version from firmware_version.txt and set compiler defines
 function(set_app_version_from_file version_file)
     # Define an enum mapping for pre-release identifiers
     set(PRE_RELEASE_ENUM
@@ -347,6 +369,37 @@ function(set_app_version_from_file version_file)
 
     # Read the version file
     file(READ ${version_file} version_content)
+    string(STRIP "${version_content}" version_content)
+    
+    if("${version_content}" STREQUAL "dev")
+        get_latest_git_tag(LATEST_TAG)
+        string(REGEX MATCH "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${LATEST_TAG}")    
+        if (version_match)
+          # Extract the version components
+          string(REGEX REPLACE "^(.*)[-.]([a-zA-Z]+).*" "\\1" APP_VERSION_RELEASE "${version_match}")
+          set(DEV_VERSION "${APP_VERSION_RELEASE}-dev")
+          set_app_version_from_string(${DEV_VERSION})
+        else()
+          message(FATAL_ERROR "Invalid version format in ${version_file}: ${version_content}")
+        endif()
+        
+    else()
+        set_app_version_from_string(${version_content})
+    endif()
+endfunction()
+
+
+
+# Read the version from firmware_version.txt and set compiler defines
+function(set_app_version_from_string version_content)
+    # Define an enum mapping for pre-release identifiers
+    set(PRE_RELEASE_ENUM
+        "none=0"
+        "alpha=1"
+        "beta=2"
+        "rc=3"
+        "dev=4"
+    )
 
     # Extract major, minor, patch, pre-release identifier, and counter using regex
     string(REGEX MATCH "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${version_content}")
@@ -395,6 +448,6 @@ function(set_app_version_from_file version_file)
         message(STATUS "Pre-release Counter: ${APP_VERSION_COUNTER}")
     else()
         # Error if the file doesn't contain a valid version string
-        message(FATAL_ERROR "Invalid version format in ${version_file}")
+        message(FATAL_ERROR "Invalid version format in ${version_file}: ${version_content}")
     endif()
 endfunction()
