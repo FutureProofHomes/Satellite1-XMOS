@@ -18,21 +18,21 @@ on:
   # Allow workflow to be called from another.
   workflow_call:
     inputs:
-      is_release:
-        description: "Indicates whether this run is for a release or not."
-        type: string
-        required: true
-        default: "false"
-      examples_artifact_name:
-        description: 'The name to be given to the uploaded "example apps" artifact.'
+      firmware_artifact_name:
+        description: 'The name to be given to the uploaded firmware artifact.'
         type: string
         required: true
         default: ""
+      firmware_version_string:
+        description: "The firmware version as string (or 'dev')."
+        type: string
+        required: false
+        default: "dev"
 
 env:
-  XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:latest"
+  XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:v3.0"
   HOST_APPS_ARTIFACT_NAME: "host_apps"
-  EXAMPLES_ARTIFACT_NAME: "xcore_voice_examples"
+  FIRMWARE_ARTIFACT_NAME: "satellite1_firmware"
 
 jobs:
   build_host_apps:
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -53,7 +53,7 @@ jobs:
           docker run --rm -u $(id -u):$(id -g) -w /ws -v ${{github.workspace}}:/ws ${XCORE_BUILDER} bash -l tools/ci/build_host_apps.sh
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.HOST_APPS_ARTIFACT_NAME }}
           path: ./dist_host
@@ -64,7 +64,7 @@ jobs:
     needs: build_host_apps
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -73,29 +73,33 @@ jobs:
           docker pull ${XCORE_BUILDER}
 
       - name: Download host build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ env.HOST_APPS_ARTIFACT_NAME }}
           path: ./dist_host
 
+      - name: write firmware_version.txt
+        run: |
+          echo ${{ inputs.firmware_version_string }} > ${{github.workspace}}/firmware_version.txt
+      
       - name: Build
         run: |
           docker run --rm -u $(id -u):$(id -g) -w /ws -v ${{github.workspace}}:/ws ${XCORE_BUILDER} bash -l tools/ci/build_firmware.sh tools/ci/firmwares.txt
-  
+
       - name: Save metadata
         run: |
           bash tools/ci/log_metadata.sh ./dist/build_metadata.json
 
       - name: Determine artifact name
         run: |
-          if [ ! -z "${{ inputs.examples_artifact_name }}" ]; then
-            echo "EXAMPLES_ARTIFACT_NAME=${{ inputs.examples_artifact_name }}" >> $GITHUB_ENV
+          if [ ! -z "${{ inputs.firmware_artifact_name }}" ]; then
+            echo "FIRMWARE_ARTIFACT_NAME=${{ inputs.firmware_artifact_name }}" >> $GITHUB_ENV
           fi
 
       - name: Save example app firmware artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.EXAMPLES_ARTIFACT_NAME }}
+          name: ${{ env.FIRMWARE_ARTIFACT_NAME }}
           path: |
             ./dist/*.*
-  
+

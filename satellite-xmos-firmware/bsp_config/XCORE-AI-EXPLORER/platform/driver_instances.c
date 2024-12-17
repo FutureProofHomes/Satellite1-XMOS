@@ -27,11 +27,17 @@ rtos_i2c_master_t *i2c_master_ctx = &i2c_master_ctx_s;
 static rtos_i2s_t i2s_ctx_s;
 rtos_i2s_t *i2s_ctx = &i2s_ctx_s;
 
-static rtos_i2c_slave_t i2c_slave_ctx_s;
-rtos_i2c_slave_t *i2c_slave_ctx = &i2c_slave_ctx_s;
-
 static rtos_spi_slave_t spi_slave_ctx_s;
 rtos_spi_slave_t *spi_slave_ctx = &spi_slave_ctx_s;
 
 static rtos_dfu_image_t dfu_image_ctx_s;
 rtos_dfu_image_t *dfu_image_ctx = &dfu_image_ctx_s;
+
+static rtos_ws2812_t ws2812_ctx_s;
+rtos_ws2812_t *ws2812_ctx = &ws2812_ctx_s;
+
+static device_control_t device_control_spi_ctx_s;
+device_control_t *device_control_spi_ctx = &device_control_spi_ctx_s;
+
+static device_control_gpio_ctx_t device_control_gpio_ctx_s;
+device_control_gpio_ctx_t *device_control_gpio_ctx = &device_control_gpio_ctx_s;

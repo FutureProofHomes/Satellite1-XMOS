@@ -1,38 +1,99 @@
-# Satellite XMOS firmware
+# Satellite1 XMOS firmware
 
 ## Variants
-*satellite_firmware_bypass.xe*
+**satellite1_firmware_fixed_delay**
 
-Initial variant which bypasses the mic-pipeline, so the raw mic signal is passed to the ESP32.
+Uses the 'Automatic Delay Estimation and Correction' pipeline of the sln_voice example repository.
 
-## Pre-Requirements
+**satellite1_firmware_bypass**
+
+A variant which bypasses the mic-pipeline. Hence, the raw mic signal is streamed to the ESP32-S3.
+
+**explorer1_firmware_{fixed_delay|bypass}**
+
+Firmware for debugging purposes only. It runs on the  XCORE.AI evaluation board. 
+
+**satellite1_usb_debug**
+
+Firmware for debugging purposes only. It enables basic logging on the satellite1 via usb-cdc. 
+
+## Firmware Files
+
+**variant_name.factory.bin**
+
+A complete image of the flash memory, including both the boot partition (containing the flash loader and factory image) and the data partition.
+
+**variant_name.upgrade.bin**
+
+A firmware upgrade image that can be uploaded through the Device Firmware Update (DFU) service. Requires a factory image with DFU support running on the device.
 
 
-## Running / Flashing
+**variant_name.xe**
+
+The XMOS executable (XE) binary format stores programs for XMOS devices and includes information about the system it is intended to run on, allowing support for multiple program loads, configurations and debugging.
+
+
+## Flashing via Satellite1 ESPHome Firmware
+
+
+## Flashing via dfu-util
+> **Note:** The Satellite1 does not come with a pre-flashed XMOS firmware. Hence, the initial firmware needs to be written directly to the flash memory via SPI. Use 'Flashing via Satellite1 ESPHome Firmware' in this case.  
+
+
+If the XMOS device is running a factory firmware with DFU over USB support, an upgrade image can be uploaded as follows:
+```bash
+dfu-util -e -a 1 -D variant_name.upgrade.bin
+```
+
+
+## Running / Flashing via xTAG
+> **Note**: The Satellite1 does not include an xTAG debugger. This option applies only when testing the firmware with a developer board like the XCORE.AI EVALUATION KIT. 
+
+When the XMOS board is connected as a USB xTag device, the firmware can be run or flashed as follows:
 
 Running without flashing:
 
 ```bash
-xrun --xscope satellite_firmware_bypass.xe
+xrun --xscope variant_name.xe
 ```
 
 Flashing:
 ```bash
-xflash --quad-spi-clock 50MHz --factory satellite_firmware_bypass.xe --boot-partition-size 0x100000 --data satellite_firmware_bypass_data_partition.bin
+xflash --quad-spi-clock 50MHz --factory variant_name.xe --boot-partition-size 0x100000 --data variant_name_data_partition.bin
 ```
 
 
-## Github Artifacts
-On each pull request and push to `develop` and `main` the firmware is built and can be downloaded from the respective workflow under the github action menu.
+## Building the firmware locally
 
-Additionally, the build workflow can be triggered manually for any branch by selecting `Build and Upload Artifacts` workflow and clicking the `Run workflow` button on the top right of the workflow table.
-Don't check `Run as release` for now...
+### Clone repository
 
-The artifact zip archive also includes a `build_metadata.json` which contains the sha of the commit the firmware was built of. 
+```bash
+git clone https://github.com/FutureProofHomes/Satellite1-XMOS.git
+cd Satellite1-XMOS
+git submodule update --init --recursive
+```
+### Creating factory and upgrade images
 
+On Linux and Mac run:
 
-## Building Locally
+```bash
+cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
+cd build
 
+make create_flash_img_variant_name
+make create_upgrade_img_variant_name
+```
+
+On Windows run:
+```bash
+cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
+cd build
+
+ninja create_flash_img_variant_name
+ninja create_upgrade_img_variant_name
+```
+
+### Building the XMOS executable only (.xe file)
 Run the following commands in the root folder to build the firmware.
 
 On Linux and Mac run:
@@ -41,7 +102,7 @@ On Linux and Mac run:
 cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
 cd build
 
-make satellite_firmware_bypass
+make variant_name
 ```
 
 On Windows run:
@@ -49,30 +110,11 @@ On Windows run:
 cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
 cd build
 
-ninja satellite_firmware_bypass
+ninja variant_name
 ```
 
-From the build folder, create the data partition containing the filesystem and
-flash the device with the appropriate command to the desired configuration:
-
-On Linux and Mac run:
 
 
-```bash
-make flash_app_satellite_firmware_bypass
-```
-
-On Windows run:
-
-
-```bash
-ninja flash_app_satellite_firmware_bypass
-```
-
-Once flashed, the application will run.
-
-If changes are made to the data partition components, the application must be
-re-flashed.
 
 
 

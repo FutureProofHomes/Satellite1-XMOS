@@ -51,6 +51,64 @@
 #define appconfI2S_RPC_PRIORITY (configMAX_PRIORITIES-2)
 #endif /* appconfI2S_RPC_PRIORITY */
 
+#ifndef appconfSPI_DEV_CTRL_PORT
+#define appconfSPI_DEV_CTRL_PORT 15
+#endif /* appconfSPI_DEV_CTRL_PORT */
+
+#ifndef appconfSPI_DEV_CTRL_PRIORITY
+#define appconfSPI_DEV_CTRL_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_DEV_CTRL_PRIORITY */
+
+#ifndef appconfUSB_CDC_PORT
+#define appconfUSB_CDC_PORT 16
+#endif /* appconfUSP_CDC_PORT */
+
+#ifndef appconfUSB_CDC_PRIORITY
+#define appconfUSB_CDC_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_DEV_CTRL_PRIORITY */
+
+
+
+/*****************************************/
+/*  I/O and interrupt cores for Tile 0   */
+/*****************************************/
+
+/* Note, USB and SPI are mutually exclusive */
+#ifdef appconfXUD_IO_CORE 
+#undef appconfXUD_IO_CORE 
+#undef appconfUSB_INTERRUPT_CORE
+#undef appconfUSB_SOF_INTERRUPT_CORE
+#endif
+
+#define appconfXUD_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
+#define appconfUSB_INTERRUPT_CORE               2 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
+#define appconfUSB_SOF_INTERRUPT_CORE           3 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
+
+#ifndef appconfSPI_IO_CORE
+#define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
+#endif /* appconfSPI_IO_CORE */
+
+#ifndef appconfSPI_INTERRUPT_CORE
+#define appconfSPI_INTERRUPT_CORE               2 /* Must be kept off I/O cores. */
+#endif /* appconfSPI_INTERRUPT_CORE */
+
+#ifndef appconfI2C_IO_CORE
+#define appconfI2C_IO_CORE                      5 /* Must be kept off core 0 with the RTOS tick ISR */
+#endif /* appconfI2C_IO_CORE */
+
+#ifndef appconfI2C_INTERRUPT_CORE
+#define appconfI2C_INTERRUPT_CORE               4 /* Must be kept off I/O cores. */
+#endif /* appconfI2C_INTERRUPT_CORE */
+
+#ifndef appconfI2C_SEC_IO_CORE
+#define appconfI2C_SEC_IO_CORE                  6 /* Must be kept off core 0 with the RTOS tick ISR */
+#endif /* appconfI2C_SEC_IO_CORE */
+
+#ifndef appconfI2C_SEC_INTERRUPT_CORE
+#define appconfI2C_SEC_INTERRUPT_CORE           7 /* Must be kept off I/O cores. */
+#endif /* appconfI2C_INTERRUPT_CORE */
+
+
 /*****************************************/
 /*  I/O and interrupt cores for Tile 1   */
 /*****************************************/
@@ -70,25 +128,31 @@
 #define appconfI2S_INTERRUPT_CORE               4 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
 #endif /* appconfI2S_INTERRUPT_CORE */
 
-#ifndef appconfSPI_IO_CORE
-#define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
-#endif /* appconfSPI_IO_CORE */
-
-#ifndef appconfI2C_IO_CORE
-#define appconfI2C_IO_CORE                      3 /* Must be kept off core 0 with the RTOS tick ISR */
-#endif /* appconfI2C_IO_CORE */
-
-#ifndef appconfI2C_INTERRUPT_CORE
-#define appconfI2C_INTERRUPT_CORE               0 /* Must be kept off I/O cores. */
-#endif /* appconfI2C_INTERRUPT_CORE */
-
-#ifndef appconfSPI_INTERRUPT_CORE
-#define appconfSPI_INTERRUPT_CORE               2 /* Must be kept off I/O cores. */
-#endif /* appconfSPI_INTERRUPT_CORE */
 
 /*****************************************/
-/*  I/O and interrupt cores for Tile 1   */
+/*  I/O Task Priorities                  */
 /*****************************************/
+#ifndef appconfQSPI_FLASH_TASK_PRIORITY
+#define appconfQSPI_FLASH_TASK_PRIORITY		    ( configMAX_PRIORITIES - 1 )
+#endif /* appconfQSPI_FLASH_TASK_PRIORITY */
+
+#ifndef appconfI2C_TASK_PRIORITY
+#define appconfI2C_TASK_PRIORITY                (configMAX_PRIORITIES/2)
+#endif /* appconfI2C_TASK_PRIORITY */
+
+#ifndef appconfSPI_TASK_PRIORITY
+#define appconfSPI_TASK_PRIORITY                (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_TASK_PRIORITY */
+
+#ifndef appconfDEVICE_CONTROL_SPI_PRIORITY
+#define appconfDEVICE_CONTROL_SPI_PRIORITY      (configMAX_PRIORITIES-2)
+#endif // appconfDEVICE_CONTROL_SPI_PRIORITY
+
+
+/*****************************************/
+/*  CONFIGURATION   */
+/*****************************************/
+
 #ifndef appconfPDM_CLOCK_FREQUENCY
 #define appconfPDM_CLOCK_FREQUENCY          MIC_ARRAY_CONFIG_MCLK_FREQ
 #endif /* appconfPDM_CLOCK_FREQUENCY */
@@ -101,25 +165,17 @@
 #define appconfPIPELINE_AUDIO_SAMPLE_RATE   16000
 #endif /* appconfPIPELINE_AUDIO_SAMPLE_RATE */
 
-#ifndef appconfI2C_DFU_ENABLED
-#define appconfI2C_DFU_ENABLED    0
-#endif /* appconfI2C_DFU_ENABLED */
+#ifndef appconfDEVICE_CTRL_SPI
+#define appconfDEVICE_CTRL_SPI    0
+#endif /* appconfDEVICE_CTRL_SPI */
 
 #ifndef APP_CONTROL_TRANSPORT_COUNT
-#define APP_CONTROL_TRANSPORT_COUNT appconfI2C_DFU_ENABLED
+#define APP_CONTROL_TRANSPORT_COUNT (appconfDEVICE_CTRL_SPI)
 #endif // APP_CONTROL_TRANSPORT_COUNT
 
 #ifndef appconfEXTERNAL_MCLK
 #define appconfEXTERNAL_MCLK       1
 #endif /* appconfEXTERNAL_MCLK */
-
-#ifndef appconf_CONTROL_I2C_DEVICE_ADDR
-#define appconf_CONTROL_I2C_DEVICE_ADDR 0x42
-#endif /* appconf_CONTROL_I2C_DEVICE_ADDR*/
-
-#ifndef appconfSPI_OUTPUT_ENABLED
-#define appconfSPI_OUTPUT_ENABLED  0
-#endif /* appconfSPI_OUTPUT_ENABLED */
 
 #ifndef appconfI2S_MODE_MASTER
 #define appconfI2S_MODE_MASTER     0
@@ -140,20 +196,6 @@
 #define appconfI2S_TDM_ENABLED     0
 #endif
 
-/*****************************************/
-/*  I/O Task Priorities                  */
-/*****************************************/
-#ifndef appconfQSPI_FLASH_TASK_PRIORITY
-#define appconfQSPI_FLASH_TASK_PRIORITY		    ( configMAX_PRIORITIES - 1 )
-#endif /* appconfQSPI_FLASH_TASK_PRIORITY */
-
-#ifndef appconfI2C_TASK_PRIORITY
-#define appconfI2C_TASK_PRIORITY                (configMAX_PRIORITIES/2)
-#endif /* appconfI2C_TASK_PRIORITY */
-
-#ifndef appconfSPI_TASK_PRIORITY
-#define appconfSPI_TASK_PRIORITY                (configMAX_PRIORITIES/2)
-#endif /* appconfSPI_TASK_PRIORITY */
 
 /*****************************************/
 /*  DFU Settings                         */

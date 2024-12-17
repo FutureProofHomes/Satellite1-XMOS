@@ -1,19 +1,36 @@
+query_tools_version()
+
+# Append xscope specific settings
+list(APPEND APP_COMPILER_FLAGS
+    -fxscope
+    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+)
+
+list(APPEND APP_COMPILE_DEFINITIONS
+    DEBUG_PRINT_ENABLE_DFU_SERVICER=1
+)
+
+list(APPEND APP_LINK_OPTIONS
+    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+)
+
+
+foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
 set(FFVA_INT_COMPILE_DEFINITIONS
 ${APP_COMPILE_DEFINITIONS}
     appconfEXTERNAL_MCLK=0
     appconfI2S_ENABLED=1
-    appconfUSB_ENABLED=0
+    appconfUSB_ENABLED=1
+    appconfUSB_AUDIO_MODE=0
+    appconfUSB_CDC_ENABLED=1
     appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S
     appconfI2S_MODE=appconfI2S_MODE_MASTER
-    appconfI2S_AUDIO_SAMPLE_RATE=16000
+    appconfI2S_AUDIO_SAMPLE_RATE=48000
     appconfI2S_ESP_ENABLED=1
-    #appconfPIPELINE_BYPASS=1
-    ## VK Voice uses 12288000 for RPI integration, EXPLORER Board uses default 24576000
-    # MIC_ARRAY_CONFIG_MCLK_FREQ=12288000
+    appconfDEVICE_CTRL_SPI=0
 )
 
-foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)
       list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=1)
@@ -22,12 +39,12 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
       list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=0)
     endif()
 
-    message(${FFVA_INT_COMPILE_DEFINITIONS})
+    # message(${FFVA_INT_COMPILE_DEFINITIONS})
     
     #**********************
     # Tile Targets
     #**********************
-    set(TARGET_NAME tile0_satellite_firmware_${FFVA_AP})
+    set(TARGET_NAME tile0_explorer1_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
@@ -41,13 +58,13 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             sln_voice::app::ffva::xcore_ai_explorer
-            sln_voice::app::ffva::ap::${PL_NAME}
+            fph::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
 
-    set(TARGET_NAME tile1_satellite_firmware_${FFVA_AP})
+    set(TARGET_NAME tile1_explorer1_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
@@ -61,7 +78,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             sln_voice::app::ffva::xcore_ai_explorer
-            sln_voice::app::ffva::ap::${PL_NAME}
+            fph::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
@@ -70,18 +87,19 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #**********************
     # Merge binaries
     #**********************    
-    merge_binaries(satellite_firmware_${FFVA_AP} tile0_satellite_firmware_${FFVA_AP} tile1_satellite_firmware_${FFVA_AP} 1)
+    merge_binaries(explorer1_firmware_${FFVA_AP} tile0_explorer1_firmware_${FFVA_AP} tile1_explorer1_firmware_${FFVA_AP} 1)
 
     #**********************
     # Create run and debug targets
     #**********************
-    create_run_target(satellite_firmware_${FFVA_AP})
-    create_debug_target(satellite_firmware_${FFVA_AP})
-
+    create_run_target(explorer1_firmware_${FFVA_AP})
+    create_debug_target(explorer1_firmware_${FFVA_AP})
+    create_upgrade_img_target(explorer1_firmware_${FFVA_AP} ${XTC_VERSION_MAJOR} ${XTC_VERSION_MINOR})
+    
     #**********************
     # Create data partition support targets
     #**********************
-    set(TARGET_NAME satellite_firmware_${FFVA_AP})
+    set(TARGET_NAME explorer1_firmware_${FFVA_AP})
     set(DATA_PARTITION_FILE ${TARGET_NAME}_data_partition.bin)
     set(FATFS_FILE ${TARGET_NAME}_fat.fs)
     set(FATFS_CONTENTS_DIR ${TARGET_NAME}_fatmktmp)
@@ -123,7 +141,14 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         #[[ Copy Files ]]               "${DATA_PARTITION_FILE_LIST}"
         #[[ Dependencies ]]             "${DATA_PARTITION_FILE_LIST}"
     )
+        
+    create_flash_image_target(
+        #[[ Target ]]                  ${TARGET_NAME}
+        #[[ Boot Partition Size ]]     0x100000
+    #   #[[ Data Partition Contents ]] ${DATA_PARTITION_FILE}
+    #   #[[ Dependencies ]]            ${DATA_PARTITION_FILE}
 
+    )
     create_flash_app_target(
         #[[ Target ]]                  ${TARGET_NAME}
         #[[ Boot Partition Size ]]     0x100000
@@ -133,3 +158,4 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     unset(DATA_PARTITION_FILE_LIST)
 endforeach()
+

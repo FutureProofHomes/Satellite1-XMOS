@@ -20,7 +20,7 @@ extern device_control_t *device_control_ctxs[1];
 // Structure encapsulating all the information about a resource
 typedef struct
 {
-    control_resid_t resource;
+    control_resid_t resource; //device_control lib
     command_map_t command_map;
 }control_resource_info_t;
 
@@ -32,6 +32,13 @@ typedef struct {
     // Resource ID and command map for every resource
     control_resource_info_t *res_info;
 }servicer_t;
+
+typedef struct {
+    servicer_t *servicer;
+    device_control_t **device_control_ctx;
+    size_t device_control_ctx_count;    
+    void *app_data;
+} servicer_register_ctx_t;
 
 // Servicer device_control callback functions
 /**

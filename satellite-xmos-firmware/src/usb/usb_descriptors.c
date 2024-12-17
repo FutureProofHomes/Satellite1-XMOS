@@ -39,9 +39,9 @@ tusb_desc_device_t const desc_device = {
     .bDescriptorType    = TUSB_DESC_DEVICE,
     .bcdUSB             = 0x0201,   // For BOS descriptor! https://microchip.my.site.com/s/article/Does-a-USB2-1-Specification-Exist
 
-    .bDeviceClass       = TUSB_CLASS_UNSPECIFIED,
-    .bDeviceSubClass    = TUSB_CLASS_UNSPECIFIED,
-    .bDeviceProtocol    = TUSB_CLASS_UNSPECIFIED,
+    .bDeviceClass       = TUSB_CLASS_MISC,
+    .bDeviceSubClass    = MISC_SUBCLASS_COMMON,
+    .bDeviceProtocol    = MISC_PROTOCOL_IAD,
     .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
 
     .idVendor           = XMOS_VID,
@@ -166,11 +166,18 @@ const uint16_t tud_audio_desc_lengths[CFG_TUD_AUDIO] = {
         uac2_total_descriptors_length
 };
 
+#if appconfUSB_CDC_ENABLED
+#define CONFIG_TOTAL_LEN        (TUD_CONFIG_DESC_LEN + (CFG_TUD_AUDIO * uac2_total_descriptors_length) + TUD_DFU_DESC_LEN(DFU_ALT_COUNT) + TUD_CDC_DESC_LEN)
+#else
 #define CONFIG_TOTAL_LEN        (TUD_CONFIG_DESC_LEN + (CFG_TUD_AUDIO * uac2_total_descriptors_length) + TUD_DFU_DESC_LEN(DFU_ALT_COUNT))
-#define EPNUM_AUDIO   0x01
+#endif
+
+
+
 
 #define AUDIO_INTERFACE_STRING_INDEX 4
 #define DFU_INTERFACE_STRING_INDEX   5
+#define CDC_STRING_INDEX             8
 
 uint8_t const desc_configuration[] = {
     // Config number, interface count, string index, total length, attribute, power in mA
@@ -250,6 +257,10 @@ uint8_t const desc_configuration[] = {
     // Interface number, Alternate count, starting string index, attributes, detach timeout, transfer size
     TUD_DFU_DESCRIPTOR(ITF_NUM_DFU_MODE, DFU_ALT_COUNT, DFU_INTERFACE_STRING_INDEX, DFU_FUNC_ATTRS, 1000, CFG_TUD_DFU_XFER_BUFSIZE),
 
+#if appconfUSB_CDC_ENABLED
+    // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, CDC_STRING_INDEX, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, CFG_TUD_CDC_EP_BUFSIZE),
+#endif
     }; // desc_configuration
 
 // Invoked when received GET CONFIGURATION DESCRIPTOR
@@ -270,10 +281,14 @@ char const *string_desc_arr[] = {(const char[]) {0x09, 0x04}, // 0: is supported
         "XMOS",                      // 1: Manufacturer
         XCORE_VOICE_PRODUCT_STR,     // 2: Product
         "123456",                    // 3: Serials, should use chip ID
+        
         XCORE_VOICE_PRODUCT_STR,     // 4: Audio Interface
         "DFU FACTORY",               // 5: DFU device
         "DFU UPGRADE",               // 6: DFU device
         "DFU DATAPARTITION",         // 7: DFU device
+ #if appconfUSB_CDC_ENABLED
+        "SATELLITE1 CDC",            // 8: CDC
+ #endif       
         };
 
 static uint16_t _desc_str[32];
