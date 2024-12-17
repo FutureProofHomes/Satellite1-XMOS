@@ -31,6 +31,17 @@ target_link_options(fph_ffva_board_support_satellite1
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/SATELLITE1.xn
 )
+
+# MICS: 
+# North: 0 (pin 0 falling edge) 
+# South: 1 (pin 1 falling edge) 
+# East:  4 (pin 0 rising edge ) 
+# West:  5 (pin 1 rising edge )
+# pins 2 & 3 are not used
+
+# use East as first and West as second mic
+set(MIC_MAPPING "4, 5")
+
 target_compile_definitions(fph_ffva_board_support_satellite1
     INTERFACE
         XCOREAI_EXPLORER=1
@@ -44,10 +55,11 @@ target_compile_definitions(fph_ffva_board_support_satellite1
         MIC_ARRAY_CONFIG_MCLK_FREQ=24576000
         MIC_ARRAY_CONFIG_PDM_FREQ=3072000
         MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME=240
-        MIC_ARRAY_CONFIG_MIC_COUNT=2
-        MIC_ARRAY_CONFIG_MIC_INPUT=8
         MIC_ARRAY_CONFIG_USE_DDR=1
-        MIC_ARRAY_CONFIG_MIC_DDR_INTERLEAVE=1
+        MIC_ARRAY_CONFIG_MIC_INPUT=8
+        MIC_ARRAY_CONFIG_MIC_COUNT=2
+        MIC_ARRAY_CONFIG_INPUT_MAPPING={${MIC_MAPPING}}
+        
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_B=XS1_CLKBLK_2
         MIC_ARRAY_CONFIG_PORT_MCLK=PORT_MCLK_IN
