@@ -88,7 +88,7 @@ class XMOSVersion:
 
         groups = match.groupdict()
         if groups["prerelease"] and groups["prerelease"] not in PRE_RELEASES:
-            raise SystemExit(f"Invalid pre_release string: {groups["prerelease"]}")
+            raise SystemExit(f"Invalid pre_release string: {groups['prerelease']}")
         
         return cls(
             major=int(groups["major"]),
