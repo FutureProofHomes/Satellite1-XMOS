@@ -452,6 +452,7 @@ def install_targets(args: argparse.Namespace) -> None:
     
 
 def main():
+    print(sys.version)
     parser = argparse.ArgumentParser(description="Manages XMOS firmware versions.",formatter_class=argparse.RawTextHelpFormatter)
     # --version and --infile are mutual exclusive
     exclusive_group = parser.add_mutually_exclusive_group(required=False)
