@@ -155,10 +155,6 @@ class GitInfo:
                     ["git", "rev-parse", "--short" ,"HEAD"],
                     cwd=repo_root, capture_output=True, text=True, check=True
                 ).stdout.strip() 
-            
-            has_changed_files = True if subprocess.run(['git', 'status', '--porcelain'], 
-                    cwd=repo_root, capture_output=True, text=True,  check=True
-                ).stdout.strip() else False
         
             try:
                 last_tag =subprocess.run(['git', 'describe', '--tags', '--abbrev=0'], 

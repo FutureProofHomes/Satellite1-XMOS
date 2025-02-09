@@ -15,6 +15,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/bsp_config/bsp_config.cmake)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
+option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
 
 #**********************
 # Flags

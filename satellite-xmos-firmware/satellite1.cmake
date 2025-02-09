@@ -71,8 +71,13 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #*********************
     # Create version.h
     #*********************
+    SET(VERSIONING_CMD "build")
+    if(USE_DEV_TRACKING)
+        list(APPEND VERSIONING_CMD "--track")
+    endif()
+
     add_custom_target(satellite1_firmware_${FFVA_AP}_versioning
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} build --track satellite1_firmware_${FFVA_AP}
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} ${VERSIONING_CMD} satellite1_firmware_${FFVA_AP}
         COMMENT "Running versioning.py build satellite1_firmware_${FFVA_AP}"
         VERBATIM
     )

@@ -210,11 +210,16 @@ endfunction()
 ## Optional arguments can be used to specify boot partition size, data partition contents, and other dependency targets, such as filesystem generators
 ## create_flash_image_target(_EXECUTABLE_TARGET_NAME _BOOT_PARTITION_SIZE _DATA_PARTITION_CONTENTS _OPTIONAL_DEPENDS_TARGETS)
 function(create_flash_image_target)
+  if(USE_DEV_TRACKING)
+    set(TRACK_POSTBUILD_COMMAND COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0})
+  else()
+    set(TRACK_POSTBUILD_COMMAND "")
+  endif()
   if(${ARGC} EQUAL 1)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
+        ${TRACK_POSTBUILD_COMMAND}
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -225,7 +230,7 @@ function(create_flash_image_target)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
+        ${TRACK_POSTBUILD_COMMAND}
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -236,7 +241,7 @@ function(create_flash_image_target)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
+        ${TRACK_POSTBUILD_COMMAND}
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -247,7 +252,7 @@ function(create_flash_image_target)
   add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
+        ${TRACK_POSTBUILD_COMMAND}
         DEPENDS ${ARGV0} ${ARGV3}
         COMMENT
           "Create factory flash image."
