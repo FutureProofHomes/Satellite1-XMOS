@@ -214,6 +214,7 @@ function(create_flash_image_target)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -224,6 +225,7 @@ function(create_flash_image_target)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -234,6 +236,7 @@ function(create_flash_image_target)
     add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
         DEPENDS ${ARGV0}
         COMMENT
           "Create factory flash image."
@@ -244,6 +247,7 @@ function(create_flash_image_target)
   add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} install ${ARGV0} 
         DEPENDS ${ARGV0} ${ARGV3}
         COMMENT
           "Create factory flash image."
@@ -334,120 +338,3 @@ function(query_tools_version)
     set(XTC_VERSION_PATCH ${XCC_VERSION_PATCH} PARENT_SCOPE)
 endfunction()
 
-
-
-function(get_latest_git_tag RESULT_VARIABLE)
-    # Run the Git command to get the latest tag
-    execute_process(
-        COMMAND git describe --tags --abbrev=0
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_TAG
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-
-    # Check if a tag was found
-    if(GIT_TAG)
-        set(${RESULT_VARIABLE} "${GIT_TAG}" PARENT_SCOPE)
-    else()
-        # Fallback value if no tag is found
-        set(${RESULT_VARIABLE} "no-tag-found" PARENT_SCOPE)
-    endif()
-endfunction()
-
-
-# Read the version from firmware_version.txt and set compiler defines
-function(set_app_version_from_file version_file)
-    # Define an enum mapping for pre-release identifiers
-    set(PRE_RELEASE_ENUM
-        "none=0"
-        "alpha=1"
-        "beta=2"
-        "rc=3"
-        "dev=4"
-    )
-
-    # Read the version file
-    file(READ ${version_file} version_content)
-    string(STRIP "${version_content}" version_content)
-    
-    if("${version_content}" STREQUAL "dev")
-        get_latest_git_tag(LATEST_TAG)
-        string(REGEX MATCH "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${LATEST_TAG}")    
-        if (version_match)
-          # Extract the version components
-          string(REGEX REPLACE "^(.*)[-.]([a-zA-Z]+).*" "\\1" APP_VERSION_RELEASE "${version_match}")
-          set(DEV_VERSION "${APP_VERSION_RELEASE}-dev")
-          set_app_version_from_string(${DEV_VERSION})
-        else()
-          message(FATAL_ERROR "Invalid version format in ${version_file}: ${version_content}")
-        endif()
-        
-    else()
-        set_app_version_from_string(${version_content})
-    endif()
-endfunction()
-
-
-
-# Read the version from firmware_version.txt and set compiler defines
-function(set_app_version_from_string version_content)
-    # Define an enum mapping for pre-release identifiers
-    set(PRE_RELEASE_ENUM
-        "none=0"
-        "alpha=1"
-        "beta=2"
-        "rc=3"
-        "dev=4"
-    )
-
-    # Extract major, minor, patch, pre-release identifier, and counter using regex
-    string(REGEX MATCH "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)([-.]?([a-zA-Z]+)(\\.([0-9]+))?)?" version_match "${version_content}")
-
-    # Check if a match was found
-    if (version_match)
-        # Extract the version components
-        string(REGEX REPLACE "^v?([0-9]+)\\..*" "\\1" APP_VERSION_MAJOR "${version_match}")
-        string(REGEX REPLACE "^v?[0-9]+\\.([0-9]+)\\..*" "\\1" APP_VERSION_MINOR "${version_match}")
-        string(REGEX REPLACE "^v?[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" APP_VERSION_PATCH "${version_match}")
-
-        # Extract the pre-release identifier and its counter if present
-        string(REGEX REPLACE "^.*[-.]([a-zA-Z]+).*" "\\1" APP_VERSION_PRERELEASE "${version_match}")
-        string(REGEX REPLACE "^.*[-.][a-zA-Z]+\\.([0-9]+).*" "\\1" APP_VERSION_COUNTER "${version_match}")
-
-        # Ensure the pre-release and counter have fallback values if not present
-        if (APP_VERSION_PRERELEASE STREQUAL "${version_match}")
-            set(APP_VERSION_PRERELEASE "none")  # Default to "none" for no pre-release
-        endif()
-        if (APP_VERSION_COUNTER STREQUAL "${version_match}")
-            set(APP_VERSION_COUNTER 0)  # Default to 0 for no counter
-        endif()
-
-        # Map pre-release string to enum value
-        set(PRE_RELEASE_ENUM_VALUE 0)  # Default to 0 (none)
-        foreach(mapping ${PRE_RELEASE_ENUM})
-            string(REGEX MATCH "^(.*)=(.*)$" _ "" ${mapping})
-            if (APP_VERSION_PRERELEASE STREQUAL ${CMAKE_MATCH_1})
-                set(PRE_RELEASE_ENUM_VALUE ${CMAKE_MATCH_2})
-                break()
-            endif()
-        endforeach()
-
-        # Add the version defines
-        add_definitions(-DAPP_VERSION_MAJOR=${APP_VERSION_MAJOR})
-        add_definitions(-DAPP_VERSION_MINOR=${APP_VERSION_MINOR})
-        add_definitions(-DAPP_VERSION_PATCH=${APP_VERSION_PATCH})
-        
-        # Add the pre-release enum value and counter defines
-        add_definitions(-DAPP_VERSION_PRERELEASE=${PRE_RELEASE_ENUM_VALUE})
-        add_definitions(-DAPP_VERSION_COUNTER=${APP_VERSION_COUNTER})
-
-        # Optionally print the values for debugging
-        message(STATUS "App Version: ${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}")
-        message(STATUS "Pre-release Identifier: ${APP_VERSION_PRERELEASE} (Enum=${PRE_RELEASE_ENUM_VALUE})")
-        message(STATUS "Pre-release Counter: ${APP_VERSION_COUNTER}")
-    else()
-        # Error if the file doesn't contain a valid version string
-        message(FATAL_ERROR "Invalid version format in ${version_file}: ${version_content}")
-    endif()
-endfunction()
