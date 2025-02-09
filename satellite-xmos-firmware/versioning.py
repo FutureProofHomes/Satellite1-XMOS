@@ -419,7 +419,7 @@ def print_info(args: argparse.Namespace) -> None:
             tracked_build = TrackedDevBuild.load(track_path)
 
     print( f"Current source: {git_info}" )
-    print( f"{VERSION_HEADER_FILE.relative_to(Path.cwd())}: {"not found" if from_header_file is None else str(from_header_file)}")
+    print( f"{VERSION_HEADER_FILE.relative_to(Path.cwd())}: {'not found' if from_header_file is None else str(from_header_file)}")
     if tracked_build:
         ws_build_xe = args.build_dir / (tracked_build.variant + ".factory.bin")
         tracked_build_xe = tracked_build.track_path / (tracked_build.variant + ".factory.bin")
