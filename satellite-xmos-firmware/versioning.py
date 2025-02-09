@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
-from typing import Any
+from typing import Any, Union
 
 PROJ_ROOT = Path(__file__).parent.parent
 VERSION_FILE = PROJ_ROOT / "firmware_version.txt"
@@ -141,7 +141,7 @@ class XMOSVersion:
 class GitInfo:
     branch: str
     commit: str
-    last_tag: str | None = None
+    last_tag: Union[str, None] = None
     patch_str: str = ""
     
     @classmethod
@@ -211,9 +211,9 @@ class TrackedDevBuild:
     version: XMOSVersion
     variant: str 
     build_time: datetime.datetime
-    git_info: GitInfo | None = None
-    track_path: Path | None = None
-    patch_file_md5: str | None =  None
+    git_info: Union[GitInfo, None] = None
+    track_path: Union[Path, None] = None
+    patch_file_md5: Union[str, None] =  None
 
     def __eq__(self, other):
         return (
@@ -244,7 +244,7 @@ class TrackedDevBuild:
             json.dump(shallow_dict, f, indent="", cls=TrackDevEncoder)
 
     @classmethod
-    def latest(cls, dev_track_path:Path, base_version: XMOSVersion | None = None) -> "TrackedDevBuild":
+    def latest(cls, dev_track_path:Path, base_version: Union[XMOSVersion,None] = None) -> "TrackedDevBuild":
         if not dev_track_path.exists():
             return None
         dev_tracks = sorted(
