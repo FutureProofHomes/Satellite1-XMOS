@@ -247,7 +247,7 @@ function(create_flash_image_target)
   add_custom_target(create_flash_img_${ARGV0}
         COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} install ${ARGV0} 
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0} 
         DEPENDS ${ARGV0} ${ARGV3}
         COMMENT
           "Create factory flash image."
