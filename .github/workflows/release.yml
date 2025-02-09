@@ -14,7 +14,7 @@ on:
       - "develop"
       - "staging"
       - "main"
-
+  
   # Allow manually triggering of the workflow.
   workflow_dispatch:
     inputs:

@@ -68,6 +68,22 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
 
+    #*********************
+    # Create version.h
+    #*********************
+    SET(VERSIONING_CMD "build")
+    if(USE_DEV_TRACKING)
+        list(APPEND VERSIONING_CMD "--track")
+    endif()
+
+    add_custom_target(satellite1_firmware_${FFVA_AP}_versioning
+        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} ${VERSIONING_CMD} satellite1_firmware_${FFVA_AP}
+        COMMENT "Running versioning.py build satellite1_firmware_${FFVA_AP}"
+        VERBATIM
+    )
+    add_dependencies(tile0_satellite1_firmware_${FFVA_AP} satellite1_firmware_${FFVA_AP}_versioning)
+    add_dependencies(tile1_satellite1_firmware_${FFVA_AP} satellite1_firmware_${FFVA_AP}_versioning)
+
     #**********************
     # Merge binaries
     #**********************    
