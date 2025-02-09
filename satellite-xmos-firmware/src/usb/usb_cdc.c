@@ -3,18 +3,21 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#if appconfUSB_CDC_ENABLED
 static rtos_driver_rpc_t rpc_config_s;
 static rtos_driver_rpc_t* rpc_config = &rpc_config_s;
+
 
 enum {
     fcode_rx,
     fcode_tx,
 };
-
+#endif
 
 
 // Callback when CDC data is received from the host
 void tud_cdc_rx_cb(uint8_t itf) {
+#if appconfUSB_CDC_ENABLED
     char buf[64];
 
     // Read data from the host
@@ -23,6 +26,7 @@ void tud_cdc_rx_cb(uint8_t itf) {
     // Echo back to the host
     tud_cdc_write(buf, count);
     tud_cdc_write_flush();
+#endif
 }
 
 
@@ -73,7 +77,7 @@ int cdc_printf(const char *format, ...) {
 }
 
 
-
+#if appconfUSB_CDC_ENABLED    
 static int cdc_tx_rpc_host(rpc_msg_t *rpc_msg, uint8_t **resp_msg)
 {
     int msg_length;
@@ -209,4 +213,4 @@ void rtos_cdc_rpc_host_init(
         rpc_config->client_address[i].port = -1;
     }
 }
-
+#endif

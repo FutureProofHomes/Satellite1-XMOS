@@ -16,14 +16,6 @@
 /* Intertile Communication Configuration */
 /*****************************************/
 
-#ifndef appconfGPIO_T0_RPC_PORT
-#define appconfGPIO_T0_RPC_PORT 11
-#endif /* appconfGPIO_T0_RPC_PORT */
-
-#ifndef appconfGPIO_T1_RPC_PORT
-#define appconfGPIO_T1_RPC_PORT 12
-#endif /* appconfGPIO_T1_RPC_PORT */
-
 #ifndef appconfGPIO_RPC_PRIORITY
 #define appconfGPIO_RPC_PRIORITY (configMAX_PRIORITIES/2)
 #endif /* appconfGPIO_RPC_PRIORITY */

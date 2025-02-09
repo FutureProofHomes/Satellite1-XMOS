@@ -30,15 +30,6 @@
 #include "gpio/gpio_servicer.h"
 #include "led_ring/led_ring_servicer.h"
 
-/* Headers used for the WW intent engine */
-#if appconfINTENT_ENABLED
-#include "intent_engine.h"
-#include "intent_handler.h"
-#include "fs_support.h"
-#include "gpi_ctrl.h"
-#include "leds.h"
-#endif
-
 
 /* Config headers for sw_pll */
 #include "sw_pll.h"
@@ -271,17 +262,6 @@ int audio_pipeline_output(void *output_app_data,
                 output_audio_frames,
                 6);
 #endif
-#if appconfINTENT_ENABLED
-
-    int32_t ww_samples[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    for (int j=0; j<appconfAUDIO_PIPELINE_FRAME_ADVANCE; j++) {
-        /* ASR output is first */
-        ww_samples[j] = (uint32_t) *(output_audio_frames+j);
-    }
-
-    intent_engine_sample_push(ww_samples,
-                              frame_count);
-#endif
 
     return AUDIO_PIPELINE_FREE_FRAME;
 }
@@ -359,33 +339,6 @@ void startup_task(void *arg)
 
 #endif
 
-
-#if appconfINTENT_ENABLED && ON_TILE(0)
-    led_task_create(appconfLED_TASK_PRIORITY, NULL);
-#endif
-
-#if appconfINTENT_ENABLED && ON_TILE(1)
-    gpio_gpi_init(gpio_ctx_t0);
-#endif
-
-#if appconfINTENT_ENABLED && ON_TILE(FS_TILE_NO)
-    rtos_fatfs_init(qspi_flash_ctx);
-    // Setup flash low-level mode
-    //   NOTE: must call rtos_qspi_flash_fast_read_shutdown_ll to use non low-level mode calls
-    rtos_qspi_flash_fast_read_setup_ll(qspi_flash_ctx);
-#endif
-
-#if appconfINTENT_ENABLED && ON_TILE(ASR_TILE_NO)
-    QueueHandle_t q_intent = xQueueCreate(appconfINTENT_QUEUE_LEN, sizeof(int32_t));
-    intent_handler_create(appconfINTENT_MODEL_RUNNER_TASK_PRIORITY, q_intent);
-    intent_engine_create(appconfINTENT_MODEL_RUNNER_TASK_PRIORITY, q_intent);
-#endif
-
-#if appconfINTENT_ENABLED && !ON_TILE(ASR_TILE_NO)
-    // Wait until the intent engine is initialized before starting the
-    // audio pipeline.
-    intent_engine_ready_sync();
-#endif
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );

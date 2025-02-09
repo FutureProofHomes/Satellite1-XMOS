@@ -16,7 +16,6 @@
 #include "dfu_servicer.h"
 
 #include "dfu_cmds.h"
-#include "device_control_i2c.h"
 
 #include "dfu_common.h"
 #include "dfu_state_machine.h"
