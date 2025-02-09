@@ -84,18 +84,6 @@ ${APP_COMPILE_DEFINITIONS}
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
 
-    #*********************
-    # Create version.h
-    #*********************
-    add_custom_target(explorer1_firmware_${FFVA_AP}_versioning
-        COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} build --track explorer1_firmware_${FFVA_AP}
-        COMMENT "Running versioning.py build explorer_firmware_${FFVA_AP}"
-        VERBATIM
-    )
-    add_dependencies(tile0_explorer1_firmware_${FFVA_AP} explorer1_firmware_${FFVA_AP}_versioning)
-    add_dependencies(tile1_explorer1_firmware_${FFVA_AP} explorer1_firmware_${FFVA_AP}_versioning)
-
-
     #**********************
     # Merge binaries
     #**********************    

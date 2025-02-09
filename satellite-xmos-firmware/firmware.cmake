@@ -14,8 +14,6 @@ set(APP_INCLUDES
 include(${CMAKE_CURRENT_LIST_DIR}/bsp_config/bsp_config.cmake)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
-set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
-
 #**********************
 # Flags
 #**********************
@@ -50,6 +48,7 @@ set(APP_COMMON_LINK_LIBRARIES
     lib_sw_pll
 )
 
+set_app_version_from_file("firmware_version.txt")
 
 #**********************
 # Pipeline Options
