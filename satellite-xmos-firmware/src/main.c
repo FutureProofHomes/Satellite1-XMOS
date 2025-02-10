@@ -276,11 +276,26 @@ void vApplicationMallocFailedHook(void)
     for(;;);
 }
 
+static void init_watchdog(void)
+{
+    //xin : 24 Mhz, decrement WATCHDOG_COUNT every 2.7 ms:
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_PRESCALER_WRAP_NUM, (0xFFFF));
+    //trigger watchdog after ~11s of inactivity    
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_CFG_NUM, (1 << XS1_WATCHDOG_COUNT_ENABLE_SHIFT) | (1 << XS1_WATCHDOG_TRIGGER_ENABLE_SHIFT) );
+}
+
+static void reset_watchdog(void)
+{
+    //reset watchdog to max
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
+}
 static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		vTaskDelay(pdMS_TO_TICKS(5000));
+		reset_watchdog();
+        vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
 
@@ -347,6 +362,8 @@ void startup_task(void *arg)
 #endif
 
     audio_pipeline_init(NULL, NULL);
+    
+    init_watchdog();
 
     mem_analysis();
 }
