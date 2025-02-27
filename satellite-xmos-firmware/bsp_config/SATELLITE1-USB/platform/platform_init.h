@@ -9,9 +9,7 @@
 void platform_init(chanend_t other_tile_c);
 void platform_start(void);
 
-#if TEST_FRAMEWORK
 void platform_test_init(chanend_t other_tile_c);
 void platform_test_start(void);
-#endif
 
 #endif /* PLATFORM_INIT_H_ */

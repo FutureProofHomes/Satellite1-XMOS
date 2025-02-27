@@ -13,14 +13,10 @@
 /* App headers */
 #include "platform_conf.h"
 #include "platform/driver_instances.h"
-#include "aic3204.h"
 #include "usb_support.h"
 #include "usb_cdc.h"
+#include "pcm5122.h"
 
-
-#if appconfDEVICE_CTRL_SPI
-#include "device_control_spi.h"
-#endif
 
 
 static void gpio_start(void)
@@ -59,7 +55,7 @@ static void audio_codec_start(void)
 #if appconfI2S_ENABLED
     int ret = 0;
 #if ON_TILE(I2C_TILE_NO)
-    if (aic3204_init() != 0) {
+    if (pcm5122_init() != 0) {
         rtos_printf("DAC initialization failed\n");
     }
     rtos_intertile_tx(intertile_ctx, 0, &ret, sizeof(ret));
@@ -74,21 +70,7 @@ static void audio_codec_start(void)
 static void spi_start(void)
 {
 #if appconfDEVICE_CTRL_SPI && ON_TILE(SPI_CLIENT_TILE_NO)
-#if 0 //do we need this?
-    const rtos_gpio_port_id_t wifi_rst_port = rtos_gpio_port(WIFI_WUP_RST_N);
-    rtos_gpio_port_enable(gpio_ctx_t0, wifi_rst_port);
-    rtos_gpio_port_out(gpio_ctx_t0, wifi_rst_port, 0x00);
-
-    const rtos_gpio_port_id_t wifi_cs_port = rtos_gpio_port(WIFI_CS_N);
-    rtos_gpio_port_enable(gpio_ctx_t0, wifi_cs_port);
-    rtos_gpio_port_out(gpio_ctx_t0, wifi_cs_port, 0x0F);
-#endif
-    rtos_spi_slave_start(spi_slave_ctx,
-                         device_control_spi_ctx,
-                         (rtos_spi_slave_start_cb_t) device_control_spi_start_cb,
-                         (rtos_spi_slave_xfer_done_cb_t) device_control_spi_xfer_done_cb,
-                         appconfSPI_INTERRUPT_CORE,
-                         appconfSPI_TASK_PRIORITY);
+#error "Not implemented"
 #endif
 }
 
@@ -160,38 +142,21 @@ void platform_start(void)
     mics_start();
     i2s_start();
     usb_start();
-    ws2812_start();
+    //ws2812_start();
     usb_cdc_start();
 }
 
-#if TEST_FRAMEWORK
+
 void platform_test_start(void)
 {
     rtos_intertile_start(intertile_ctx);
-    gpio_start();
-#if appconfUSB_AUDIO_ENABLED        
     rtos_intertile_start(intertile_usb_audio_ctx);
-#endif
-#if appconfUSB_DFU_ENABLED
-    flash_start();
-#endif
-
-#if appconfUSB_ENABLED        
-    usb_start();
-#endif
-#if appconfUSB_CDC_ENABLED        
-    usb_cdc_start();
-#endif
-
-#if appconfI2S_ENABLED
-    i2c_master_start();
-    audio_codec_start();
-    i2s_start();
-#endif
     
-#if appconfMICS_ENABLED    
+    usb_start();
+    usb_cdc_start();
+    flash_start();
+    
     mics_start();
-#endif
-
+    i2s_start();
+    gpio_start();
 }
-#endif

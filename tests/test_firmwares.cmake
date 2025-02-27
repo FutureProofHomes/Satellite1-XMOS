@@ -1,0 +1,1 @@
+include(${CMAKE_CURRENT_LIST_DIR}/platform_test/dummy_test.cmake)

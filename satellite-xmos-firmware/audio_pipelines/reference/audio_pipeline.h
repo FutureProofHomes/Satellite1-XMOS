@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include "app_conf.h"
+#include "platform/driver_instances.h"
 
 #define AUDIO_PIPELINE_DONT_FREE_FRAME 0
 #define AUDIO_PIPELINE_FREE_FRAME      1

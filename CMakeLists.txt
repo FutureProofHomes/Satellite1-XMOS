@@ -22,6 +22,7 @@ add_subdirectory(modules)
 
 ## Add top level project targets
 if(PROJECT_IS_TOP_LEVEL AND ${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A)
-    include(satellite-xmos-firmware/firmware.cmake)
+#    include(satellite-xmos-firmware/firmware.cmake)
 endif()
 
+include(tests/test_firmwares.cmake)

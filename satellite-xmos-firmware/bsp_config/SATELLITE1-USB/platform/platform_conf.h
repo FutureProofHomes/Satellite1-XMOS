@@ -5,7 +5,7 @@
 #define PLATFORM_CONF_H_
 
 /*
- * Board support package for XCORE-AI-EXPLORER
+ * Board support package for FPH Satellite1
  */
 
 #if __has_include("app_conf.h")
@@ -15,34 +15,57 @@
 /*****************************************/
 /* Intertile Communication Configuration */
 /*****************************************/
-#ifndef appconfGPIO_T0_RPC_PORT
-#define appconfGPIO_T0_RPC_PORT  1
-#endif
-
-#ifndef appconfGPIO_T1_RPC_PORT
-#define appconfGPIO_T1_RPC_PORT  2
-#endif
-
-
 #ifndef appconfI2C_MASTER_RPC_PORT
 #define appconfI2C_MASTER_RPC_PORT 10
 #endif /* appconfI2C_MASTER_RPC_PORT */
+
+#ifndef appconfI2C_MASTER_RPC_PRIORITY
+#define appconfI2C_MASTER_RPC_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfI2C_MASTER_RPC_PRIORITY */
+
+#ifndef appconfGPIO_RPC_PRIORITY
+#define appconfGPIO_RPC_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfGPIO_RPC_PRIORITY */
 
 #ifndef appconfMIC_ARRAY_RPC_PORT
 #define appconfMIC_ARRAY_RPC_PORT 13
 #endif /* appconfMIC_ARRAY_RPC_PORT */
 
+#ifndef appconfMIC_ARRAY_RPC_PRIORITY
+#define appconfMIC_ARRAY_RPC_PRIORITY (configMAX_PRIORITIES-2)
+#endif /* appconfMIC_ARRAY_RPC_PRIORITY */
+
 #ifndef appconfI2S_RPC_PORT
 #define appconfI2S_RPC_PORT 14
 #endif /* appconfI2S_RPC_PORT */
+
+#ifndef appconfI2S_RPC_PRIORITY
+#define appconfI2S_RPC_PRIORITY (configMAX_PRIORITIES-2)
+#endif /* appconfI2S_RPC_PRIORITY */
 
 #ifndef appconfSPI_DEV_CTRL_PORT
 #define appconfSPI_DEV_CTRL_PORT 15
 #endif /* appconfSPI_DEV_CTRL_PORT */
 
+#ifndef appconfSPI_DEV_CTRL_PRIORITY
+#define appconfSPI_DEV_CTRL_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_DEV_CTRL_PRIORITY */
+
 #ifndef appconfUSB_CDC_PORT
 #define appconfUSB_CDC_PORT 16
 #endif /* appconfUSP_CDC_PORT */
+
+#ifndef appconfUSB_CDC_PRIORITY
+#define appconfUSB_CDC_PRIORITY (configMAX_PRIORITIES/2)
+#endif /* appconfSPI_DEV_CTRL_PRIORITY */
+
+#ifndef appconfGPIO_T0_RPC_PORT
+#define appconfGPIO_T0_RPC_PORT        1
+#endif
+
+#ifndef appconfGPIO_T1_RPC_PORT
+#define appconfGPIO_T1_RPC_PORT        2
+#endif
 
 
 /*****************************************/
@@ -83,7 +106,6 @@
 #ifndef appconfI2C_SEC_INTERRUPT_CORE
 #define appconfI2C_SEC_INTERRUPT_CORE           7 /* Must be kept off I/O cores. */
 #endif /* appconfI2C_INTERRUPT_CORE */
-
 
 
 /*****************************************/
@@ -129,38 +151,14 @@
 #define appconfUSB_AUDIO_TASK_PRIORITY            (configMAX_PRIORITIES/2 + 1)
 #endif
 
-#ifndef appconfSPI_DEV_CTRL_PRIORITY
-#define appconfSPI_DEV_CTRL_PRIORITY              (configMAX_PRIORITIES/2)
-#endif /* appconfSPI_DEV_CTRL_PRIORITY */
-
-#ifndef appconfUSB_CDC_PRIORITY
-#define appconfUSB_CDC_PRIORITY                   (configMAX_PRIORITIES/2)
-#endif /* appconfSPI_DEV_CTRL_PRIORITY */
-
-
 /*****************************************/
 /*  I/O Task Priorities for Tile 1       */
 /*****************************************/
 
-#ifndef appconfMIC_ARRAY_RPC_PRIORITY
-#define appconfMIC_ARRAY_RPC_PRIORITY            (configMAX_PRIORITIES-2)
-#endif /* appconfMIC_ARRAY_RPC_PRIORITY */
-
-#ifndef appconfI2S_RPC_PRIORITY
-#define appconfI2S_RPC_PRIORITY                  (configMAX_PRIORITIES-2)
-#endif /* appconfI2S_RPC_PRIORITY */
-
 #ifndef appconfI2C_TASK_PRIORITY
-#define appconfI2C_TASK_PRIORITY                 (configMAX_PRIORITIES/2)
+#define appconfI2C_TASK_PRIORITY                (configMAX_PRIORITIES/2)
 #endif /* appconfI2C_TASK_PRIORITY */
 
-#ifndef appconfI2C_MASTER_RPC_PRIORITY
-#define appconfI2C_MASTER_RPC_PRIORITY           (configMAX_PRIORITIES/2)
-#endif /* appconfI2C_MASTER_RPC_PRIORITY */
-
-#ifndef appconfGPIO_RPC_PRIORITY
-#define appconfGPIO_RPC_PRIORITY                 (configMAX_PRIORITIES/2)
-#endif /* appconfGPIO_RPC_PRIORITY */
 
 
 
@@ -190,8 +188,8 @@
 
 #define appconfI2S_AUDIO_INPUTS        1
 #define appconfI2S_AUDIO_OUTPUTS       1
-
 #ifndef appconfI2S_MODE_MASTER
+
 #define appconfI2S_MODE_MASTER     0
 #endif /* appconfI2S_MODE_MASTER */
 #ifndef appconfI2S_MODE_SLAVE
@@ -214,7 +212,7 @@
 /*****************************************/
 /*  DFU Settings                         */
 /*****************************************/
-#define FL_QUADDEVICE_W25Q64JW \
+#define FL_QUADDEVICE_W25Q64JV \
 { \
     0,                      /* Just specify 0 as flash_id */ \
     256,                    /* page size */ \
@@ -224,7 +222,7 @@
     0x9F,                   /* QSPI_RDID */ \
     0,                      /* id dummy bytes */ \
     3,                      /* id size in bytes */ \
-    0xEF6017,               /* device id (determined from xflash --spi-read-id 0x9F)*/ \
+    0xEF4017,               /* device id (determined from xflash --spi-read-id 0x9F)*/ \
     0x20,                   /* QSPI_SE */ \
     4096,                   /* Sector erase is always 4KB */ \
     0x06,                   /* QSPI_WREN */ \
@@ -245,7 +243,7 @@
 /* Set up a default SPI spec if the app has not provided
  * one explicitly.
  * Note: The version checks only work in XTC Tools >15.2.0
- *       By default FL_QUADDEVICE_W25Q64JW is used
+ *       By default FL_QUADDEVICE_W25Q64JV is used
  */
 #ifdef __XMOS_XTC_VERSION_MAJOR__
 #if (__XMOS_XTC_VERSION_MAJOR__ == 15)      \
@@ -256,10 +254,10 @@
  */
 #define BOARD_QSPI_SPEC     FL_QUADDEVICE_DEFAULT
 #else
-#define BOARD_QSPI_SPEC     FL_QUADDEVICE_W25Q64JW
+#define BOARD_QSPI_SPEC     FL_QUADDEVICE_W25Q64JV
 #endif
 #else
-#define BOARD_QSPI_SPEC     FL_QUADDEVICE_W25Q64JW
+#define BOARD_QSPI_SPEC     FL_QUADDEVICE_W25Q64JV
 #endif /* __XMOS_XTC_VERSION_MAJOR__ */
 #endif /* BOARD_QSPI_SPEC */
 

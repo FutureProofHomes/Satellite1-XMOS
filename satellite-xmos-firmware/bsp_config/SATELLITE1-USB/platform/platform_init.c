@@ -20,7 +20,7 @@ static void mclk_init(chanend_t other_tile_c)
 #if ON_TILE(1)
     app_pll_init();
 #endif
-#if appconfUSB_AUIDO_ENABLED && ON_TILE(USB_TILE_NO)
+#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
     adaptive_rate_adjust_init();
 #endif
 }
@@ -114,42 +114,6 @@ static void i2c_init(void)
 #endif
 }
 
-static void spi_init(void)
-{
-#if appconfDEVICE_CTRL_SPI 
-    rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
-#if ON_TILE(SPI_CLIENT_TILE_NO)
-    rtos_spi_slave_init(spi_slave_ctx,
-                        (1 << appconfSPI_IO_CORE),
-                        SPI_CLKBLK,
-                        SPI_MODE_3,
-                        PORT_SPI_SCLK,
-                        PORT_SPI_MOSI,
-                        PORT_SPI_MISO,
-                        PORT_SPI_CS);
-    
-    device_control_init(device_control_spi_ctx,
-                        DEVICE_CONTROL_HOST_MODE,
-                        3, //number of servicers
-                        client_intertile_ctx,
-                        1); 
-    
-    device_control_start(device_control_spi_ctx,
-                         appconfSPI_DEV_CTRL_PORT,
-                         -1);
-#else
-    device_control_init(device_control_spi_ctx,
-                        DEVICE_CONTROL_CLIENT_MODE,
-                        0,
-                        client_intertile_ctx,
-                        1); 
-    
-    device_control_start(device_control_spi_ctx,
-                         appconfSPI_DEV_CTRL_PORT,
-                         appconfSPI_DEV_CTRL_PRIORITY);
-#endif
-#endif
-}
 
 static void mics_init(void)
 {
@@ -180,17 +144,11 @@ static void i2s_init(void)
 #if ON_TILE(I2S_TILE_NO)
     rtos_intertile_t *client_intertile_ctx[1] = {intertile_ctx};
     port_t p_i2s_dout[appconfI2S_AUDIO_OUTPUTS] = {
-#if appconfI2S_ESP_ENABLED
-           PORT_I2S_ESP_DATA_OUT,
-#endif            
-           PORT_I2S_DAC_DATA
+//           PORT_I2S_DOUT1,
+           PORT_I2S_DOUT2
     };
     port_t p_i2s_din[appconfI2S_AUDIO_INPUTS] = {
-#if appconfI2S_ESP_ENABLED
-           PORT_I2S_ESP_DATA_IN
-#else
-           PORT_I2S_ADC_DATA
-#endif            
+           PORT_I2S_DIN
     };
 
     rtos_i2s_master_init(
@@ -234,36 +192,6 @@ static void ws2812_init(void)
 }
 
 
-static void servicer_init(void)
-{
-#if appconfDEVICE_CTRL_SPI 
-#if ON_TILE(0)
-    static device_control_gpio_ports_t gpio_res_info[GPIO_CONTROLLER_MAX_RESOURCES];      
-    gpio_res_info[0].resource_idx = RESOURCE_IN_A;
-    gpio_res_info[0].writeable = false;
-    gpio_res_info[0].port_id = PORT_BUTTONS;
-    gpio_res_info[0].bit_mask = 3;
-    gpio_res_info[0].bit_shift = 0;
-    gpio_res_info[0].status_register = 1;
-    
-    gpio_res_info[1].resource_idx = RESOURCE_OUT_A;
-    gpio_res_info[1].writeable = true;
-    gpio_res_info[1].port_id = PORT_LEDS;
-    gpio_res_info[1].bit_mask  = 7;
-    gpio_res_info[1].bit_shift = 0;
-    gpio_res_info[1].status_register = 3;
-
-    gpio_servicer_init( device_control_gpio_ctx,
-                        gpio_ctx_t0,
-                        gpio_res_info,
-                        2 );
-
-    debug_printf("Number of ports after init: %d\n", device_control_gpio_ctx->num_of_ports);
-#endif
-#endif
-}
-
-
 static void usb_cdc_init(){
 #if appconfUSB_CDC_ENABLED
 #if ON_TILE(USB_TILE_NO)
@@ -286,43 +214,24 @@ void platform_init(chanend_t other_tile_c)
     gpio_init();
     flash_init();
     i2c_init();
-    spi_init();
     mics_init();
     i2s_init();
     usb_init();
-    ws2812_init();
-    servicer_init();
+    //ws2812_init();
+    //servicer_init();
     usb_cdc_init();    
 }
 
-#if TEST_FRAMEWORK
 void platform_test_init(chanend_t other_tile_c)
 {
     rtos_intertile_init(intertile_ctx, other_tile_c);
-#if appconfUSB_AUDIO_ENABLED    
     rtos_intertile_init(intertile_usb_audio_ctx, other_tile_c);
-#endif    
-#if appconfI2S_ENABLED || appconfMICS_ENABLED
     mclk_init(other_tile_c);
-#endif
-    gpio_init();
-#if appconfUSB_DFU_ENABLED
-    flash_init();
-#endif
-#if appconfMICS_ENABLED
     mics_init();
-#endif
-#if appconfI2S_ENABLED
-    i2c_init();    
-    i2s_init();
-#endif
-#if appconfUSB_ENABLED    
+    flash_init();
     usb_init();
-#endif
-#if appconfUSB_CDC_ENABLED    
     usb_cdc_init();
-#endif    
     
-
+    gpio_init();
+    i2s_init();
 }
-#endif

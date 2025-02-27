@@ -34,3 +34,22 @@ target_compile_definitions(sln_voice_app_ffva_board_support_dac_dac3103
 
 ## Create an alias
 add_library(sln_voice::app::ffva::dac::dac3101 ALIAS sln_voice_app_ffva_board_support_dac_dac3103)
+
+
+## Create custom board targets for dacs
+add_library(sln_voice_app_ffva_board_support_dac_pcm5122 INTERFACE)
+target_sources(sln_voice_app_ffva_board_support_dac_pcm5122
+    INTERFACE
+        ${CMAKE_CURRENT_LIST_DIR}/pcm5122/pcm5122.c
+)
+target_include_directories(sln_voice_app_ffva_board_support_dac_pcm5122
+    INTERFACE
+        ${CMAKE_CURRENT_LIST_DIR}/pcm5122
+)
+target_compile_definitions(sln_voice_app_ffva_board_support_dac_pcm5122
+    INTERFACE
+        PCM5122=1
+)
+
+## Create an alias
+add_library(sln_voice::app::ffva::dac::pcm5122 ALIAS sln_voice_app_ffva_board_support_dac_pcm5122)
