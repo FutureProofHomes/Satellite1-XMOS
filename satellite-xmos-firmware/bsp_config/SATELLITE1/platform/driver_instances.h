@@ -11,6 +11,8 @@
 #include "rtos_qspi_flash.h"
 #include "rtos_dfu_image.h"
 #include "rtos_spi_slave.h"
+
+#include <platform.h>
 #include "rtos_ws2812.h"
 #include "device_control.h"
 #include "gpio/gpio_servicer.h"

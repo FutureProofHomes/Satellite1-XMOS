@@ -72,6 +72,17 @@ git clone https://github.com/FutureProofHomes/Satellite1-XMOS.git
 cd Satellite1-XMOS
 git submodule update --init --recursive
 ```
+
+### Setup XTC-Tools
+Download XTX-15.3.0 from https://www.xmos.com/software-tools/
+
+On Mac, the original software requires installing into `/Applications`. If you want to install into another directory, change `XMOS_TOOL_PATH` in `${INSTALL_DIR}/SetEnv.sh` to :
+```bash
+export XMOS_TOOL_PATH=${0:A:h};
+```
+
+
+
 ### Creating factory and upgrade images
 
 On Linux and Mac run:

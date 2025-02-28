@@ -61,3 +61,25 @@ function export_ci_build_vars {
         export CI_BUILD_TOOL_ARGS="-j"
     fi
 }
+
+# Function to set up Python environment and install dependencies
+function setup_python_env() {
+    local root=$1
+    local venv_dir="${root}/build_venv"
+    local req_file="${root}/requirements.txt"
+    
+    # Check if virtual environment exists, if not, create it
+    if [ ! -d "${venv_dir}" ]; then
+        echo "Creating Python virtual environment in ${venv_dir}..."
+        python3 -m venv "${venv_dir}"
+        # Activate the virtual environment
+        echo "Activating virtual environment in ${venv_dir}..."
+        source "${venv_dir}/bin/activate"
+        pip install --no-cache-dir xmos_ai_tools
+        echo "Python environment setup complete."
+    else 
+        # Activate the virtual environment
+        echo "Activating virtual environment in ${venv_dir}..."
+        source "${venv_dir}/bin/activate"
+    fi
+}
