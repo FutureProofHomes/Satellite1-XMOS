@@ -71,7 +71,6 @@ volatile bool spkr_interface_open = false;
 static uint32_t prev_n_bytes_received = 0;
 static bool host_streaming_out = false;
 
-static SemaphoreHandle_t to_host_stream_lock_;
 static StreamBufferHandle_t samples_to_host_stream_buf;
 static StreamBufferHandle_t samples_from_host_stream_buf;
 static StreamBufferHandle_t rx_buffer;
@@ -881,13 +880,5 @@ void usb_audio_init(rtos_intertile_t *intertile_ctx,
 
     xTaskCreate((TaskFunction_t) usb_audio_out_task, "usb_audio_out_task", portTASK_STACK_DEPTH(usb_audio_out_task), intertile_ctx, priority, &usb_audio_out_task_handle);
 }
-
-void usb_audio_start()
-{
-    to_host_stream_lock_ = xSemaphoreCreateBinary();
-    xSemaphoreGive(to_host_stream_lock_);
-}
-
-
 
 #endif /* CFG_TUD_AUDIO */

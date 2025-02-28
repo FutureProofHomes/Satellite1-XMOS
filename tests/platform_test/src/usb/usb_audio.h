@@ -32,7 +32,7 @@ void usb_audio_recv(rtos_intertile_t *intertile_ctx,
                     size_t num_chans);
 
 void usb_audio_init(rtos_intertile_t *intertile_ctx, unsigned priority);
-void usb_audio_start();
+
 
 #endif
 
