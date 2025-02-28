@@ -30,7 +30,7 @@ on:
         default: "dev"
 
 env:
-  XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:v3.0"
+  XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:v3.1"
   HOST_APPS_ARTIFACT_NAME: "host_apps"
   FIRMWARE_ARTIFACT_NAME: "satellite1_firmware"
 
