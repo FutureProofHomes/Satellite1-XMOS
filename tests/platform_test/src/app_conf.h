@@ -41,6 +41,15 @@
 #define appconfUSB_CDC_PORT           16
 
 
+/* Audio Pipelines */
+/**
+ * A positive delay will delay mics
+ * A negative delay will delay ref
+ */
+#define appconfINPUT_SAMPLES_MIC_DELAY_MS       -50
+
+
+
 /* Test case timeouts */
 #define SOF_TIMEOUT_MS                          1000
 

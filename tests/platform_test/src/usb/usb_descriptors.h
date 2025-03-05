@@ -20,27 +20,24 @@
 
 
 enum {
-    ITF_NUM_DFU_MODE = 0,
-#if CFG_TUD_CDC
-    ITF_NUM_CDC,
-    ITF_NUM_CDC_DATA,
-#endif
-#if CFG_TUD_AUDIO
-    ITF_NUM_AUDIO_CONTROL,
+    ITF_NUM_AUDIO_CONTROL = 0,
 #if AUDIO_OUTPUT_ENABLED    
     ITF_NUM_AUDIO_STREAMING_SPK,
 #endif
 #if AUDIO_INPUT_ENABLED
     ITF_NUM_AUDIO_STREAMING_MIC,
-#endif    
+#endif
+ITF_NUM_DFU_MODE,
+#if CFG_TUD_CDC
+    ITF_NUM_CDC,
+    ITF_NUM_CDC_DATA,
 #endif    
     ITF_NUM_TOTAL
 };
 
 
 // Unit numbers are arbitrary selected
-#define UAC2_ENTITY_SPK_CLOCK           0x01
-#define UAC2_ENTITY_MIC_CLOCK           0x02
+#define UAC2_ENTITY_CLOCK               0x01
 // Speaker path
 #define UAC2_ENTITY_SPK_INPUT_TERMINAL  0x11
 #define UAC2_ENTITY_SPK_FEATURE_UNIT    0x12

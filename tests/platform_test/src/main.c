@@ -102,47 +102,8 @@ void speaker_pipeline_input(void *input_app_data,
                 ch_count);
         }
 #endif
-
-#if appconfUSE_SPK_PIPELINE_AS_REF
-    void* frame_data;
-    frame_data = pvPortMalloc( appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ));
-
-    // down sample reference signal to 16kHz if needed 
-#if appconfAUDIO_SPK_PL_SR_FACTOR == 3
-        static int64_t sum[2];
-        static int32_t src_data[2][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned (8)));        
-        int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfAUDIO_PIPELINE_CHANNELS];    
-        int32_t* in_ptr = (int32_t*)input_audio_frames;    
-#if 0        
-        for( int frame=0; frame < frame_count; frame +=3 ){
-            sum[0] = src_ds3_voice_add_sample(0, src_data[0][0], src_ff3v_fir_coefs[0], *in_ptr);
-            sum[1] = src_ds3_voice_add_sample(0, src_data[1][0], src_ff3v_fir_coefs[0], *(in_ptr+frame_count));
-            in_ptr++;
-            sum[0] = src_ds3_voice_add_sample(sum[0], src_data[0][1], src_ff3v_fir_coefs[1], *in_ptr);
-            sum[1] = src_ds3_voice_add_sample(sum[1], src_data[1][1], src_ff3v_fir_coefs[1], *(in_ptr+frame_count));
-            in_ptr++;
-            tmp_out[frame/3][0] = src_ds3_voice_add_final_sample(sum[0], src_data[0][2], src_ff3v_fir_coefs[2], *in_ptr);
-            tmp_out[frame/3][1] = src_ds3_voice_add_final_sample(sum[1], src_data[1][2], src_ff3v_fir_coefs[2], *(in_ptr+frame_count));
-            in_ptr++;
-        }
-        memcpy( frame_data, tmp_out, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
 #endif
-#else
-        int32_t *in_ptr  = (int32_t *)input_audio_frames;
-        int32_t *out_ptr = (int32_t *)frame_data;
-        for (int i=0; i<frame_count; i++) {
-            /* ref is first */
-            *out_ptr = *in_ptr;
-            *(++out_ptr) = *(in_ptr+frame_count);
-            in_ptr++;
-            out_ptr++;
-        }
-#endif
-    // send to microphone pipeline as reference
-    //rtos_osal_free(frame_data);
-    (void) rtos_osal_queue_send(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
-#endif
-#endif    
+  
 }
 
 
@@ -171,7 +132,49 @@ int speaker_pipeline_output(void *output_app_data,
         frame_count,
         portMAX_DELAY);
 #endif
+
+
+#if appconfUSE_SPK_PIPELINE_AS_REF
+    void* frame_data;
+    frame_data = pvPortMalloc( appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ));
+
+    // down sample reference signal to 16kHz if needed 
+#if appconfAUDIO_SPK_PL_SR_FACTOR == 3
+        static int64_t sum[2];
+        static int32_t src_data[2][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned (8)));        
+        int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfAUDIO_PIPELINE_CHANNELS];    
+        int32_t* in_ptr = (int32_t*)input_audio_frames;    
+#if 0        
+        for( int frame=0; frame < frame_count; frame +=3 ){
+            sum[0] = src_ds3_voice_add_sample(0, src_data[0][0], src_ff3v_fir_coefs[0], *in_ptr);
+            sum[1] = src_ds3_voice_add_sample(0, src_data[1][0], src_ff3v_fir_coefs[0], *(in_ptr+frame_count));
+            in_ptr++;
+            sum[0] = src_ds3_voice_add_sample(sum[0], src_data[0][1], src_ff3v_fir_coefs[1], *in_ptr);
+            sum[1] = src_ds3_voice_add_sample(sum[1], src_data[1][1], src_ff3v_fir_coefs[1], *(in_ptr+frame_count));
+            in_ptr++;
+            tmp_out[frame/3][0] = src_ds3_voice_add_final_sample(sum[0], src_data[0][2], src_ff3v_fir_coefs[2], *in_ptr);
+            tmp_out[frame/3][1] = src_ds3_voice_add_final_sample(sum[1], src_data[1][2], src_ff3v_fir_coefs[2], *(in_ptr+frame_count));
+            in_ptr++;
+        }
+        memcpy( frame_data, tmp_out, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
 #endif
+#else
+        int32_t *in_ptr  = (int32_t *)output_audio_frames;
+        int32_t *out_ptr = (int32_t *)frame_data;
+        for (int i=0; i<frame_count; i++) {
+            /* ref is first */
+            *out_ptr = *in_ptr;
+            *(++out_ptr) = *(in_ptr+frame_count);
+            in_ptr++;
+            out_ptr++;
+        }
+#endif
+    // send to microphone pipeline as reference
+    //rtos_osal_free(frame_data);
+    (void) rtos_osal_queue_send(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
+#endif  
+#endif
+
     return AUDIO_PIPELINE_FREE_FRAME;
 }
 
@@ -205,16 +208,19 @@ void audio_pipeline_input(void *input_app_data,
     #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
         //read the speaker pipeline output as reference
         void *frame_data;
-        (void) rtos_osal_queue_receive(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
-        int32_t *tmpptr = (int32_t *)input_audio_frames;
-        int32_t *refptr = (int32_t *)frame_data;
-
-        for (int i=0; i<frame_count; i++) {
-            /* ref is first */
-            *(tmpptr + i) = *(refptr++);
-            *(tmpptr + i + frame_count) = *(refptr++);
+        if( rtos_osal_queue_receive(ref_input_queue, &frame_data, 0) == RTOS_OSAL_SUCCESS )
+        {
+            int32_t *tmpptr = (int32_t *)input_audio_frames;
+            int32_t *refptr = (int32_t *)frame_data;
+    
+            for (int i=0; i<frame_count; i++) {
+                /* ref is first */
+                *(tmpptr + i) = *(refptr++);
+                *(tmpptr + i + frame_count) = *(refptr++);
+            }
+            rtos_osal_free(frame_data);
         }
-        rtos_osal_free(frame_data);
+       
     #endif
 #endif
 

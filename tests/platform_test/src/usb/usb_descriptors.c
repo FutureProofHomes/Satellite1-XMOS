@@ -39,12 +39,12 @@
  tusb_desc_device_t const desc_device = {
      .bLength            = sizeof(tusb_desc_device_t),
      .bDescriptorType    = TUSB_DESC_DEVICE,
-     .bcdUSB              = 0x0200,   
+     .bcdUSB              = 0x0201,   
      // Use Interface Association Descriptor (IAD) for CDC
      // As required by USB Specs IAD's subclass must be common class (2) and protocol must be IAD (1)
-     .bDeviceClass       = TUSB_CLASS_MISC,
-     .bDeviceSubClass    = MISC_SUBCLASS_COMMON,
-     .bDeviceProtocol    = MISC_PROTOCOL_IAD,
+     .bDeviceClass       = 0, //TUSB_CLASS_MISC,
+     .bDeviceSubClass    = 0, //MISC_SUBCLASS_COMMON,
+     .bDeviceProtocol    = 0, //MISC_PROTOCOL_IAD,
  
      .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
  
@@ -63,14 +63,8 @@
  // Application return pointer to descriptor
  uint8_t const* tud_descriptor_device_cb(void)
  {
-     return (uint8_t const *) &desc_device;
+    return (uint8_t const*) &desc_device;
  }
-
-
- //--------------------------------------------------------------------+
- // MSOS 2.0 Descriptor
- //--------------------------------------------------------------------+
-
 
 // MSOS 2.0 descriptor copied from the examples in https://github.com/xmos/xcore_iot/blob/develop/test/usb/tinyusb_demos/webusb_serial/src/usb_descriptors.c#L152
 // and https://github.com/pololu/libusbp/blob/master/test/firmware/wixel/main.c#L460
@@ -155,8 +149,7 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
 // DFU functional attributes
 #define DFU_FUNC_ATTRS (DFU_ATTR_CAN_UPLOAD | DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH | DFU_ATTR_MANIFESTATION_TOLERANT) 
 
-#define EPNUM_AUDIO_OUT     0x01
-#define EPNUM_AUDIO_IN      0x02 
+#define EPNUM_AUDIO         0x01
 #define EPNUM_CDC_NOTIF     0x83
 #define EPNUM_CDC_OUT       0x04
 #define EPNUM_CDC_IN        0x84
@@ -173,6 +166,9 @@ const size_t uac2_interface_descriptors_length =
 #endif
 #if AUDIO_INPUT_ENABLED
         + TUD_AUDIO_DESC_INPUT_TERM_LEN
+#if 0
+        + TUD_AUDIO_DESC_FEATURE_UNIT_ONE_CHANNEL_LEN
+#endif
         + TUD_AUDIO_DESC_OUTPUT_TERM_LEN
 #endif
         ;
@@ -218,14 +214,6 @@ uint8_t const desc_configuration[] = {
      // Config number, interface count, string index, total length, attribute, power in mA
      TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 400),
      
-     // Interface number, Alternate count, starting string index, attributes, detach timeout, transfer size
-     TUD_DFU_DESCRIPTOR(ITF_NUM_DFU_MODE, DFU_ALT_COUNT, DFU_INTERFACE_STRING_INDEX, DFU_FUNC_ATTRS, 1000, CFG_TUD_DFU_XFER_BUFSIZE),
-
-#if CFG_TUD_CDC     
-     //CDC Interface number, string index, EP notification address and size, EP data address (out, in) and size.
-     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, CDC_STRING_INDEX, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, CFG_TUD_CDC_EP_BUFSIZE),
-#endif    
-
 #if CFG_TUD_AUDIO
     /* Standard Interface Association Descriptor (IAD) */
     TUD_AUDIO_DESC_IAD(/*_firstitfs*/ ITF_NUM_AUDIO_CONTROL, /*_nitfs*/ 1+AUDIO_OUTPUT_ENABLED+AUDIO_INPUT_ENABLED, /*_stridx*/ 0x00),
@@ -233,24 +221,30 @@ uint8_t const desc_configuration[] = {
     /* AudioControl (AC) */
     /* Standard AC Interface Descriptor(4.7.1) */
     TUD_AUDIO_DESC_STD_AC(/*_itfnum*/ ITF_NUM_AUDIO_CONTROL, /*_nEPs*/ 0x00, /*_stridx*/ AUDIO_INTERFACE_STRING_INDEX),
-    /* Class-Specific AC Interface Header Descriptor(4.7.2) */
-    TUD_AUDIO_DESC_CS_AC(/*_bcdADC*/ 0x0200, /*_category*/ AUDIO_FUNC_OTHER, /*_totallen*/ uac2_interface_descriptors_length, /*_ctrl*/ AUDIO_CS_AS_INTERFACE_CTRL_LATENCY_POS),
     
-#if AUDIO_OUTPUT_ENABLED
+    /* Class-Specific AC Interface Header Descriptor(4.7.2) */
+    
+    TUD_AUDIO_DESC_CS_AC(/*_bcdADC*/ 0x0200, /*_category*/ AUDIO_FUNC_OTHER, /*_totallen*/ uac2_interface_descriptors_length, /*_ctrl*/ AUDIO_CS_AS_INTERFACE_CTRL_LATENCY_POS),
     /* Clock Source Descriptor(4.7.2.1) */
-    TUD_AUDIO_DESC_CLK_SRC(/*_clkid*/ UAC2_ENTITY_SPK_CLOCK, /*_attr*/ AUDIO_CLOCK_SOURCE_ATT_INT_PRO_CLK, /*_ctrl*/ (AUDIO_CTRL_R << AUDIO_CLOCK_SOURCE_CTRL_CLK_VAL_POS) | (AUDIO_CTRL_R << AUDIO_CLOCK_SOURCE_CTRL_CLK_FRQ_POS), /*_assocTerm*/ 0x00,  /*_stridx*/ 0x00),    
+    /* _attr: internal clock with programmable frequency, internal clock is free running (D2 = 0b0) */
+    TUD_AUDIO_DESC_CLK_SRC(/*_clkid*/ UAC2_ENTITY_CLOCK, /*_attr*/ AUDIO_CLOCK_SOURCE_ATT_INT_PRO_CLK, /*_ctrl*/ (AUDIO_CTRL_R << AUDIO_CLOCK_SOURCE_CTRL_CLK_VAL_POS) | (AUDIO_CTRL_R << AUDIO_CLOCK_SOURCE_CTRL_CLK_FRQ_POS), /*_assocTerm*/ 0x00,  /*_stridx*/ 0x00),    
+
+#if AUDIO_OUTPUT_ENABLED
     /* Input Terminal Descriptor(4.7.2.4) */
-    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTITY_SPK_INPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_SPK_CLOCK, /*_nchannelslogical*/ CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
+    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTITY_SPK_INPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_nchannelslogical*/ CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
     /* Output Terminal Descriptor(4.7.2.5) */
-    TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_SPK_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_OUT_GENERIC_SPEAKER, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTITY_SPK_INPUT_TERMINAL, /*_clkid*/ UAC2_ENTITY_SPK_CLOCK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
+    TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_SPK_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_OUT_GENERIC_SPEAKER, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTITY_SPK_INPUT_TERMINAL, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
 #endif
 #if AUDIO_INPUT_ENABLED
-    /* Clock Source Descriptor(4.7.2.1) */
-    //TUD_AUDIO_DESC_CLK_SRC(/*_clkid*/ UAC2_ENTITY_MIC_CLOCK, /*_attr*/ AUDIO_CLOCK_SOURCE_ATT_INT_PRO_CLK, /*_ctrl*/ (AUDIO_CTRL_R << AUDIO_CLOCK_SOURCE_CTRL_CLK_VAL_POS) | (AUDIO_CTRL_R << AUDIO_CLOCK_SOURCE_CTRL_CLK_FRQ_POS), /*_assocTerm*/ 0x00,  /*_stridx*/ 0x00),    
     /* Input Terminal Descriptor(4.7.2.4) */
-    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_IN_GENERIC_MIC, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_SPK_CLOCK, /*_nchannelslogical*/ CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
+    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_IN_GENERIC_MIC, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_nchannelslogical*/ CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
+    #if 0
+    /* Feature Unit Descriptor(4.7.2.8) */
+    TUD_AUDIO_DESC_FEATURE_UNIT_ONE_CHANNEL(/*_unitid*/ UAC2_ENTITY_MIC_FEATURE_UNIT, /*_srcid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_ctrlch0master*/ AUDIO_CTRL_RW << AUDIO_FEATURE_UNIT_CTRL_MUTE_POS | AUDIO_CTRL_RW << AUDIO_FEATURE_UNIT_CTRL_VOLUME_POS, /*_ctrlch1*/ AUDIO_CTRL_RW << AUDIO_FEATURE_UNIT_CTRL_MUTE_POS | AUDIO_CTRL_RW << AUDIO_FEATURE_UNIT_CTRL_VOLUME_POS, /*_stridx*/ 0x00),
+    #endif
+
     /* Output Terminal Descriptor(4.7.2.5) */
-    TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_clkid*/ UAC2_ENTITY_SPK_CLOCK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
+    TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_stridx*/ 0x00),
 #endif
 
 #if AUDIO_OUTPUT_ENABLED
@@ -267,7 +261,7 @@ uint8_t const desc_configuration[] = {
     /* Type I Format Type Descriptor(2.3.1.6 - Audio Formats) */
     TUD_AUDIO_DESC_TYPE_I_FORMAT(CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX, CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX*8),
     /* Standard AS Isochronous Audio Data Endpoint Descriptor(4.10.1.1) */
-    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ EPNUM_AUDIO_OUT, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_ADAPTIVE | TUSB_ISO_EP_ATT_IMPLICIT_FB /*| TUSB_ISO_EP_ATT_DATA*/), /*_maxEPsize*/ CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ, /*_interval*/ (CFG_TUSB_RHPORT0_MODE & OPT_MODE_HIGH_SPEED) ? 0x04 : 0x01),
+    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ EPNUM_AUDIO, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_ADAPTIVE | TUSB_ISO_EP_ATT_IMPLICIT_FB /*| TUSB_ISO_EP_ATT_DATA*/), /*_maxEPsize*/ CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ, /*_interval*/ (CFG_TUSB_RHPORT0_MODE & OPT_MODE_HIGH_SPEED) ? 0x04 : 0x01),
     /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.10.1.2) */
     TUD_AUDIO_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO_CS_AS_ISO_DATA_EP_ATT_NON_MAX_PACKETS_OK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_lockdelayunit*/ AUDIO_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_MILLISEC, /*_lockdelay*/ 0x0003),
 #endif
@@ -287,11 +281,18 @@ uint8_t const desc_configuration[] = {
     /* Type I Format Type Descriptor(2.3.1.6 - Audio Formats) */
     TUD_AUDIO_DESC_TYPE_I_FORMAT(CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX, CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX*8),
     /* Standard AS Isochronous Audio Data Endpoint Descriptor(4.10.1.1) */
-    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ 0x80 | EPNUM_AUDIO_IN, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_ADAPTIVE /*| TUSB_ISO_EP_ATT_IMPLICIT_FB */ | TUSB_ISO_EP_ATT_DATA), /*_maxEPsize*/ CFG_TUD_AUDIO_FUNC_1_EP_IN_SZ, /*_interval*/ (CFG_TUSB_RHPORT0_MODE & OPT_MODE_HIGH_SPEED) ? 0x04 : 0x01),
+    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ 0x80 | EPNUM_AUDIO, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_ADAPTIVE /*| TUSB_ISO_EP_ATT_IMPLICIT_FB */ | TUSB_ISO_EP_ATT_DATA), /*_maxEPsize*/ CFG_TUD_AUDIO_FUNC_1_EP_IN_SZ, /*_interval*/ (CFG_TUSB_RHPORT0_MODE & OPT_MODE_HIGH_SPEED) ? 0x04 : 0x01),
     /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.10.1.2) */
     TUD_AUDIO_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO_CS_AS_ISO_DATA_EP_ATT_NON_MAX_PACKETS_OK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_lockdelayunit*/ AUDIO_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_MILLISEC, /*_lockdelay*/ 0x0003),
 #endif
 #endif     
+     // Interface number, Alternate count, starting string index, attributes, detach timeout, transfer size
+     TUD_DFU_DESCRIPTOR(ITF_NUM_DFU_MODE, DFU_ALT_COUNT, DFU_INTERFACE_STRING_INDEX, DFU_FUNC_ATTRS, 1000, CFG_TUD_DFU_XFER_BUFSIZE),
+
+#if CFG_TUD_CDC     
+     //CDC Interface number, string index, EP notification address and size, EP data address (out, in) and size.
+     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, CDC_STRING_INDEX, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, CFG_TUD_CDC_EP_BUFSIZE),
+#endif    
      
  };
  

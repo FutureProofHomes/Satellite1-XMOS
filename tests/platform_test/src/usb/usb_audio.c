@@ -51,19 +51,18 @@
 //#include "audio_pipeline.h"
 
 #include "app_conf.h"
+#include "usb_cdc.h"
 
 // Audio controls
 // Current states
 bool mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX + 1]; 						// +1 for master channel 0
-uint16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX + 1]; 		        // +1 for master channel 0
-uint32_t sampFreqSpk;
-uint32_t sampFreqMic;
+uint16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX + 1]; 					// +1 for master channel 0
+uint32_t sampFreq;
 uint8_t clkValid;
 
 // Range states
-audio_control_range_2_n_t(1) volumeRng[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX+1];   // Volume range state
-audio_control_range_4_n_t(1) sampleFreqRng; 					             	// Sample frequency range state
-audio_control_range_4_n_t(1) sampleFreqRngMics;
+audio_control_range_2_n_t(1) volumeRng[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX+1]; 			// Volume range state
+audio_control_range_4_n_t(1) sampleFreqRng; 						// Sample frequency range state
 
 volatile bool mic_interface_open = false;
 volatile bool spkr_interface_open = false;
@@ -76,11 +75,9 @@ static StreamBufferHandle_t samples_from_host_stream_buf;
 static StreamBufferHandle_t rx_buffer;
 static TaskHandle_t usb_audio_out_task_handle;
 
-// (appconfUSB_AUDIO_SAMPLE_RATE / appconfAUDIO_PIPELINE_SAMPLE_RATE)
-// do we need separate ones for mics and speakers?
-#define RATE_MULTIPLIER 1 
+#define RATE_MULTIPLIER (appconfUSB_AUDIO_SAMPLE_RATE / appconfAUDIO_PIPELINE_SAMPLE_RATE)
 
-#define USB_FRAMES_PER_VFE_FRAME (appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE / (appconfUSB_SPK_SAMPLE_RATE / 1000))
+#define USB_FRAMES_PER_VFE_FRAME (appconfAUDIO_PIPELINE_FRAME_ADVANCE / (appconfAUDIO_PIPELINE_SAMPLE_RATE / 1000))
 
 //--------------------------------------------------------------------+
 // Device callbacks
@@ -315,7 +312,7 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport,
 
             mute[channelNum] = ((audio_control_cur_1_t*) pBuff)->bCur;
 
-            TU_LOG2("    Set Mute: %d of channel: %u\r\n", mute[channelNum], channelNum);
+            cdc_printf("    Set Mute: %d of channel: %u\r\n", mute[channelNum], channelNum);
 
             return true;
 
@@ -325,7 +322,7 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport,
 
             volume[channelNum] = ((audio_control_cur_2_t*) pBuff)->bCur;
 
-            TU_LOG2("    Set Volume: %d dB of channel: %u\r\n", volume[channelNum], channelNum);
+            cdc_printf("    Set Volume: %d dB of channel: %u\r\n", volume[channelNum], channelNum);
 
             return true;
 
@@ -420,7 +417,7 @@ bool tud_audio_get_req_entity_cb(uint8_t rhport,
         case AUDIO_FU_CTRL_MUTE:
             // Audio control mute cur parameter block consists of only one byte - we thus can send it right away
             // There does not exist a range parameter block for mute
-            TU_LOG2("    Get Mute of channel: %u\r\n", channelNum);
+            cdc_printf("    Get Mute of channel: %u\r\n", channelNum);
             return tud_control_xfer(rhport, p_request, &mute[channelNum], 1);
 
         case AUDIO_FU_CTRL_VOLUME:
@@ -456,7 +453,7 @@ bool tud_audio_get_req_entity_cb(uint8_t rhport,
     }
 
     // Clock Source unit
-    if (entityID == UAC2_ENTITY_SPK_CLOCK) {
+    if (entityID == UAC2_ENTITY_CLOCK) {
         switch (ctrlSel) {
         case AUDIO_CS_CTRL_SAM_FREQ:
 
@@ -465,45 +462,11 @@ bool tud_audio_get_req_entity_cb(uint8_t rhport,
             switch (p_request->bRequest) {
             case AUDIO_CS_REQ_CUR:
                 TU_LOG2("    Get Sample Freq.\r\n");
-                return tud_control_xfer(rhport, p_request, &sampFreqSpk, sizeof(sampFreqSpk));
+                return tud_control_xfer(rhport, p_request, &sampFreq, sizeof(sampFreq));
             case AUDIO_CS_REQ_RANGE:
                 TU_LOG2("    Get Sample Freq. range\r\n");
                 //((tusb_control_request_t *)p_request)->wLength = 14;
                 return tud_control_xfer(rhport, p_request, &sampleFreqRng, sizeof(sampleFreqRng));
-
-                // Unknown/Unsupported control
-            default:
-                TU_BREAKPOINT();
-                return false;
-            }
-
-        case AUDIO_CS_CTRL_CLK_VALID:
-            // Only cur attribute exists for this request
-            TU_LOG2("    Get Sample Freq. valid\r\n");
-            return tud_control_xfer(rhport, p_request, &clkValid, sizeof(clkValid));
-
-            // Unknown/Unsupported control
-        default:
-            TU_BREAKPOINT();
-            return false;
-        }
-    }
-    
-    // Clock Source unit
-    if (entityID == UAC2_ENTITY_MIC_CLOCK) {
-        switch (ctrlSel) {
-        case AUDIO_CS_CTRL_SAM_FREQ:
-
-            // channelNum is always zero in this case
-
-            switch (p_request->bRequest) {
-            case AUDIO_CS_REQ_CUR:
-                TU_LOG2("    Get Sample Freq.\r\n");
-                return tud_control_xfer(rhport, p_request, &sampFreqMic, sizeof(sampFreqMic));
-            case AUDIO_CS_REQ_RANGE:
-                TU_LOG2("    Get Sample Freq. range\r\n");
-                //((tusb_control_request_t *)p_request)->wLength = 14;
-                return tud_control_xfer(rhport, p_request, &sampleFreqRngMics, sizeof(sampleFreqRngMics));
 
                 // Unknown/Unsupported control
             default:
@@ -846,19 +809,13 @@ void usb_audio_init(rtos_intertile_t *intertile_ctx,
                     unsigned priority)
 {
     // Init values
-    sampFreqSpk = appconfUSB_AUDIO_SAMPLE_RATE;
-    sampFreqMic = appconfUSB_MICS_SAMPLE_RATE;
+    sampFreq = appconfUSB_AUDIO_SAMPLE_RATE;
     clkValid = 1;
 
     sampleFreqRng.wNumSubRanges = 1;
     sampleFreqRng.subrange[0].bMin = appconfUSB_AUDIO_SAMPLE_RATE;
     sampleFreqRng.subrange[0].bMax = appconfUSB_AUDIO_SAMPLE_RATE;
     sampleFreqRng.subrange[0].bRes = 0;
-
-    sampleFreqRngMics.wNumSubRanges = 1;
-    sampleFreqRngMics.subrange[0].bMin = appconfUSB_MICS_SAMPLE_RATE;
-    sampleFreqRngMics.subrange[0].bMax = appconfUSB_MICS_SAMPLE_RATE;
-    sampleFreqRngMics.subrange[0].bRes = 0;
 
     rx_buffer = xStreamBufferCreate(2 * CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ, 0);
 

@@ -115,7 +115,7 @@ extern const uint16_t tud_audio_desc_lengths[CFG_TUD_AUDIO];
 #define CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX          2
 #define CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX          2
 
-#define appconfUSB_AUDIO_MODE appconfUSB_AUDIO_RELEASE 
+#define appconfUSB_AUDIO_MODE 1 
 #if appconfUSB_AUDIO_MODE == appconfUSB_AUDIO_RELEASE
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX                  2
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX                  2
@@ -132,7 +132,7 @@ extern const uint16_t tud_audio_desc_lengths[CFG_TUD_AUDIO];
 // In or any other mode, we do not wait for input AEC reference channels.
 //  The reference will be all zeros if no AEC reference is received.
 //  This is the typical mode.
-#define USB_AUDIO_RECV_DELAY                                portMAX_DELAY
+#define USB_AUDIO_RECV_DELAY                                0
 #endif
 
 // EP and buffer sizes
