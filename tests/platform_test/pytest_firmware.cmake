@@ -25,6 +25,11 @@ set(APP_INCLUDES
 include(${XMOS_FIRMWARE_ROOT_PATH}/satellite-xmos-firmware/bsp_config/bsp_config.cmake)
 add_subdirectory(${XMOS_FIRMWARE_ROOT_PATH}/satellite-xmos-firmware/audio_pipelines)
 
+# Declare the variable with a default value (optional)
+if(NOT DEFINED appconfINPUT_SAMPLES_MIC_DELAY_MS)
+    set(appconfINPUT_SAMPLES_MIC_DELAY_MS 0)
+endif()
+
 
 set(BOARD SATELLITE1)
 #set(BOARD EXPLORER)
@@ -64,6 +69,7 @@ set(APP_COMPILE_DEFINITIONS
     appconfMICS_ENABLED=1
     appconfI2S_ENABLED=1
     appconfUSE_SPK_PIPELINE_AS_REF=1
+    appconfINPUT_SAMPLES_MIC_DELAY_MS=${appconfINPUT_SAMPLES_MIC_DELAY_MS}
 )
 
 set(APP_LINK_OPTIONS
@@ -91,6 +97,7 @@ list(APPEND APP_COMMON_LINK_LIBRARIES
     fph::ffva::satellite1_usb
     sln_voice::app::ffva::sp::passthrough
     fph::ffva::ap::fixed_delay
+    #fph::ffva::ap::adec
 )
 endif()
 

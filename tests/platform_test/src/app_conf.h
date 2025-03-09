@@ -46,8 +46,9 @@
  * A positive delay will delay mics
  * A negative delay will delay ref
  */
-#define appconfINPUT_SAMPLES_MIC_DELAY_MS       -50
-
+#ifndef appconfINPUT_SAMPLES_MIC_DELAY_MS
+#define appconfINPUT_SAMPLES_MIC_DELAY_MS       0
+#endif
 
 
 /* Test case timeouts */

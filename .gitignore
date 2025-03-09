@@ -74,6 +74,7 @@ build/
 # macOS cruft
 .DS_Store
 
+batch_runs/**/results/*
 # ai_tools
 #tools/ai/ai_tools
 #*xcore_sdk_venv/*
