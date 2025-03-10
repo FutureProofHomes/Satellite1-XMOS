@@ -33,6 +33,7 @@
 #include "tusb.h"
 #include "dfu_common.h"
 
+
 //--------------------------------------------------------------------+
 // DFU callbacks
 // Note: alt is used as the partition number, in order to support multiple partitions like FLASH, EEPROM, etc.

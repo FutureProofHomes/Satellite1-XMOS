@@ -13,7 +13,7 @@
 #include "queue.h"
 
 /* Library headers */
-#include "rtos_printf.h"
+//#include "rtos_printf.h"
 #include "src.h"
 
 /* App headers */
@@ -33,6 +33,7 @@
 
 /* Config headers for sw_pll */
 #include "sw_pll.h"
+
 
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
@@ -180,7 +181,7 @@ void audio_pipeline_input(void *input_app_data,
                       frame_count,
                       portMAX_DELAY);
 
-#if appconfUSB_ENABLED 
+#if appconfUSB_AUDIO_ENABLED 
     int32_t **usb_mic_audio_frame = NULL;
     size_t ch_cnt = 2;  /* ref frames */
 
@@ -244,8 +245,8 @@ int audio_pipeline_output(void *output_app_data,
         }
     } else {
         for (int j=0; j<frame_count; j++) {
-            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
-            tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
+            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // (AEC+IC+NS+AGC) -> ESP32
+            tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // (AEC+IC+NS) -> ESP32
         }
     }    
     
@@ -256,7 +257,7 @@ int audio_pipeline_output(void *output_app_data,
                 portMAX_DELAY);
 #endif
 
-#if appconfUSB_ENABLED
+#if appconfUSB_AUDIO_ENABLED
     usb_audio_send(intertile_usb_audio_ctx,
                 frame_count,
                 output_audio_frames,
@@ -294,7 +295,8 @@ static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		reset_watchdog();
+        cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
+		//reset_watchdog();
         vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
@@ -363,7 +365,7 @@ void startup_task(void *arg)
 
     audio_pipeline_init(NULL, NULL);
     
-    init_watchdog();
+    //init_watchdog();
 
     mem_analysis();
 }
@@ -379,7 +381,7 @@ static void tile_common_init(chanend_t c)
     platform_init(c);
     chanend_free(c);
 
-#if appconfUSB_ENABLED && ON_TILE(USB_TILE_NO)
+#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
     usb_audio_init(intertile_usb_audio_ctx, appconfUSB_AUDIO_TASK_PRIORITY);
 #endif
 

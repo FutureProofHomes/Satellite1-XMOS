@@ -85,7 +85,7 @@ your application. */
 #define configASSERT(x) xassert(x)
 
 /* Define to enable debug_printf() */
-#define configENABLE_DEBUG_PRINTF 1
+#define configENABLE_DEBUG_PRINTF 0
 
 /* Define to map sprintf and snprintf to the
  * lite versions in lib_rtos_support */

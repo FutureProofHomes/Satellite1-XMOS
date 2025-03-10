@@ -1,0 +1,8 @@
+
+memory_flasher:
+  - platform: satellite1
+    id: xflash
+    embed_flash_image:
+      image_version: v1.0.2-dev
+      image_file: /Users/mischa/Projects/FutureProofHomes/Satellite1-XMOS/build/test_rtos_driver_usb.factory.bin
+      md5_file: /Users/mischa/Projects/FutureProofHomes/Satellite1-XMOS/build/test_rtos_driver_usb.factory.md5

@@ -9,7 +9,7 @@ from orbit import PROJ_ROOT, XTC_PATH
 SOURCE_CMD="zsh"
 
 
-def setup_xtc_env(xtc_path:str) -> None:
+def setup_xtc_env(xtc_path:str=XTC_PATH) -> None:
     print( f"Activating XTC environment at {xtc_path} ..." )
     script = os.path.join(xtc_path, "SetEnv.sh" )
     pipe = subprocess.Popen( f"{SOURCE_CMD} {script} && env -0", stdout=subprocess.PIPE, shell=True)
@@ -87,9 +87,14 @@ def build_firmware( build_dir:Path, variant:str, src_dir:Path=PROJ_ROOT, clean:b
     run_command(f"make -C {build_dir} {variant} -j", cwd=src_dir)
 
 
-def usb_dfu_upload( device:str, image:Path ) -> bool :
+def usb_dfu_upload( device:str, image:Path, reset:bool=True ) -> bool :
     print( f"Uploading {image} to alt=1 of device: {device}...")
-    run_command( f"dfu-util -d {device} -a 1 -D {str(image)} -R" )
+    run_command( f"dfu-util -d {device} -a 1 -D {str(image)} {'-R' if reset else ''}" )
+
+
+def usb_dfu_download( device:str, dst:Path ) -> bool :
+    print( f"Downloading alt=1 of device: {device} to {dst}...")
+    run_command( f"dfu-util -d {device} -a 1 -U {str(dst)} " )
 
 
 def reset_device(xtag_id:str) -> bool:

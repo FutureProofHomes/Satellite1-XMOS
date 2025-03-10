@@ -28,6 +28,10 @@
 #define DEBUG_UNIT USB_AUDIO
 #define DEBUG_PRINT_ENABLE_USB_AUDIO 0
 
+#include "usb_audio.h"
+
+#if CFG_TUD_AUDIO
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -43,7 +47,7 @@
 
 #include "rtos_intertile.h"
 
-#include "audio_pipeline.h"
+//#include "audio_pipeline.h"
 
 #include "app_conf.h"
 
@@ -157,7 +161,7 @@ void usb_audio_recv(rtos_intertile_t *intertile_ctx,
                     int32_t **frame_buffers,
                     size_t num_chans)
 {
-    static samp_t usb_audio_out_frame[appconfAUDIO_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
+    static samp_t usb_audio_out_frame[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
     size_t bytes_received;
     int32_t *frame_buf_ptr = (int32_t *) frame_buffers;
 
@@ -166,7 +170,7 @@ void usb_audio_recv(rtos_intertile_t *intertile_ctx,
 #elif CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX == 4
     const int src_32_shift = 0;
 #endif
-    xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+    xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 
     bytes_received = rtos_intertile_rx_len(
             intertile_ctx,
@@ -186,9 +190,9 @@ void usb_audio_recv(rtos_intertile_t *intertile_ctx,
 
     if (frame_buf_ptr != NULL) {
         for(int ch=0; ch<CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX; ch++) {
-            for (int i=0; i<appconfAUDIO_PIPELINE_FRAME_ADVANCE; i++) {
+            for (int i=0; i<appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE; i++) {
                 if (ch < num_chans) {
-                    frame_buf_ptr[i+(appconfAUDIO_PIPELINE_FRAME_ADVANCE*ch)] = usb_audio_out_frame[i][ch] << src_32_shift;
+                    frame_buf_ptr[i+(appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE*ch)] = usb_audio_out_frame[i][ch] << src_32_shift;
                 }
             }
         }
@@ -201,7 +205,7 @@ void usb_audio_out_task(void *arg)
 
 
     for (;;) {
-        samp_t usb_audio_out_frame[appconfAUDIO_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
+        samp_t usb_audio_out_frame[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
         size_t bytes_received = 0;
 
         /*
@@ -507,7 +511,7 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport,
     (void)rhport;
 
     uint8_t rx_data[CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ];
-    samp_t usb_audio_frames[AUDIO_FRAMES_PER_USB_FRAME][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
+    samp_t usb_audio_frames[AUDIO_FRAMES_PER_USB_SPK_FRAME][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
     const size_t stream_buffer_send_byte_count = sizeof(usb_audio_frames) / RATE_MULTIPLIER;
 
     host_streaming_out = true;
@@ -567,9 +571,9 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport,
         if (RATE_MULTIPLIER == 3) {
 
             static int32_t __attribute__((aligned (8))) src_data[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE];
-            samp_t src_audio_frames[AUDIO_FRAMES_PER_USB_FRAME / RATE_MULTIPLIER][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
+            samp_t src_audio_frames[AUDIO_FRAMES_PER_USB_SPK_FRAME / RATE_MULTIPLIER][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
 
-            for (int i = 0; i < AUDIO_FRAMES_PER_USB_FRAME / RATE_MULTIPLIER; i++) {
+            for (int i = 0; i < AUDIO_FRAMES_PER_USB_SPK_FRAME / RATE_MULTIPLIER; i++) {
                 for (int j = 0; j < CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX; j++) {
                     int64_t sum = 0;
                     sum = src_ds3_voice_add_sample(sum, src_data[j][0], src_ff3v_fir_coefs[0], usb_audio_frames[3*i + 0][j]);
@@ -594,7 +598,7 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport,
         const size_t buffer_notify_level = stream_buffer_send_byte_count * (1 + USB_FRAMES_PER_VFE_FRAME);
 
         /*
-         * TODO: If the above is modified such that not exactly AUDIO_FRAMES_PER_USB_FRAME / RATE_MULTIPLIER
+         * TODO: If the above is modified such that not exactly AUDIO_FRAMES_PER_USB_SPK_FRAME / RATE_MULTIPLIER
          * frames are written to the stream buffer at a time, then this will need to change to >=.
          */
 
@@ -626,10 +630,10 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport,
      * This buffer needs to be large enough to hold any size of transaction,
      * but if it's any bigger than twice nominal then we have bigger issues
      */
-    samp_t stream_buffer_audio_frames[2 * AUDIO_FRAMES_PER_USB_FRAME / RATE_MULTIPLIER][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
+    samp_t stream_buffer_audio_frames[2 * AUDIO_FRAMES_PER_USB_MICS_FRAME / RATE_MULTIPLIER][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
 
     /* This buffer has to be large enough to contain any size transaction */
-    samp_t usb_audio_frames[2 * RATE_MULTIPLIER * AUDIO_FRAMES_PER_USB_FRAME][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
+    samp_t usb_audio_frames[2 * RATE_MULTIPLIER * AUDIO_FRAMES_PER_USB_MICS_FRAME][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
 
     /*
      * Copying XUA_lite logic basically verbatim - if the host is streaming out,
@@ -638,7 +642,7 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport,
      * This assumes (as with XUA_lite) that the host sends the same number of samples for each channel.
      * This also assumes that TX and RX rates are the same, which is an assumption made elsewhere.
      * This finally assumes that at nominal rate,
-     *     AUDIO_FRAMES_PER_USB_FRAME == prev_n_bytes_received / (CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX * sizeof(samp_t))
+     *     AUDIO_FRAMES_PER_USB_MICS_FRAME == prev_n_bytes_received / (CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX * sizeof(samp_t))
      */
     if (host_streaming_out && (0 != prev_n_bytes_received))
     {
@@ -646,9 +650,10 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport,
     }
     else
     {
-        tx_size_bytes = sizeof(samp_t) * AUDIO_FRAMES_PER_USB_FRAME * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX;
+        tx_size_bytes = sizeof(samp_t) * AUDIO_FRAMES_PER_USB_MICS_FRAME * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX;
     }
     tx_size_frames = tx_size_bytes / (sizeof(samp_t) * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX);
+
 
     if (!mic_interface_open) {
         ready = 0;
@@ -813,7 +818,7 @@ void usb_audio_init(rtos_intertile_t *intertile_ctx,
      * Note: Given the way that the USB callback notifies usb_audio_out_task,
      * the size of this buffer MUST NOT be greater than 2 VFE frames.
      */
-    samples_from_host_stream_buf = xStreamBufferCreate(2 * sizeof(samp_t) * appconfAUDIO_PIPELINE_FRAME_ADVANCE * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX,
+    samples_from_host_stream_buf = xStreamBufferCreate(2 * sizeof(samp_t) * appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX,
                                             0);
 
     /*
@@ -826,3 +831,5 @@ void usb_audio_init(rtos_intertile_t *intertile_ctx,
 
     xTaskCreate((TaskFunction_t) usb_audio_out_task, "usb_audio_out_task", portTASK_STACK_DEPTH(usb_audio_out_task), intertile_ctx, priority, &usb_audio_out_task_handle);
 }
+
+#endif /* CFG_TUD_AUDIO */

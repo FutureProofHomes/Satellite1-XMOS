@@ -27,6 +27,7 @@ static void gpio_start(void)
     rtos_gpio_rpc_config(gpio_ctx_t0, appconfGPIO_T0_RPC_PORT, appconfGPIO_RPC_PRIORITY);
     rtos_gpio_rpc_config(gpio_ctx_t1, appconfGPIO_T1_RPC_PORT, appconfGPIO_RPC_PRIORITY);
 
+
 #if ON_TILE(0)
     rtos_gpio_start(gpio_ctx_t0);
 #endif
@@ -124,8 +125,9 @@ static void usb_cdc_start(void)
 void platform_start(void)
 {
     rtos_intertile_start(intertile_ctx);
+#if appconfUSB_AUDIO_ENABLED
     rtos_intertile_start(intertile_usb_audio_ctx);
-
+#endif
     gpio_start();
     flash_start();
     spi_start();

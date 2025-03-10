@@ -7,6 +7,7 @@
 /* Auto-generated firmware-version file */
 #include "version.h"
 
+
 /* Intertile port settings */
 #define appconfUSB_AUDIO_PORT          0
 #define appconfGPIO_T0_RPC_PORT        1

@@ -7,7 +7,7 @@ def calc_channel_variances( wav_file:str ) -> list[float]:
     return audio_data.var(axis=0)
 
 
-def estimate_time_delay(reference_signal, delayed_signal, fs):
+def estimate_time_delay(reference_signal:np.array, delayed_signal:np.array, fs=int) -> tuple[float, np.array]:
     """
     Estimate time delay using cross-correlation.
 
@@ -18,6 +18,7 @@ def estimate_time_delay(reference_signal, delayed_signal, fs):
 
     Returns:
         estimated_delay_sec (float): Estimated delay in seconds.
+        correlation (numpy array): Cross-correlation of the two signals.
     """
     correlation = correlate(delayed_signal, reference_signal, mode="full")
     delay_samples = np.argmax(correlation) - len(reference_signal) + 1

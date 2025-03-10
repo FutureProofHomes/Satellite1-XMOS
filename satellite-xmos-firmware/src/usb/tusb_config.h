@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2019 Ha Thach (tinyusb.org)
  * Copyright (c) 2021 XMOS LIMITED
+ * Copyright (c) 2025 FutureProofHomes Inc. (mischa.siekmann@futureproofhomes.net)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +30,6 @@
 
 #include <stdint.h>
 #include "app_conf.h"
-#include "audio_pipeline.h"
 #include "rtos_printf.h"
 
 //--------------------------------------------------------------------
@@ -51,6 +51,15 @@
 #endif
 #endif
 
+#ifndef appconfUSB_CDC_ENABLED
+#define appconfUSB_CDC_ENABLED     1
+#endif
+
+#ifndef appconfUSB_AUDIO_ENABLED
+#define appconfUSB_AUDIO_ENABLED   1
+#endif
+
+
 //--------------------------------------------------------------------
 // DEVICE CONFIGURATION
 //--------------------------------------------------------------------
@@ -64,15 +73,14 @@
 #define CFG_TUD_XCORE_IO_CORE_MASK       (1 << appconfXUD_IO_CORE)
 
 //------------- CLASS -------------//
-#if appconfUSB_CDC_ENABLED
-#define CFG_TUD_CDC               1
-#endif
+#define CFG_TUD_DFU               1
+#define CFG_TUD_CDC               appconfUSB_CDC_ENABLED
 #define CFG_TUD_MSC               0
 #define CFG_TUD_HID               0
 #define CFG_TUD_MIDI              0
-#define CFG_TUD_AUDIO             1
+#define CFG_TUD_AUDIO             appconfUSB_AUDIO_ENABLED
 #define CFG_TUD_VENDOR            0
-#define CFG_TUD_DFU               1
+
 
 //--------------------------------------------------------------------
 // DFU DRIVER CONFIGURATION
@@ -90,12 +98,13 @@
 #define CFG_TUD_CDC_TX_BUFSIZE (TUD_OPT_HIGH_SPEED ? 512 : 64)
 
 // CDC Endpoint transfer buffer size, more is faster
-#define CFG_TUD_CDC_EP_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
+#define CFG_TUD_CDC_EP_BUFSIZE (TUD_OPT_HIGH_SPEED ? 512 : 64)
 #endif
 
 //--------------------------------------------------------------------
 // AUDIO CLASS DRIVER CONFIGURATION
 //--------------------------------------------------------------------
+#if CFG_TUD_AUDIO
 extern const uint16_t tud_audio_desc_lengths[CFG_TUD_AUDIO];
 
 #define CFG_TUD_AUDIO_FUNC_1_DESC_LEN                       tud_audio_desc_lengths[0]
@@ -106,12 +115,13 @@ extern const uint16_t tud_audio_desc_lengths[CFG_TUD_AUDIO];
 #define CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX          2
 #define CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX          2
 
+
 #if appconfUSB_AUDIO_MODE == appconfUSB_AUDIO_RELEASE
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX                  2
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX                  2
 #else
 #define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX                  6
-#define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX                  4
+#define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX                  2
 #endif
 
 #if (appconfMIC_SRC_DEFAULT == appconfMIC_SRC_USB)
@@ -142,5 +152,6 @@ extern const uint16_t tud_audio_desc_lengths[CFG_TUD_AUDIO];
 #define CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ              ((AUDIO_FRAMES_PER_USB_FRAME + 1) * CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX)
 #define CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ_MAX          (CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ + 2)   // Maximum EP OUT size for all AS alternate settings used. Plus 2 for CRC
 #define CFG_TUD_AUDIO_FUNC_1_EP_OUT_SW_BUF_SZ       CFG_TUD_AUDIO_FUNC_1_EP_OUT_SZ*3
+#endif
 
 #endif /* _TUSB_CONFIG_H_ */

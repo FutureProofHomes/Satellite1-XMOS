@@ -4,7 +4,8 @@
 #ifndef USB_DESCRIPTORS_H_
 #define USB_DESCRIPTORS_H_
 
-#include "tusb_config.h"
+#include "usb/tusb_config.h"
+
 
 #if CFG_TUD_AUDIO_ENABLE_EP_IN && CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX > 0
 #define AUDIO_INPUT_ENABLED 1
@@ -26,23 +27,13 @@ enum {
     ITF_NUM_AUDIO_STREAMING_MIC,
 #endif
     ITF_NUM_DFU_MODE,
-#if appconfUSB_CDC_ENABLED
+#if CFG_TUD_CDC
     ITF_NUM_CDC,
     ITF_NUM_CDC_DATA,
 #endif
     ITF_NUM_TOTAL
 };
 
-#define EPNUM_AUDIO       0x01
-#define EPNUM_CDC_NOTIF   0x82
-#define EPNUM_CDC_OUT     0x03
-#define EPNUM_CDC_IN      0x83
-
-
-// Number of DFU alt interfaces
-#define DFU_ALT_COUNT                   3
-// DFU functional attributes
-#define DFU_FUNC_ATTRS (DFU_ATTR_CAN_UPLOAD | DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH | DFU_ATTR_MANIFESTATION_TOLERANT)
 
 // Unit numbers are arbitrary selected
 #define UAC2_ENTITY_CLOCK               0x01
