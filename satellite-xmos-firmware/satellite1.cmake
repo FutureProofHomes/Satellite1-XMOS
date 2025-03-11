@@ -7,6 +7,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfEXTERNAL_MCLK=0
         appconfI2S_ENABLED=1
         appconfUSB_ENABLED=1
+        appconfUSB_AUDIO_ENABLED=0
         appconfUSB_AUDIO_MODE=0
         appconfUSB_CDC_ENABLED=0
         appconfAEC_REF_DEFAULT=appconfAEC_REF_I2S

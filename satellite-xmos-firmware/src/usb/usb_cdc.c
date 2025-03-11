@@ -18,13 +18,13 @@ enum {
 // Callback when CDC data is received from the host
 void tud_cdc_rx_cb(uint8_t itf) {
 #if appconfUSB_CDC_ENABLED
-    char buf[64];
+    char buf[128] = "received: ";
 
     // Read data from the host
-    uint32_t count = tud_cdc_read(buf, sizeof(buf));
+    uint32_t count = tud_cdc_read(buf + 10, sizeof(buf) - 10);
 
     // Echo back to the host
-    tud_cdc_write(buf, count);
+    tud_cdc_write(buf, 10 + count);
     tud_cdc_write_flush();
 #endif
 }
@@ -32,7 +32,7 @@ void tud_cdc_rx_cb(uint8_t itf) {
 
 int cdc_printf(const char *format, ...) {
 #if appconfUSB_CDC_ENABLED    
-    char buffer[128];  // Buffer to store the formatted output
+    char buffer[256];  // Buffer to store the formatted output
     va_list args;
     va_start(args, format);
     int len = vsnprintf(buffer, sizeof(buffer), format, args);  // Format the string

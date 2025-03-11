@@ -18,7 +18,7 @@ static void mclk_init(chanend_t other_tile_c)
 #if ON_TILE(1) && !appconfEXTERNAL_MCLK
     app_pll_init();
 #endif
-#if appconfUSB_ENABLED && ON_TILE(USB_TILE_NO)
+#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
     adaptive_rate_adjust_init();
 #endif
 }
@@ -244,8 +244,9 @@ static void usb_cdc_init(){
 void platform_init(chanend_t other_tile_c)
 {
     rtos_intertile_init(intertile_ctx, other_tile_c);
+#if appconfUSB_AUDIO_ENABLED
     rtos_intertile_init(intertile_usb_audio_ctx, other_tile_c);
-
+#endif
     mclk_init(other_tile_c);
     gpio_init();
     flash_init();

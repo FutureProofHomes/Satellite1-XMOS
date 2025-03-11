@@ -180,7 +180,7 @@ void audio_pipeline_input(void *input_app_data,
                       frame_count,
                       portMAX_DELAY);
 
-#if appconfUSB_ENABLED 
+#if appconfUSB_AUDIO_ENABLED 
     int32_t **usb_mic_audio_frame = NULL;
     size_t ch_cnt = 2;  /* ref frames */
 
@@ -244,8 +244,8 @@ int audio_pipeline_output(void *output_app_data,
         }
     } else {
         for (int j=0; j<frame_count; j++) {
-            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
-            tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
+            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // (AEC+IC+NS+AGC) -> ESP32
+            tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // (AEC+IC+NS) -> ESP32
         }
     }    
     
@@ -256,7 +256,7 @@ int audio_pipeline_output(void *output_app_data,
                 portMAX_DELAY);
 #endif
 
-#if appconfUSB_ENABLED
+#if appconfUSB_AUDIO_ENABLED
     usb_audio_send(intertile_usb_audio_ctx,
                 frame_count,
                 output_audio_frames,
@@ -379,7 +379,7 @@ static void tile_common_init(chanend_t c)
     platform_init(c);
     chanend_free(c);
 
-#if appconfUSB_ENABLED && ON_TILE(USB_TILE_NO)
+#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
     usb_audio_init(intertile_usb_audio_ctx, appconfUSB_AUDIO_TASK_PRIORITY);
 #endif
 
