@@ -14,6 +14,9 @@ set(APP_INCLUDES
 include(${CMAKE_CURRENT_LIST_DIR}/bsp_config/bsp_config.cmake)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
+set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
+option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
+
 #**********************
 # Flags
 #**********************
@@ -26,7 +29,7 @@ set(APP_COMPILER_FLAGS
 )
 
 set(APP_COMPILE_DEFINITIONS
-    DEBUG_PRINT_ENABLE=1
+    DEBUG_PRINT_ENABLE=0
     PLATFORM_USES_TILE_0=1
     PLATFORM_USES_TILE_1=1
     XUD_CORE_CLOCK=600
@@ -48,7 +51,6 @@ set(APP_COMMON_LINK_LIBRARIES
     lib_sw_pll
 )
 
-set_app_version_from_file("firmware_version.txt")
 
 #**********************
 # Pipeline Options

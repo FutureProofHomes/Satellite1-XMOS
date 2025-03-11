@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <platform.h>
 #include "platform/platform_conf.h"
-#include "device_control_i2c.h"
+
 #include "servicer.h"
 #include "dfu_servicer.h"
 

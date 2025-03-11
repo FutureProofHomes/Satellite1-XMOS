@@ -7,8 +7,6 @@
 #define NUM_TILE_0_SERVICERS            (1) // only DFU servicer is used
 #define NUM_TILE_1_SERVICERS            (0) // no control servicer
 
-extern device_control_t *device_control_i2c_ctx;
-extern device_control_t *device_control_ctxs[1];
 
 /**
  * Clears the read bit on a command code

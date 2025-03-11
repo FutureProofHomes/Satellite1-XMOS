@@ -4,6 +4,9 @@
 #define DEBUG_UNIT ADAPTIVE_USB
 #define DEBUG_PRINT_ENABLE_ADAPTIVE_USB 0
 
+#include "adaptive_rate_adjust.h"
+
+#if CFG_TUD_AUDIO
 // Taken from usb_descriptors.c
 #define USB_AUDIO_EP 0x01
 
@@ -183,3 +186,4 @@ void adaptive_rate_adjust_init(void)
 
     data_event_queue = xQueueCreate( DATA_EVENT_QUEUE_SIZE, sizeof(usb_audio_rate_packet_desc_t) );
 }
+#endif

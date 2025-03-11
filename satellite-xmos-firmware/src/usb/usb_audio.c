@@ -28,6 +28,10 @@
 #define DEBUG_UNIT USB_AUDIO
 #define DEBUG_PRINT_ENABLE_USB_AUDIO 0
 
+#include "usb_audio.h"
+
+#if CFG_TUD_AUDIO
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -826,3 +830,5 @@ void usb_audio_init(rtos_intertile_t *intertile_ctx,
 
     xTaskCreate((TaskFunction_t) usb_audio_out_task, "usb_audio_out_task", portTASK_STACK_DEPTH(usb_audio_out_task), intertile_ctx, priority, &usb_audio_out_task_handle);
 }
+
+#endif /* CFG_TUD_AUDIO */
