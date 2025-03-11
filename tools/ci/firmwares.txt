@@ -1,1 +1,3 @@
 satellite1_fixed  satellite1_firmware_fixed_delay No  SATELLITE1   xmos_cmake_toolchain/xs3a.cmake
+usb_aec_ic_ns satellite1_usb_firmware_aec__vnr_ic__ns  No  SATELLITE1   xmos_cmake_toolchain/xs3a.cmake
+usb_ic_ns satellite1_usb_firmware_vnr_ic__ns No  SATELLITE1  xmos_cmake_toolchain/xs3a.cmake
