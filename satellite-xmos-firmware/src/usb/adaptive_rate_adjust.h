@@ -4,6 +4,10 @@
 #ifndef ADAPTIVE_RATE_ADJUST_H_
 #define ADAPTIVE_RATE_ADJUST_H_
 
+#include "tusb_config.h"
+
+#if CFG_TUD_AUDIO
+
 #include <xcore/channel.h>
 #include <xcore/clock.h>
 
@@ -42,5 +46,7 @@
 #define Q8(f)  (int)((signed long long)((f) * ((unsigned long long)1 << (8+20)) + (1<<19)) >> 20)
 
 void adaptive_rate_adjust_init(void);
+
+#endif
 
 #endif /* ADAPTIVE_RATE_ADJUST_H_ */

@@ -14,7 +14,10 @@ on:
       - "develop"
       - "staging"
       - "main"
-
+    
+  #pull_request:
+  #  branches: [develop]
+  
   # Allow manually triggering of the workflow.
   workflow_dispatch:
     inputs:

@@ -72,6 +72,31 @@ git clone https://github.com/FutureProofHomes/Satellite1-XMOS.git
 cd Satellite1-XMOS
 git submodule update --init --recursive
 ```
+
+### Setup XTC-Tools
+Download XTX-15.3.1 from https://www.xmos.com/software-tools/
+
+On Mac, the original software requires installing into `/Applications`. If you want to install into another directory, change `XMOS_TOOL_PATH` in `${INSTALL_DIR}/SetEnv.sh` to :
+```bash
+export XMOS_TOOL_PATH=${0:A:h};
+```
+
+### Setup Python Virtual Environment
+The `xmos-ai-tools` python package is required for building the firmware modules.
+It is recommended to install it into a virtual environment:
+
+```bash
+python3.10 -m venv .venv
+source activate .venv/bin/activate
+pip install -r requirements.txt
+```
+
+for later builds simply activate the environment before calling cmake:
+```bash
+source activate .venv/bin/activate
+```
+
+
 ### Creating factory and upgrade images
 
 On Linux and Mac run:

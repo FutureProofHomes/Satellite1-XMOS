@@ -30,15 +30,6 @@
 #include "gpio/gpio_servicer.h"
 #include "led_ring/led_ring_servicer.h"
 
-/* Headers used for the WW intent engine */
-#if appconfINTENT_ENABLED
-#include "intent_engine.h"
-#include "intent_handler.h"
-#include "fs_support.h"
-#include "gpi_ctrl.h"
-#include "leds.h"
-#endif
-
 
 /* Config headers for sw_pll */
 #include "sw_pll.h"
@@ -189,7 +180,7 @@ void audio_pipeline_input(void *input_app_data,
                       frame_count,
                       portMAX_DELAY);
 
-#if appconfUSB_ENABLED 
+#if appconfUSB_AUDIO_ENABLED 
     int32_t **usb_mic_audio_frame = NULL;
     size_t ch_cnt = 2;  /* ref frames */
 
@@ -253,8 +244,8 @@ int audio_pipeline_output(void *output_app_data,
         }
     } else {
         for (int j=0; j<frame_count; j++) {
-            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // proc 0 -> ESP32
-            tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // proc 1 -> ESP32
+            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // (AEC+IC+NS+AGC) -> ESP32
+            tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // (AEC+IC+NS) -> ESP32
         }
     }    
     
@@ -265,22 +256,11 @@ int audio_pipeline_output(void *output_app_data,
                 portMAX_DELAY);
 #endif
 
-#if appconfUSB_ENABLED
+#if appconfUSB_AUDIO_ENABLED
     usb_audio_send(intertile_usb_audio_ctx,
                 frame_count,
                 output_audio_frames,
                 6);
-#endif
-#if appconfINTENT_ENABLED
-
-    int32_t ww_samples[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    for (int j=0; j<appconfAUDIO_PIPELINE_FRAME_ADVANCE; j++) {
-        /* ASR output is first */
-        ww_samples[j] = (uint32_t) *(output_audio_frames+j);
-    }
-
-    intent_engine_sample_push(ww_samples,
-                              frame_count);
 #endif
 
     return AUDIO_PIPELINE_FREE_FRAME;
@@ -296,11 +276,26 @@ void vApplicationMallocFailedHook(void)
     for(;;);
 }
 
+static void init_watchdog(void)
+{
+    //xin : 24 Mhz, decrement WATCHDOG_COUNT every 2.7 ms:
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_PRESCALER_WRAP_NUM, (0xFFFF));
+    //trigger watchdog after ~11s of inactivity    
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_CFG_NUM, (1 << XS1_WATCHDOG_COUNT_ENABLE_SHIFT) | (1 << XS1_WATCHDOG_TRIGGER_ENABLE_SHIFT) );
+}
+
+static void reset_watchdog(void)
+{
+    //reset watchdog to max
+    write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
+}
 static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		vTaskDelay(pdMS_TO_TICKS(5000));
+		reset_watchdog();
+        vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
 
@@ -360,33 +355,6 @@ void startup_task(void *arg)
 #endif
 
 
-#if appconfINTENT_ENABLED && ON_TILE(0)
-    led_task_create(appconfLED_TASK_PRIORITY, NULL);
-#endif
-
-#if appconfINTENT_ENABLED && ON_TILE(1)
-    gpio_gpi_init(gpio_ctx_t0);
-#endif
-
-#if appconfINTENT_ENABLED && ON_TILE(FS_TILE_NO)
-    rtos_fatfs_init(qspi_flash_ctx);
-    // Setup flash low-level mode
-    //   NOTE: must call rtos_qspi_flash_fast_read_shutdown_ll to use non low-level mode calls
-    rtos_qspi_flash_fast_read_setup_ll(qspi_flash_ctx);
-#endif
-
-#if appconfINTENT_ENABLED && ON_TILE(ASR_TILE_NO)
-    QueueHandle_t q_intent = xQueueCreate(appconfINTENT_QUEUE_LEN, sizeof(int32_t));
-    intent_handler_create(appconfINTENT_MODEL_RUNNER_TASK_PRIORITY, q_intent);
-    intent_engine_create(appconfINTENT_MODEL_RUNNER_TASK_PRIORITY, q_intent);
-#endif
-
-#if appconfINTENT_ENABLED && !ON_TILE(ASR_TILE_NO)
-    // Wait until the intent engine is initialized before starting the
-    // audio pipeline.
-    intent_engine_ready_sync();
-#endif
-
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );
     rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
@@ -394,6 +362,8 @@ void startup_task(void *arg)
 #endif
 
     audio_pipeline_init(NULL, NULL);
+    
+    init_watchdog();
 
     mem_analysis();
 }
@@ -409,7 +379,7 @@ static void tile_common_init(chanend_t c)
     platform_init(c);
     chanend_free(c);
 
-#if appconfUSB_ENABLED && ON_TILE(USB_TILE_NO)
+#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
     usb_audio_init(intertile_usb_audio_ctx, appconfUSB_AUDIO_TASK_PRIORITY);
 #endif
 

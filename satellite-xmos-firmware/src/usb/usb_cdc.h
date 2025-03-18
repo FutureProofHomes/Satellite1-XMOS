@@ -1,6 +1,9 @@
 #pragma once
 
 #include "tusb.h"
+#include "rtos_intertile.h"
+#include "rtos_driver_rpc.h"
+
 
 int cdc_printf(const char *format, ...);
 
