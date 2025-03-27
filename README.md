@@ -13,9 +13,18 @@ A variant which bypasses the mic-pipeline. Hence, the raw mic signal is streamed
 
 Firmware for debugging purposes only. It runs on the  XCORE.AI evaluation board. 
 
-**satellite1_usb_debug**
+**satellite1_usb_firmware_PIPELINE_CONFIGURATION**
 
-Firmware for debugging purposes only. It enables basic logging on the satellite1 via usb-cdc. 
+PIPELINE_CONFIGURATION:
+- aec__vnr_ic__ns__agc
+- aec__vnr_ic__ns
+- aec__vnr_ic
+- vnr_ic__ns
+- vnr_ic
+- ns
+
+Work in progress firmware, currently for debugging purposes only. 
+It configures the Satellite1 as an USB-Audio device and enables basic logging on the satellite1 via usb-cdc. 
 
 ## Firmware Files
 
