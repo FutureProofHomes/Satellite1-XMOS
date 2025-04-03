@@ -177,8 +177,8 @@ void audio_pipeline_input(void *input_app_data,
 
     for (int i=0; i<frame_count; i++) {
         /* ref is first */
-        *(tmpptr + i) = *(refptr++);
-        *(tmpptr + i + frame_count) = *(refptr++);
+        *(tmpptr + i) = *(refptr++) >> 3;
+        *(tmpptr + i + frame_count) = *(refptr++) >> 3;
     }
 
     rtos_osal_free(frame_data);
