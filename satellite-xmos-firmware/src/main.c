@@ -289,7 +289,7 @@ static void mem_analysis(void)
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
         cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		reset_watchdog();
+		//reset_watchdog();
         vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
@@ -358,7 +358,7 @@ void startup_task(void *arg)
 
     audio_pipeline_init(NULL, NULL);
     
-    init_watchdog();
+    //init_watchdog();
 
     mem_analysis();
 }
