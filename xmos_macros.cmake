@@ -279,9 +279,15 @@ endmacro()
 
 ## Creates an xflash image upgrade target for a provided binary
 macro(create_upgrade_img_target _EXECUTABLE_TARGET_NAME _FACTORY_MAJOR_VER _FACTORY_MINOR_VER)
+    if(USE_DEV_TRACKING)
+      set(TRACK_POSTBUILD_COMMAND COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} track ${ARGV0})
+    else()
+      set(TRACK_POSTBUILD_COMMAND "")
+    endif()
     add_custom_target(create_upgrade_img_${_EXECUTABLE_TARGET_NAME}
       COMMAND xflash --factory-version ${_FACTORY_MAJOR_VER}.${_FACTORY_MINOR_VER} --upgrade 0 ${_EXECUTABLE_TARGET_NAME}.xe  -o ${_EXECUTABLE_TARGET_NAME}.upgrade.bin
       COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${_EXECUTABLE_TARGET_NAME}.upgrade.bin', 'rb').read()).hexdigest())" > ${_EXECUTABLE_TARGET_NAME}.upgrade.md5
+      ${TRACK_POSTBUILD_COMMAND}
       DEPENDS ${_EXECUTABLE_TARGET_NAME}
       COMMENT
         "Create upgrade image for application"

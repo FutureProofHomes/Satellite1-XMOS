@@ -19,6 +19,8 @@ DEFAULT_BUILD_DIR = PROJ_ROOT / "build"
 VERSION_HEADER_FILE = Path(__file__).parent / "src" / "version.h"
 
 TO_TRACK = [
+    "{variant}.upgrade.bin",
+    "{variant}.upgrade.md5",
     "{variant}.factory.bin",
     "{variant}.factory.md5",
     "{variant}.xe"
@@ -443,7 +445,9 @@ def install_targets(args: argparse.Namespace) -> None:
     if version.is_dev :
         track_path = track_dev_build(args).track_path 
         for file in TO_TRACK:
-            shutil.copy( args.build_dir / file.format(variant=args.variant), track_path)
+            src_file = args.build_dir / file.format(variant=args.variant)
+            if src_file.exists():
+                shutil.copy( src_file, track_path)
     
     
 
