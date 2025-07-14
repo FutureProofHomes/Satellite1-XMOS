@@ -289,7 +289,9 @@ static void mem_analysis(void)
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
         cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		reset_watchdog();
+#if ON_TILE(0)        
+        reset_watchdog();
+#endif        
         vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
