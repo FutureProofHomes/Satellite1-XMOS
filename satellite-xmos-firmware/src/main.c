@@ -37,7 +37,6 @@
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
-#if appconfI2S_ENABLED
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
@@ -48,8 +47,8 @@ void speaker_pipeline_input(void *input_app_data,
                         size_t ch_count,
                         size_t frame_count)
 {
-
-    if (!appconfUSB_ENABLED || aec_ref_source == appconfAEC_REF_I2S) {
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
+    if (!appconfUSB_AUDIO_ENABLED || aec_ref_source == appconfAEC_REF_I2S) {
         /* This shouldn't need to block given it shares a clock with the PDM mics */
 
         xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
@@ -70,6 +69,22 @@ void speaker_pipeline_input(void *input_app_data,
             *(tmpptr + i + frame_count) = tmp[i][0][1];
         }
     }
+
+#if appconfUSB_AUDIO_ENABLED
+    int32_t **usb_mic_audio_frame = NULL;
+    if (true) {
+        usb_mic_audio_frame = input_audio_frames;
+        /*
+        * As noted above, this does not block.
+        * and expects ref L, ref R, mic 0, mic 1
+        */
+        usb_audio_recv(intertile_usb_audio_ctx,
+            frame_count,
+            usb_mic_audio_frame,
+            ch_count);
+    }
+#endif    
+#endif
 }
 
 int speaker_pipeline_output(void *output_app_data,
@@ -77,6 +92,7 @@ int speaker_pipeline_output(void *output_app_data,
                         size_t ch_count,
                         size_t frame_count)
 {
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)    
     (void) output_app_data;
 
     xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
@@ -95,14 +111,13 @@ int speaker_pipeline_output(void *output_app_data,
                 frame_count,
                 portMAX_DELAY);
     
-#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     void* frame_data;
     frame_data = pvPortMalloc( appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ));
-    static int64_t sum[2];
-    static int32_t src_data[2][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned (8)));
     
     // down sample reference signal to 16kHz if needed 
     if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {
+        static int64_t sum[2];
+        static int32_t src_data[2][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned (8)));
         int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];    
         
         for( int frame=0; frame < frame_count; frame +=3 ){
@@ -122,10 +137,11 @@ int speaker_pipeline_output(void *output_app_data,
     
     // send to microphone pipeline as reference
     (void) rtos_osal_queue_send(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
+
 #endif
     return AUDIO_PIPELINE_FREE_FRAME;
 }
-#endif
+
 
 
 void audio_pipeline_input(void *input_app_data,
@@ -179,28 +195,6 @@ void audio_pipeline_input(void *input_app_data,
                       mic_ptr,
                       frame_count,
                       portMAX_DELAY);
-
-#if appconfUSB_AUDIO_ENABLED 
-    int32_t **usb_mic_audio_frame = NULL;
-    size_t ch_cnt = 2;  /* ref frames */
-
-    if (aec_ref_source == appconfAEC_REF_USB) {
-        usb_mic_audio_frame = input_audio_frames;
-    }
-
-    if (mic_from_usb) {
-        ch_cnt += 2;  /* mic frames */
-    }
-
-    /*
-     * As noted above, this does not block.
-     * and expects ref L, ref R, mic 0, mic 1
-     */
-    usb_audio_recv(intertile_usb_audio_ctx,
-                   frame_count,
-                   usb_mic_audio_frame,
-                   ch_cnt);
-#endif
 
 }
 
@@ -294,7 +288,10 @@ static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-		reset_watchdog();
+        cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
+#if ON_TILE(0)        
+        reset_watchdog();
+#endif        
         vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
