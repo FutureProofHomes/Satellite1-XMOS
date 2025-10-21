@@ -36,7 +36,7 @@ typedef struct {
 } device_control_gpio_ctx_t;
 
 
-void gpio_servicer_init(device_control_gpio_ctx_t *ctx, rtos_gpio_t *gpio_ctx, device_control_gpio_ports_t* port_defs, uint8_t num_of_ports );
+void gpio_servicer_init(device_control_gpio_ctx_t *ctx, rtos_gpio_t *gpio_ctx, device_control_gpio_ports_t* port_defs, uint8_t num_of_ports);
 
 
-void gpio_servicer_start(device_control_gpio_ctx_t *ctx, device_control_t **device_control_ctx, size_t device_control_ctx_count );
+void gpio_servicer_start(device_control_gpio_ctx_t *ctx, device_control_t **device_control_ctx, size_t device_control_ctx_count);

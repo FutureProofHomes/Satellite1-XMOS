@@ -14,11 +14,6 @@
 #include "platform_conf.h"
 #include "platform/driver_instances.h"
 
-#if appconfUSB_ENABLED
-#include "usb_support.h"
-#include "usb_cdc.h"
-#endif
-
 #if appconfDEVICE_CTRL_SPI
 #include "device_control_spi.h"
 #endif
@@ -50,15 +45,6 @@ static void flash_start(void)
 static void spi_start(void)
 {
 #if appconfDEVICE_CTRL_SPI && ON_TILE(SPI_CLIENT_TILE_NO)
-#if 0 //do we need this?
-    const rtos_gpio_port_id_t wifi_rst_port = rtos_gpio_port(WIFI_WUP_RST_N);
-    rtos_gpio_port_enable(gpio_ctx_t0, wifi_rst_port);
-    rtos_gpio_port_out(gpio_ctx_t0, wifi_rst_port, 0x00);
-
-    const rtos_gpio_port_id_t wifi_cs_port = rtos_gpio_port(WIFI_CS_N);
-    rtos_gpio_port_enable(gpio_ctx_t0, wifi_cs_port);
-    rtos_gpio_port_out(gpio_ctx_t0, wifi_cs_port, 0x0F);
-#endif
     rtos_spi_slave_start(spi_slave_ctx,
                          device_control_spi_ctx,
                          (rtos_spi_slave_start_cb_t) device_control_spi_start_cb,
@@ -97,44 +83,13 @@ static void i2s_start(void)
 #endif
 }
 
-static void usb_start(void)
-{
-#if appconfUSB_ENABLED && ON_TILE(USB_TILE_NO)
-    usb_manager_start(appconfUSB_MGR_TASK_PRIORITY);
-#endif
-}
-
-static void ws2812_start(void)
-{
-#if ON_TILE(WS2812_TILE_NO)
-    rtos_ws2812_start(ws2812_ctx);
-#endif    
-}
-
-static void usb_cdc_start(void)
-{
-#if appconfUSB_CDC_ENABLED
-    rtos_cdc_rpc_config(appconfUSB_CDC_PORT, appconfUSB_CDC_PRIORITY);
-#if ON_TILE(USB_TILE_NO)
-    rtos_cdc_start();
-#endif
-#endif
-}
-
-
 
 void platform_start(void)
 {
     rtos_intertile_start(intertile_ctx);
-#if appconfUSB_AUDIO_ENABLED
-    rtos_intertile_start(intertile_usb_audio_ctx);
-#endif
     gpio_start();
     flash_start();
     spi_start();
     mics_start();
     i2s_start();
-    usb_start();
-    ws2812_start();
-    usb_cdc_start();
 }

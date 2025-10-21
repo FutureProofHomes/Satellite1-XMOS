@@ -14,22 +14,32 @@
 
 /* Library headers */
 #include "rtos_printf.h"
-#include "src.h"
+//#include "src.h"
+#include "src_poly.h"
+#include "src_ff3_fir_coefs.h"
+#include "src_rat_fir_coefs.h"
 
 /* App headers */
 #include "app_conf.h"
 #include "platform/platform_init.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_conf.h"
-#include "usb_support.h"
-#include "usb_audio.h"
-#include "usb_cdc.h"
 #include "audio_pipeline.h"
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
 #include "gpio/gpio_servicer.h"
-#include "led_ring/led_ring_servicer.h"
+#include "control/audio_cfg_servicer.h"
+#include "builtin_tests/spi_echo_servicer/spi_echo_servicer.h"
 
+#if appconfUSB_ENABLED
+#include "platform/usb/usb_support.h"
+#include "platform/usb/usb_audio.h"
+#include "platfrom/usb/usb_cdc.h"
+#endif
+
+#if appconfLED_RING
+#include "led_ring/led_ring_servicer.h"
+#endif
 
 /* Config headers for sw_pll */
 #include "sw_pll.h"
@@ -37,13 +47,17 @@
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
+#if ON_TILE(0)
+rtos_osal_queue_t *cntrlChannelPipelineOut;
+#endif
+
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
 #endif
 
 void speaker_pipeline_input(void *input_app_data,
-                        int32_t **input_audio_frames,
+                        int32_t *input_audio_frames,
                         size_t ch_count,
                         size_t frame_count)
 {
@@ -73,7 +87,8 @@ void speaker_pipeline_input(void *input_app_data,
 #if appconfUSB_AUDIO_ENABLED
     int32_t **usb_mic_audio_frame = NULL;
     if (true) {
-        usb_mic_audio_frame = input_audio_frames;
+        // odd usage of double pointer cast
+        usb_mic_audio_frame = (int32_t**) input_audio_frames;
         /*
         * As noted above, this does not block.
         * and expects ref L, ref R, mic 0, mic 1
@@ -88,7 +103,7 @@ void speaker_pipeline_input(void *input_app_data,
 }
 
 int speaker_pipeline_output(void *output_app_data,
-                        int32_t **output_audio_frames,
+                        int32_t *output_audio_frames,
                         size_t ch_count,
                         size_t frame_count)
 {
@@ -98,11 +113,11 @@ int speaker_pipeline_output(void *output_app_data,
     xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
     
     /* I2S expects sample channel format */
-    int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
+    int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][appconfAUDIO_PIPELINE_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
     for (int j=0; j<frame_count; j++) {
-        tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
-        tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
+        tmp[j][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
+        tmp[j][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
     }
     
     // send to DAC
@@ -116,21 +131,45 @@ int speaker_pipeline_output(void *output_app_data,
     
     // down sample reference signal to 16kHz if needed 
     if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {
+#if 0        
         static int64_t sum[2];
         static int32_t src_data[2][SRC_FF3V_FIR_NUM_PHASES][SRC_FF3V_FIR_TAPS_PER_PHASE] __attribute__((aligned (8)));
-        int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];    
+        int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfAUDIO_PIPELINE_CHANNELS];    
         
         for( int frame=0; frame < frame_count; frame +=3 ){
-            sum[0] = src_ds3_voice_add_sample(0, src_data[0][0], src_ff3v_fir_coefs[0], tmp[frame][0][0]);
-            sum[1] = src_ds3_voice_add_sample(0, src_data[1][0], src_ff3v_fir_coefs[0], tmp[frame][0][1]);
+            sum[0] = src_ds3_voice_add_sample(0, src_data[0][0], src_ff3v_fir_coefs[0], tmp[frame][0]);
+            sum[1] = src_ds3_voice_add_sample(0, src_data[1][0], src_ff3v_fir_coefs[0], tmp[frame][1]);
 
-            sum[0] = src_ds3_voice_add_sample(sum[0], src_data[0][1], src_ff3v_fir_coefs[1], tmp[frame+1][0][0]);
-            sum[1] = src_ds3_voice_add_sample(sum[1], src_data[1][1], src_ff3v_fir_coefs[1], tmp[frame+1][0][1]);
+            sum[0] = src_ds3_voice_add_sample(sum[0], src_data[0][1], src_ff3v_fir_coefs[1], tmp[frame+1][0]);
+            sum[1] = src_ds3_voice_add_sample(sum[1], src_data[1][1], src_ff3v_fir_coefs[1], tmp[frame+1][1]);
 
-            tmp_out[frame/3][0][0] = src_ds3_voice_add_final_sample(sum[0], src_data[0][2], src_ff3v_fir_coefs[2], tmp[frame+2][0][0]);
-            tmp_out[frame/3][0][1] = src_ds3_voice_add_final_sample(sum[1], src_data[1][2], src_ff3v_fir_coefs[2], tmp[frame+2][0][1]);
+            tmp_out[frame/3][0] = src_ds3_voice_add_final_sample(sum[0], src_data[0][2], src_ff3v_fir_coefs[2], tmp[frame+2][0]);
+            tmp_out[frame/3][1] = src_ds3_voice_add_final_sample(sum[1], src_data[1][2], src_ff3v_fir_coefs[2], tmp[frame+2][1]);
         }
         memcpy( frame_data, tmp_out, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
+#else
+        int32_t tmp_out[appconfAUDIO_PIPELINE_FRAME_ADVANCE][appconfAUDIO_PIPELINE_CHANNELS];           
+        for( int frame=0; frame < frame_count; frame +=3 ){
+            tmp[frame][0] /=2; tmp[frame][1] /=2;
+            tmp[frame+1][0] /=2; tmp[frame+1][1] /=2;
+            tmp[frame+2][0] /=2; tmp[frame+2][1] /=2;
+
+            static int32_t state_ds[2][SRC_FF3_FIR_NUM_PHASES][SRC_FF3_FIR_TAPS_PER_PHASE] ALIGNMENT(8);
+            static int64_t sum[2];
+            sum[0]  = fir_s32_32t(state_ds[0][0], src_ff3_fir_coefs[0], tmp[frame][0]);
+            sum[0] += fir_s32_32t(state_ds[0][1], src_ff3_fir_coefs[1], tmp[frame+1][0]);
+            sum[0] += fir_s32_32t(state_ds[0][2], src_ff3_fir_coefs[2], tmp[frame+2][0]);
+
+            sum[1]  = fir_s32_32t(state_ds[1][0], src_ff3_fir_coefs[0], tmp[frame][1]);
+            sum[1] += fir_s32_32t(state_ds[1][1], src_ff3_fir_coefs[1], tmp[frame+1][1]);
+            sum[1] += fir_s32_32t(state_ds[1][2], src_ff3_fir_coefs[2], tmp[frame+2][1]);
+
+            tmp_out[frame/3][0] = (int32_t) sum[0] * 1.5;
+            tmp_out[frame/3][1] = (int32_t) sum[1] * 1.5;
+
+       }
+       memcpy( frame_data, tmp_out, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
+#endif
     } else {
       memcpy( frame_data, tmp, appconfAUDIO_PIPELINE_FRAME_ADVANCE * appconfAUDIO_PIPELINE_CHANNELS * sizeof( int32_t ) );
     }
@@ -142,15 +181,24 @@ int speaker_pipeline_output(void *output_app_data,
     return AUDIO_PIPELINE_FREE_FRAME;
 }
 
+static inline int32_t sat_mul_170(int32_t x) {
+        int64_t v = (int64_t)x * 200;        // widen
+        if (v > INT32_MAX) return INT32_MAX; // saturate
+        if (v < INT32_MIN) return INT32_MIN;
+        return (int32_t)v;
+}
 
 
 void audio_pipeline_input(void *input_app_data,
-                        int32_t **input_audio_frames,
+                        int32_t* input_audio_frames,
                         size_t ch_count,
                         size_t frame_count)
 {
     (void) input_app_data;
-    int32_t **mic_ptr = (int32_t **)(input_audio_frames + (2 * frame_count));
+    int32_t *mic_data = (input_audio_frames + (2 * frame_count));
+    
+    // odd usage of wrong cast types in the rtos library
+    int32_t **mic_ptr = (int32_t **) mic_data;
 
     static int flushed;
     while (!flushed) {
@@ -195,17 +243,28 @@ void audio_pipeline_input(void *input_app_data,
                       mic_ptr,
                       frame_count,
                       portMAX_DELAY);
+    
+    
+
+
+    int32_t *restrict p0 = mic_data;
+    int32_t *restrict p1 = mic_data + frame_count;
+
+    for (int i = 0; i < frame_count; ++i) {
+        p0[i] = sat_mul_170(p0[i]);
+        p1[i] = sat_mul_170(p1[i]);
+    }
 
 }
 
 int audio_pipeline_output(void *output_app_data,
-                        int32_t **output_audio_frames,
+                        int32_t *output_audio_frames,
                         size_t ch_count,
                         size_t frame_count)
 {
     (void) output_app_data;
 
-
+#if ON_TILE(0)
 #if appconfI2S_ENABLED
 
     xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
@@ -215,19 +274,25 @@ int audio_pipeline_output(void *output_app_data,
      
      // 0 : proc 0, AEC+IC+NS+AGC audio
      // 1 : proc 1, mic 1 audio with AEC applied
-     // 2 : ref 0, overwritten by AEC+IC output
-     // 3 : ref 1, overwritten by AEC+IC+NS output
+     // 2 : ref 0, 
+     // 3 : ref 1, 
      // 4 : mic 0
      // 5 : mic 1
+     // 6 : ic_stage_output (AEC+IC)
+     // 7 : ns_stage_output (AEC+IC+NS)
 
-     if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {    
+    static uint8_t channel_select[2] = {0, 7};
+    (void) rtos_osal_queue_receive(cntrlChannelPipelineOut, &channel_select, RTOS_OSAL_PORT_NO_WAIT);
+     
+     
+    if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {    
         // duplicate to 48kHz
         for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){
             // CONF_CHANNEL_0_STAGE : AGC : AEC+IC+NS+AGC : indx 0       
-            int32_t smpl_ch0 = *(tmpptr + in_frame + (0 * frame_count));
+            int32_t smpl_ch0 = *(tmpptr + in_frame + (channel_select[0] * frame_count));
             
-            // CONF_CHANNEL_1_STAGE : NS :  AEC+IC+NS : indx 3       
-            int32_t smpl_ch1 = *(tmpptr + in_frame + (3 * frame_count));
+            // CONF_CHANNEL_1_STAGE : NS :  AEC+IC+NS : indx 7       
+            int32_t smpl_ch1 = *(tmpptr + in_frame + (channel_select[1] * frame_count));
             
             tmp[out_frame][0][0] = smpl_ch0;
             tmp[out_frame][0][1] = smpl_ch1;
@@ -238,8 +303,8 @@ int audio_pipeline_output(void *output_app_data,
         }
     } else {
         for (int j=0; j<frame_count; j++) {
-            tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // (AEC+IC+NS+AGC) -> ESP32
-            tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // (AEC+IC+NS) -> ESP32
+            tmp[j][0][0] = *(tmpptr+j+(channel_select[0] * frame_count));    // (AEC+IC+NS+AGC) -> ESP32
+            tmp[j][0][1] = *(tmpptr+j+(channel_select[1] * frame_count));    // (AEC+IC+NS) -> ESP32
         }
     }    
     
@@ -251,12 +316,14 @@ int audio_pipeline_output(void *output_app_data,
 #endif
 
 #if appconfUSB_AUDIO_ENABLED
+    // odd usage of wrong ptr cast in usb library
+    int32_t** double_ptr_cast = (int32_t**) output_audio_frames;   
     usb_audio_send(intertile_usb_audio_ctx,
                 frame_count,
                 output_audio_frames,
                 6);
 #endif
-
+#endif
     return AUDIO_PIPELINE_FREE_FRAME;
 }
 
@@ -278,19 +345,23 @@ static void init_watchdog(void)
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_CFG_NUM, (1 << XS1_WATCHDOG_COUNT_ENABLE_SHIFT) | (1 << XS1_WATCHDOG_TRIGGER_ENABLE_SHIFT) );
 }
-
+#if ON_TILE(0)    
 static void reset_watchdog(void)
 {
     //reset watchdog to max
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
 }
+#endif
+
 static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
+#if appconfUSB_CDC_ENABLED        
         cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
+#endif
 #if ON_TILE(0)        
-        reset_watchdog();
+        //reset_watchdog();
 #endif        
         vTaskDelay(pdMS_TO_TICKS(5000));
 	}
@@ -305,9 +376,24 @@ void startup_task(void *arg)
 #if appconfDEVICE_CTRL_SPI
     device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
-#if ON_TILE(0)
+#if ON_TILE(GPIO_SERVICER_NO)
     gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
+#endif
 
+#if ON_TILE(0)
+    cntrlChannelPipelineOut = rtos_osal_malloc(sizeof(rtos_osal_queue_t));
+    rtos_osal_queue_create(cntrlChannelPipelineOut, "chanQ", 1, sizeof(channel_sel_t));
+    static device_control_audio_cfg_ctx_t audio_cfg_ctx;
+    audio_cfg_servicer_init(&audio_cfg_ctx, cntrlChannelPipelineOut);
+    audio_cfg_servicer_start(&audio_cfg_ctx, device_control_ctx, 1);
+
+#if BUILTIN_TESTS_SPI_ECHO_SERVICER
+    static spi_echo_servicer_ctx_t echo_ctx;
+    spi_echo_servicer_init(&echo_ctx);
+    spi_echo_servicer_start(&echo_ctx, device_control_ctx, 1);
+#endif    
+#endif
+#if ON_TILE(SPI_CLIENT_TILE_NO)    
     servicer_t dfu_servicer_ctx;
     dfu_servicer_init(&dfu_servicer_ctx);
     
@@ -327,7 +413,7 @@ void startup_task(void *arg)
         NULL
     );
 #endif
-
+#if appconfLED_RING
 #if ON_TILE(WS2812_TILE_NO)
     servicer_t servicer_led_ring;
     led_ring_servicer_init(&servicer_led_ring);
@@ -348,7 +434,7 @@ void startup_task(void *arg)
         NULL
     );
 #endif
-
+#endif
 #endif
 
 
@@ -357,17 +443,17 @@ void startup_task(void *arg)
     rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
     speaker_pipeline_init(NULL, NULL);
 #endif
-
+    
     audio_pipeline_init(NULL, NULL);
     
-    init_watchdog();
+    //init_watchdog();
 
     mem_analysis();
 }
 
 void vApplicationMinimalIdleHook(void)
 {
-    rtos_printf("idle hook on tile %d core %d\n", THIS_XCORE_TILE, rtos_core_id_get());
+    //rtos_printf("idle hook on tile %d core %d\n", THIS_XCORE_TILE, rtos_core_id_get());
     asm volatile("waiteu");
 }
 

@@ -78,6 +78,7 @@ int dac3101_init(uint32_t sample_rate)
         dac3101_reg_write(DAC3101_CODEC_IF, 0x20) == 0 &&
         // Set register page to 1
         dac3101_reg_write(DAC3101_PAGE_CTRL, 0x01) == 0 &&
+        
         // Program common-mode voltage to mid scale 1.65V.
         dac3101_reg_write(DAC3101_HP_DRVR, 0x14) == 0 &&
         // Program headphone-specific depop settings.
@@ -91,6 +92,7 @@ int dac3101_init(uint32_t sample_rate)
         dac3101_reg_write(DAC3101_HPL_DRVR, 0x06) == 0 &&
         // Unmute HPR, set gain = 0 dB
         dac3101_reg_write(DAC3101_HPR_DRVR, 0x06) == 0 &&
+        
         // Unmute Left Class-D, set gain = 12 dB
         dac3101_reg_write(DAC3101_SPKL_DRVR, 0x0C) == 0 &&
         // Unmute Right Class-D, set gain = 12 dB

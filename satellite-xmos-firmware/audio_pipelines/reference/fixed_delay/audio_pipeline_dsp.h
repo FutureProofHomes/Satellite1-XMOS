@@ -42,6 +42,9 @@ typedef struct {
     int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     int32_t aec_reference_audio_samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     int32_t mic_samples_passthrough[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t ic_stage_out[1][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t ns_stage_out[1][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+
 
     /* Below is additional context needed by other stages on a per frame basis */
     int32_t vnr_pred_flag;
