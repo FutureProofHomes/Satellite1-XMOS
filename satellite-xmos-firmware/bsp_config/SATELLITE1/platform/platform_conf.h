@@ -121,7 +121,7 @@
 #endif /* appconfPIPELINE_AUDIO_SAMPLE_RATE */
 
 #ifndef appconfDEVICE_CTRL_SPI
-#define appconfDEVICE_CTRL_SPI    0
+#define appconfDEVICE_CTRL_SPI    1
 #endif /* appconfDEVICE_CTRL_SPI */
 
 #ifndef APP_CONTROL_TRANSPORT_COUNT
