@@ -29,6 +29,8 @@
 #include "dfu_servicer.h"
 #include "gpio/gpio_servicer.h"
 #include "led_ring/led_ring_servicer.h"
+#include "doa/doa.h"
+#include "doa/doa_servicer.h"
 
 
 /* Config headers for sw_pll */
@@ -151,17 +153,23 @@ void audio_pipeline_input(void *input_app_data,
 {
     (void) input_app_data;
     int32_t **mic_ptr = (int32_t **)(input_audio_frames + (2 * frame_count));
+#if appconfDOA_ENABLED && (MIC_ARRAY_CONFIG_MIC_COUNT > appconfAUDIO_PIPELINE_CHANNELS)
+    static int32_t mic_full[MIC_ARRAY_CONFIG_MIC_COUNT][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t **mic_rx_ptr = (int32_t **) mic_full;
+#else
+    int32_t **mic_rx_ptr = mic_ptr;
+#endif
 
     static int flushed;
     while (!flushed) {
         size_t received;
         received = rtos_mic_array_rx(mic_array_ctx,
-                                     mic_ptr,
+                                     mic_rx_ptr,
                                      frame_count,
                                      0);
         if (received == 0) {
             rtos_mic_array_rx(mic_array_ctx,
-                              mic_ptr,
+                              mic_rx_ptr,
                               frame_count,
                               portMAX_DELAY);
             flushed = 1;
@@ -192,9 +200,21 @@ void audio_pipeline_input(void *input_app_data,
      * receive all zeros if no frame is available yet.
      */
     rtos_mic_array_rx(mic_array_ctx,
-                      mic_ptr,
+                      mic_rx_ptr,
                       frame_count,
                       portMAX_DELAY);
+
+#if appconfDOA_ENABLED && (MIC_ARRAY_CONFIG_MIC_COUNT > appconfAUDIO_PIPELINE_CHANNELS)
+    for (size_t ch = 0; ch < appconfAUDIO_PIPELINE_CHANNELS; ch++) {
+        memcpy(mic_ptr[ch], mic_full[ch], frame_count * sizeof(int32_t));
+    }
+
+    doa_result_t doa_result;
+    (void) doa_process_frame((const int32_t *) mic_full,
+                             MIC_ARRAY_CONFIG_MIC_COUNT,
+                             frame_count,
+                             &doa_result);
+#endif
 
 }
 
@@ -326,6 +346,25 @@ void startup_task(void *arg)
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
+
+    servicer_t doa_servicer_ctx;
+    doa_servicer_init(&doa_servicer_ctx);
+
+    servicer_register_ctx_t doa_servicer_reg_ctx = {
+        &doa_servicer_ctx,
+        device_control_ctx,
+        1,
+        NULL
+    };
+
+    xTaskCreate(
+        doa_servicer,
+        "doa servicer",
+        RTOS_THREAD_STACK_SIZE(doa_servicer),
+        &doa_servicer_reg_ctx,
+        appconfDEVICE_CONTROL_SPI_PRIORITY,
+        NULL
+    );
 #endif
 
 #if ON_TILE(WS2812_TILE_NO)
@@ -359,6 +398,10 @@ void startup_task(void *arg)
 #endif
 
     audio_pipeline_init(NULL, NULL);
+
+#if appconfDOA_ENABLED
+    doa_init(appconfAUDIO_PIPELINE_SAMPLE_RATE, MIC_ARRAY_CONFIG_MIC_COUNT);
+#endif
     
     init_watchdog();
 

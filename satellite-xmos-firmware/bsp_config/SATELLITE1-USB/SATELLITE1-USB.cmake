@@ -39,8 +39,8 @@ target_link_options(fph_ffva_board_support_satellite1_usb
 # West:  5 (pin 1 rising edge )
 # pins 2 & 3 are not used
 
-# use East as first and West as second mic
-set(MIC_MAPPING "4, 5")
+# Keep East/West as first two channels for legacy 2-ch pipeline compatibility.
+set(MIC_MAPPING "4, 5, 0, 1")
 
 target_compile_definitions(fph_ffva_board_support_satellite1_usb
     INTERFACE
@@ -57,7 +57,7 @@ target_compile_definitions(fph_ffva_board_support_satellite1_usb
         MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME=240
         MIC_ARRAY_CONFIG_USE_DDR=1
         MIC_ARRAY_CONFIG_MIC_INPUT=8
-        MIC_ARRAY_CONFIG_MIC_COUNT=2
+        MIC_ARRAY_CONFIG_MIC_COUNT=4
         MIC_ARRAY_CONFIG_INPUT_MAPPING={${MIC_MAPPING}}
         
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1

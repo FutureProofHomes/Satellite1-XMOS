@@ -23,7 +23,9 @@
 #define appconfAUDIO_CLOCK_FREQUENCY            MIC_ARRAY_CONFIG_MCLK_FREQ
 #define appconfPDM_CLOCK_FREQUENCY              MIC_ARRAY_CONFIG_PDM_FREQ
 #define appconfAUDIO_PIPELINE_SAMPLE_RATE       16000
+#ifndef appconfAUDIO_PIPELINE_CHANNELS
 #define appconfAUDIO_PIPELINE_CHANNELS          MIC_ARRAY_CONFIG_MIC_COUNT
+#endif
 
 #ifndef appconfAUDIO_SPK_PL_SR_FACTOR
 #define appconfAUDIO_SPK_PL_SR_FACTOR           3
@@ -143,6 +145,10 @@
 #define appconfSPI_AUDIO_TESTING   1
 #ifndef appconfSPI_AUDIO_MODE
 #define appconfSPI_AUDIO_MODE      appconfSPI_AUDIO_TESTING
+#endif
+
+#ifndef appconfDOA_ENABLED
+#define appconfDOA_ENABLED         0
 #endif
 
 

@@ -14,6 +14,8 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfI2S_MODE=appconfI2S_MODE_MASTER
         appconfI2S_AUDIO_SAMPLE_RATE=48000
         appconfDEVICE_CTRL_SPI=1
+        appconfAUDIO_PIPELINE_CHANNELS=2
+        appconfDOA_ENABLED=1
     )
 
     if(${FFVA_AP} STREQUAL bypass )

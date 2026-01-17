@@ -1,0 +1,20 @@
+#pragma once
+
+// DOA_SERVICER_RESID commands
+#ifndef DOA_SERVICER_CMD_GET_RESULT
+#define DOA_SERVICER_CMD_GET_RESULT 0
+#endif
+#ifndef DOA_SERVICER_CMD_GET_CAPS
+#define DOA_SERVICER_CMD_GET_CAPS 1
+#endif
+#ifndef DOA_SERVICER_CMD_SET_OFFSETS
+#define DOA_SERVICER_CMD_SET_OFFSETS 2
+#endif
+
+#define NUM_DOA_SERVICER_CMDS 3
+
+#define DOA_SERVICER_CMD_GET_RESULT_NUM_VALUES (2)
+#define DOA_SERVICER_CMD_GET_CAPS_NUM_VALUES (2)
+#define DOA_SERVICER_CMD_SET_OFFSETS_NUM_VALUES (4)
+
+typedef float doa_servicer_cmd_get_result_t;
