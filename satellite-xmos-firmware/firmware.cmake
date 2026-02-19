@@ -93,4 +93,5 @@ endif()
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1-usb.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/xk-voice-sq66.cmake)
 
