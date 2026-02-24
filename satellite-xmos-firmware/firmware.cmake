@@ -2,13 +2,17 @@
 # Gather Sources
 #**********************
 
-file(GLOB_RECURSE APP_SOURCES   ${CMAKE_CURRENT_LIST_DIR}/src/*.c)
+file(GLOB APP_SOURCES   
+    ${CMAKE_CURRENT_LIST_DIR}/src/*.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/control/*.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/gpio/*.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/dfu_int/*.c
+)
 
 set(APP_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${CMAKE_CURRENT_LIST_DIR}/src/control
     ${CMAKE_CURRENT_LIST_DIR}/src/dfu_int
-    ${CMAKE_CURRENT_LIST_DIR}/src/usb
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/bsp_config/bsp_config.cmake)
@@ -16,6 +20,7 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
+option(USE_DEV_MODE "Enable dev-mode" OFF)
 
 #**********************
 # Flags
@@ -28,8 +33,7 @@ set(APP_COMPILER_FLAGS
     -Wno-xcore-fptrgroup
 )
 
-set(APP_COMPILE_DEFINITIONS
-    DEBUG_PRINT_ENABLE=0
+set(APP_COMPILE_DEFINITIONS    
     PLATFORM_USES_TILE_0=1
     PLATFORM_USES_TILE_1=1
     XUD_CORE_CLOCK=600
@@ -45,18 +49,28 @@ set(APP_LINK_OPTIONS
 )
 
 set(APP_COMMON_LINK_LIBRARIES
-    rtos::freertos_usb
     fph::device_control
     lib_src
     lib_sw_pll
 )
 
+if(USE_DEV_MODE)
+list(APPEND APP_COMPILE_DEFINITIONS
+    DEBUG_PRINT_ENABLE=1
+    DEBUG_PRINT_ENABLE_DFU_SERVICER=1
+    appconfWATCHDOG_ENABLED=0
+)
+else()
+list(APPEND APP_COMPILE_DEFINITIONS
+    DEBUG_PRINT_ENABLE=0
+    appconfWATCHDOG_ENABLED=1
+)
+endif()
 
 #**********************
 # Pipeline Options
 # By default only these targets are created:
 #  example_ffva_int_fixed_delay
-#  example_ffva_ua_adec_altarch
 #**********************
 option(ENABLE_ALL_FFVA_PIPELINES  "Create all FFVA pipeline configurations"  OFF)
 
@@ -68,22 +82,10 @@ if(ENABLE_ALL_FFVA_PIPELINES)
         adec_altarch
         empty
     )
-
-    set(FFVA_PIPELINES_UA
-        fixed_delay
-        adec
-        adec_altarch
-        empty
-    )
 else()
     set(FFVA_PIPELINES_INT
-        adec
         fixed_delay
         bypass
-    )
-
-    set(FFVA_PIPELINES_UA
-        adec_altarch
     )
 endif()
 
@@ -91,7 +93,8 @@ endif()
 # XMOS Firmware Targets
 #**********************
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/satellite1-usb.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/xk-voice-sq66.cmake)
+#include(${CMAKE_CURRENT_LIST_DIR}/satellite1-usb.cmake)
+#include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
+
 

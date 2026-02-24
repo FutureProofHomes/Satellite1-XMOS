@@ -29,6 +29,7 @@ ${APP_COMPILE_DEFINITIONS}
     appconfI2S_AUDIO_SAMPLE_RATE=48000
     appconfI2S_ESP_ENABLED=1
     appconfDEVICE_CTRL_SPI=0
+    appconfLED_RING=0
 )
 
     if(${FFVA_AP} STREQUAL bypass )

@@ -1,3 +1,4 @@
+option(ENABLE_USB "Enable USB support" OFF)
 
 if((${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A) OR (${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS2A))
     ## Create library target
@@ -7,14 +8,12 @@ if((${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A) OR (${CMAKE_SYSTEM_NAME} STREQUAL 
             src/device_control.c
             src/resource_table.c
             transport/i2c/device_control_i2c.c
-            transport/usb/device_control_usb.c
             transport/spi/device_control_spi.c
     )
     target_include_directories(fph_rtos_sw_services_device_control
         INTERFACE
             api
             transport/i2c
-            transport/usb
             transport/spi
     )
     target_link_libraries(fph_rtos_sw_services_device_control
@@ -22,8 +21,13 @@ if((${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A) OR (${CMAKE_SYSTEM_NAME} STREQUAL 
             rtos::osal
             rtos::drivers::i2c
             rtos::drivers::spi
-            rtos::sw_services::usb
     )
+    
+    if (ENABLE_USB)
+        list(APPEND SOURCES transport/usb/device_control_usb.c)
+        list(APPEND INCLUDES transport/usb)
+        list(APPEND LINK_LIBS rtos::sw_services::usb)
+    endif()
 
     ## Create an alias
     add_library(fph::device_control ALIAS fph_rtos_sw_services_device_control)

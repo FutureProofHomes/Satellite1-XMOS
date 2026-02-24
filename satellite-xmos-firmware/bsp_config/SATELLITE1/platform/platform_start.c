@@ -13,9 +13,11 @@
 /* App headers */
 #include "platform_conf.h"
 #include "platform/driver_instances.h"
+
+#if appconfUSB_ENABLED
 #include "usb_support.h"
 #include "usb_cdc.h"
-
+#endif
 
 #if appconfDEVICE_CTRL_SPI
 #include "device_control_spi.h"

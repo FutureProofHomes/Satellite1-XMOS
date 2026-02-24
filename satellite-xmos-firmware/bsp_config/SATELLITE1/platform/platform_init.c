@@ -9,9 +9,12 @@
 #include "platform/app_pll_ctrl.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_init.h"
+
+#if appconfUSB_ENABLED
 #include "adaptive_rate_adjust.h"
 #include "usb_support.h"
 #include "usb_cdc.h"
+#endif
 
 static void mclk_init(chanend_t other_tile_c)
 {

@@ -6,6 +6,8 @@
 #include <xassert.h>
 
 #include "platform/platform_conf.h"
+
+#if appconfLED_RING
 #include "servicer.h"
 #include "led_ring_servicer.h"
 
@@ -130,3 +132,4 @@ void led_ring_servicer(void *args) {
     }
 }
 
+#endif

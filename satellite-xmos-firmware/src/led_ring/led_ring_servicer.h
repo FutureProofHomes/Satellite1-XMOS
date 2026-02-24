@@ -5,6 +5,8 @@
 #define LED_RING_SERVICER_RESID           (200)
 #define NUM_RESOURCES_LED_RING            (  1)
 
+#if appconfLED_RING
+
 typedef struct {
     servicer_t    *servicer;
     rtos_ws2812_t *ws2812_ctx;    
@@ -28,3 +30,4 @@ void led_ring_servicer(void *args);
  */
 void led_ring_servicer_init(servicer_t *servicer );
 
+#endif

@@ -1,12 +1,13 @@
 query_tools_version()
 
+
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(FFVA_INT_COMPILE_DEFINITIONS
-    ${APP_COMPILE_DEFINITIONS}
+        ${APP_COMPILE_DEFINITIONS}
         appconfEXTERNAL_MCLK=0
         appconfI2S_ENABLED=1
-        appconfUSB_ENABLED=1
+        appconfUSB_ENABLED=0
         appconfUSB_AUDIO_ENABLED=0
         appconfUSB_AUDIO_MODE=0
         appconfUSB_CDC_ENABLED=0
@@ -14,6 +15,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfI2S_MODE=appconfI2S_MODE_MASTER
         appconfI2S_AUDIO_SAMPLE_RATE=48000
         appconfDEVICE_CTRL_SPI=1
+        appconfLED_RING=0
     )
 
     if(${FFVA_AP} STREQUAL bypass )

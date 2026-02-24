@@ -1,19 +1,5 @@
 query_tools_version()
 
-# Append xscope specific settings
-list(APPEND APP_COMPILER_FLAGS
-    -fxscope
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
-)
-
-list(APPEND APP_COMPILE_DEFINITIONS
-    DEBUG_PRINT_ENABLE_DFU_SERVICER=1
-)
-
-list(APPEND APP_LINK_OPTIONS
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
-)
-
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(FFVA_INT_COMPILE_DEFINITIONS
@@ -54,13 +40,19 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${FFVA_INT_COMPILE_DEFINITIONS}
             THIS_XCORE_TILE=0
     )
-    target_compile_options(${TARGET_NAME} PRIVATE ${APP_COMPILER_FLAGS})
+    target_compile_options(${TARGET_NAME} 
+        PRIVATE 
+            ${APP_COMPILER_FLAGS}
+            -fxscope
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+    )
     target_link_libraries(${TARGET_NAME}
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::sq66
             fph::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
@@ -74,13 +66,19 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${FFVA_INT_COMPILE_DEFINITIONS}
             THIS_XCORE_TILE=1
     )
-    target_compile_options(${TARGET_NAME} PRIVATE ${APP_COMPILER_FLAGS})
+    target_compile_options(${TARGET_NAME} 
+        PRIVATE 
+            ${APP_COMPILER_FLAGS}
+            -fxscope
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+    )
     target_link_libraries(${TARGET_NAME}
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::sq66
             fph::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)

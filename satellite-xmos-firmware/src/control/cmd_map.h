@@ -9,7 +9,7 @@
 // Types of commands in the Command ID enum space -
 // - Dedicated: Commands dedicated only for the resource
 //      - For SHF this is further spilt into dedicated SHF commands and dedicated custom commands
-// - Shared: Commands shared between a resource and its servicer. These are present in the servicer's command map only though respources process them as well. (Used for special commands protocol)
+// - Shared: Commands shared between a resource and its servicer. These are present in the servicer's command map only though resources process them as well. (Used for special commands protocol)
 // - External: space reserved for customers to add commands.
 #define DEDICATED_COMMANDS_START_OFFSET (0)
 #define SHARED_COMMANDS_START_OFFSET (90)

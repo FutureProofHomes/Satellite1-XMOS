@@ -18,6 +18,7 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
         appconfDEVICE_CTRL_SPI=0    
         appconfEXTERNAL_MCLK=0
         appconfI2S_ENABLED=1
+        appconfLED_RING=1
         
         appconfUSB_ENABLED=1
         appconfUSB_AUDIO_ENABLED=1

@@ -36,6 +36,16 @@
             <!-- User Input -->
             <Port Location="XS1_PORT_4F" Name="PORT_ROTARY_ENC"/>
             <Port Location="XS1_PORT_8D" Name="PORT_BUTTONS"/>
+
+            <!-- USB Ports -->
+            <Port Location="XS1_PORT_1H"  Name="PORT_USB_TX_READYIN"/>
+            <Port Location="XS1_PORT_1J"  Name="PORT_USB_CLK"/>
+            <Port Location="XS1_PORT_1K"  Name="PORT_USB_TX_READYOUT"/>
+            <Port Location="XS1_PORT_1I"  Name="PORT_USB_RX_READY"/>
+            <Port Location="XS1_PORT_1E"  Name="PORT_USB_FLAG0"/>
+            <Port Location="XS1_PORT_1F"  Name="PORT_USB_FLAG1"/>
+            <Port Location="XS1_PORT_8A"  Name="PORT_USB_TXD"/>
+            <Port Location="XS1_PORT_8B"  Name="PORT_USB_RXD"/>
           </Tile>
           
           <Tile Number="1" Reference="tile[1]">
