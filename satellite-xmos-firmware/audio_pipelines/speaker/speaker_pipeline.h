@@ -16,13 +16,13 @@ void speaker_pipeline_init(
 
 void speaker_pipeline_input(
         void *input_app_data,
-        int32_t **input_audio_frames,
+        int32_t *input_audio_frames,
         size_t ch_count,
         size_t frame_count);
 
 int speaker_pipeline_output(
         void *output_app_data,
-        int32_t **output_audio_frames,
+        int32_t *output_audio_frames,
         size_t ch_count,
         size_t frame_count);
 

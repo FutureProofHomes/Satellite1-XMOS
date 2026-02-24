@@ -67,8 +67,8 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
 {
 
     return audio_pipeline_output(output_app_data,
-                               (int32_t **)frame_data->samples,
-                               6,
+                               (int32_t *) frame_data->samples,
+                               appconfMIC_PIPELINE_PROC_CHANNELS + appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
                                appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 }
 

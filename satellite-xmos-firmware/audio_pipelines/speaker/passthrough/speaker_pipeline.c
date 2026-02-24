@@ -25,7 +25,7 @@
 #endif
 
 typedef struct {
-    int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE];
+    int32_t samples[appconfAUDIO_SPK_CHANNELS][appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE];
 } frame_data_t;
 
 static void *audio_pipeline_input_i(void *input_app_data)
@@ -36,7 +36,7 @@ static void *audio_pipeline_input_i(void *input_app_data)
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
     speaker_pipeline_input(input_app_data,
-                       (int32_t **)frame_data->samples,
+                       (int32_t *)frame_data->samples,
                        2,
                        appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 
@@ -47,12 +47,12 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
                                    void *output_app_data)
 {
     return speaker_pipeline_output(output_app_data,
-                               (int32_t **)frame_data->samples,
+                               (int32_t *)frame_data->samples,
                                2,
                                appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 }
 
-void empty_stage(void)
+void empty_speaker_stage(void)
 {
     ;
 }
@@ -69,13 +69,13 @@ void speaker_pipeline_init(
     const int stage_count = 2;
 
     const pipeline_stage_t stages[] = {
-        (pipeline_stage_t)empty_stage,
-        (pipeline_stage_t)empty_stage,
+        (pipeline_stage_t)empty_speaker_stage,
+        (pipeline_stage_t)empty_speaker_stage,
     };
 
     const configSTACK_DEPTH_TYPE stage_stack_sizes[] = {
-        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(empty_stage) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
-        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(empty_stage) + RTOS_THREAD_STACK_SIZE(audio_pipeline_output_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(empty_speaker_stage) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(empty_speaker_stage) + RTOS_THREAD_STACK_SIZE(audio_pipeline_output_i),
     };
 
     initialize_pipeline_stages();
