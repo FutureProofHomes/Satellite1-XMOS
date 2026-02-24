@@ -89,8 +89,6 @@ if(ENABLE_ALL_FFVA_PIPELINES)
     set(FFVA_PIPELINES_INT
         bypass
         fixed_delay
-        adec
-        adec_altarch
         empty
     )
 else()
@@ -105,7 +103,5 @@ endif()
 #**********************
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/xk-voice-sq66.cmake)
-#include(${CMAKE_CURRENT_LIST_DIR}/satellite1-usb.cmake)
-#include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
 
 
