@@ -5,26 +5,13 @@
 
 Uses the 'Automatic Delay Estimation and Correction' pipeline of the sln_voice example repository.
 
-**satellite1_firmware_bypass**
+**satellite1_firmware_empty**
 
 A variant which bypasses the mic-pipeline. Hence, the raw mic signal is streamed to the ESP32-S3.
 
-**explorer1_firmware_{fixed_delay|bypass}**
+**sq66_firmware_{fixed_delay|empty}**
 
-Firmware for debugging purposes only. It runs on the  XCORE.AI evaluation board. 
-
-**satellite1_usb_firmware_PIPELINE_CONFIGURATION**
-
-PIPELINE_CONFIGURATION:
-- aec__vnr_ic__ns__agc
-- aec__vnr_ic__ns
-- aec__vnr_ic
-- vnr_ic__ns
-- vnr_ic
-- ns
-
-Work in progress firmware, currently for debugging purposes only. 
-It configures the Satellite1 as an USB-Audio device and enables basic logging on the satellite1 via usb-cdc. 
+Firmware for developing purposes only. It runs on the  XK-VOICE-SQ66 evaluation board. 
 
 ## Firmware Files
 
@@ -42,21 +29,9 @@ A firmware upgrade image that can be uploaded through the Device Firmware Update
 The XMOS executable (XE) binary format stores programs for XMOS devices and includes information about the system it is intended to run on, allowing support for multiple program loads, configurations and debugging.
 
 
-## Flashing via Satellite1 ESPHome Firmware
-
-
-## Flashing via dfu-util
-> **Note:** The Satellite1 does not come with a pre-flashed XMOS firmware. Hence, the initial firmware needs to be written directly to the flash memory via SPI. Use 'Flashing via Satellite1 ESPHome Firmware' in this case.  
-
-
-If the XMOS device is running a factory firmware with DFU over USB support, an upgrade image can be uploaded as follows:
-```bash
-dfu-util -e -a 1 -D variant_name.upgrade.bin
-```
-
 
 ## Running / Flashing via xTAG
-> **Note**: The Satellite1 does not include an xTAG debugger. This option applies only when testing the firmware with a developer board like the XCORE.AI EVALUATION KIT. 
+> **Note**: The Satellite1 does not include an xTAG debugger. This option applies only when testing the firmware with a developer board like the SQ66 EVALUATION KIT. 
 
 When the XMOS board is connected as a USB xTag device, the firmware can be run or flashed as follows:
 
@@ -147,8 +122,32 @@ cd build
 ninja variant_name
 ```
 
+### Building the XMOS executable with debug/xscope capabilities (.xe file)
+Run the following commands in the root folder to build the firmware.
 
+On Linux and Mac run:
 
+```bash
+cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake -DUSE_DEV_MODE=1
+cd build
+
+make variant_name
+```
+
+On Windows run:
+```bash
+cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake -DUSE_DEV_MODE=1
+cd build
+
+ninja variant_name
+```
+
+### Debugging with SQ66-DEV-BOARD
+```bash
+xgdb variant-name.xe
+connect --xscope
+run
+```
 
 
 
