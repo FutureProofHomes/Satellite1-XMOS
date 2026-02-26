@@ -38,11 +38,17 @@
 #include "led_ring/led_ring_servicer.h"
 #endif
 
+#include "gcc_phat.h"
+#include "doa_led.h"
 /* Config headers for sw_pll */
 #include "sw_pll.h"
 
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
+
+#if ON_TILE(1)
+DWORD_ALIGNED doa4_state_t doa;
+#endif
 
 #if ON_TILE(0)
 rtos_osal_queue_t *cntrlChannelPipelineOut;
@@ -155,6 +161,33 @@ int speaker_pipeline_output(void *output_app_data,
 }
 
 
+typedef struct {
+  float ux;
+  float uy;
+  uint8_t inited;
+} doa_ema_t;
+
+// alpha in (0,1]. Smaller = more smoothing (slower)
+static inline float doa_ema_update(doa_ema_t *s, float ang_rad, float alpha)
+{
+  float x = cosf(ang_rad);
+  float y = sinf(ang_rad);
+
+  if(!s->inited){
+    s->ux = x;
+    s->uy = y;
+    s->inited = 1;
+  } else {
+    s->ux = (1.0f - alpha) * s->ux + alpha * x;
+    s->uy = (1.0f - alpha) * s->uy + alpha * y;
+  }
+
+  // optional renormalize (helps long-term stability)
+  float n = sqrtf(s->ux*s->ux + s->uy*s->uy);
+  if(n > 1e-12f){ s->ux /= n; s->uy /= n; }
+
+  return atan2f(s->uy, s->ux);
+}
 
 void audio_pipeline_input(void *input_app_data,
                         int32_t* input_audio_frames,
@@ -210,6 +243,26 @@ void audio_pipeline_input(void *input_app_data,
                       mic_ptr,
                       frame_count,
                       portMAX_DELAY);
+#if ON_TILE(1)    
+    float ang = doa4_process_frame(&doa, mic_ptr, -31);
+    static uint8_t led_buffer[LED_RING_NUM_LEDS * 3];
+    static float ux=1.0f, uy=0.0f;
+    float newx = cosf(ang), newy = sinf(ang);
+    float alpha = 0.2f; // 0..1 (higher = faster)
+    ux = (1.0f-alpha)*ux + alpha*newx;
+    uy = (1.0f-alpha)*uy + alpha*newy;
+    float ang_smooth = atan2f(uy, ux);
+    led_ring_show_doa(
+        led_buffer,
+        LED_RING_NUM_LEDS,
+        ang_smooth,
+        /*led0_angle_offset_rad=*/0.0f,
+        /*led_index_offset=*/0,
+        /*brightness=*/64
+    );
+
+    rtos_ws2812_write( ws2812_ctx, &led_buffer );
+#endif
 
 }
 
@@ -398,6 +451,9 @@ void startup_task(void *arg)
     ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );
     rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
     speaker_pipeline_init(NULL, NULL);
+#endif
+#if ON_TILE(1)
+    doa4_init(&doa);
 #endif
 
     audio_pipeline_init(NULL, NULL);

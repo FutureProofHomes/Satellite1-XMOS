@@ -40,7 +40,7 @@ target_link_options(fph_ffva_board_support_satellite1
 # pins 2 & 3 are not used
 
 # use East as first and West as second mic
-set(MIC_MAPPING "4, 5, 0, 1")
+set(MIC_MAPPING "0, 4, 1, 5")
 
 target_compile_definitions(fph_ffva_board_support_satellite1
     INTERFACE
