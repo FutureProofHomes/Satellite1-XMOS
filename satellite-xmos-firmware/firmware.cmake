@@ -48,6 +48,7 @@ set(APP_LINK_OPTIONS
     -lquadspi
     -report
     -lotp3
+    --print-memory-usage
 )
 
 set(APP_COMMON_LINK_LIBRARIES
