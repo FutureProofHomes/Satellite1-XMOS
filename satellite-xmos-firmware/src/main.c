@@ -161,34 +161,6 @@ int speaker_pipeline_output(void *output_app_data,
 }
 
 
-typedef struct {
-  float ux;
-  float uy;
-  uint8_t inited;
-} doa_ema_t;
-
-// alpha in (0,1]. Smaller = more smoothing (slower)
-static inline float doa_ema_update(doa_ema_t *s, float ang_rad, float alpha)
-{
-  float x = cosf(ang_rad);
-  float y = sinf(ang_rad);
-
-  if(!s->inited){
-    s->ux = x;
-    s->uy = y;
-    s->inited = 1;
-  } else {
-    s->ux = (1.0f - alpha) * s->ux + alpha * x;
-    s->uy = (1.0f - alpha) * s->uy + alpha * y;
-  }
-
-  // optional renormalize (helps long-term stability)
-  float n = sqrtf(s->ux*s->ux + s->uy*s->uy);
-  if(n > 1e-12f){ s->ux /= n; s->uy /= n; }
-
-  return atan2f(s->uy, s->ux);
-}
-
 void audio_pipeline_input(void *input_app_data,
                         int32_t* input_audio_frames,
                         size_t ch_count,
@@ -290,23 +262,26 @@ int audio_pipeline_output(void *output_app_data,
      // 6 : mic 2
      // 7 : mic 3
 
-    static uint8_t channel_select[2] = {2, 3};
-    (void) rtos_osal_queue_receive(cntrlChannelPipelineOut, &channel_select, RTOS_OSAL_PORT_NO_WAIT);
+    static uint8_t channel_select[2] = {0, 3, 4, 5, 6, 7};
+    //(void) rtos_osal_queue_receive(cntrlChannelPipelineOut, &channel_select, RTOS_OSAL_PORT_NO_WAIT);
     
      
     if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {    
         // duplicate to 48kHz
         for( int in_frame=0, out_frame=0; in_frame < frame_count; in_frame++, out_frame += 3 ){    
-            int32_t smpl_ch0 = *(tmpptr + in_frame + (channel_select[0] * frame_count));
-            
-            int32_t smpl_ch1 = *(tmpptr + in_frame + (channel_select[1] * frame_count));
+            const int32_t smpl_ch0 = *(tmpptr + in_frame + (channel_select[0] * frame_count));
+            const int32_t smpl_ch1 = *(tmpptr + in_frame + (channel_select[1] * frame_count));
+            const int32_t smpl_ch2 = *(tmpptr + in_frame + (channel_select[2] * frame_count));
+            const int32_t smpl_ch3 = *(tmpptr + in_frame + (channel_select[3] * frame_count));
+            const int32_t smpl_ch4 = *(tmpptr + in_frame + (channel_select[4] * frame_count));
+            const int32_t smpl_ch5 = *(tmpptr + in_frame + (channel_select[5] * frame_count));
             
             tmp[out_frame][0] = smpl_ch0;
             tmp[out_frame][1] = smpl_ch1;
-            tmp[out_frame+1][0] = smpl_ch0;
-            tmp[out_frame+1][1] = smpl_ch1;
-            tmp[out_frame+2][0] = smpl_ch0;
-            tmp[out_frame+2][1] = smpl_ch1;
+            tmp[out_frame+1][0] = smpl_ch2;
+            tmp[out_frame+1][1] = smpl_ch3;
+            tmp[out_frame+2][0] = smpl_ch4;
+            tmp[out_frame+2][1] = smpl_ch5;
         }
     } else {
         for (int j=0; j<frame_count; j++) {
