@@ -28,6 +28,7 @@
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
 #include "gpio/gpio_servicer.h"
+#include "eq/biquad_eq.h"
 #include "led_ring/led_ring_servicer.h"
 
 
@@ -104,7 +105,15 @@ int speaker_pipeline_output(void *output_app_data,
         tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
         tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
     }
-    
+
+    /* 3-band parametric EQ on speaker output */
+    {
+        static biquad_state_t eq_state_l[BIQUAD_EQ_NUM_BANDS];
+        static biquad_state_t eq_state_r[BIQUAD_EQ_NUM_BANDS];
+        biquad_eq_process_frame(&tmp[0][0][0], eq_state_l, frame_count, appconfAUDIO_PIPELINE_CHANNELS);
+        biquad_eq_process_frame(&tmp[0][0][1], eq_state_r, frame_count, appconfAUDIO_PIPELINE_CHANNELS);
+    }
+
     // send to DAC
     rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,
