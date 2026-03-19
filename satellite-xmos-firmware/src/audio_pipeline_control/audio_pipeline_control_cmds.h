@@ -1,0 +1,26 @@
+#pragma once
+
+#include <stdint.h>
+
+enum e_audio_pipeline_settings_cmds
+{
+    AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS = 0,
+    AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL,
+
+    NUM_AUDIO_PIPELINE_SETTINGS_CMDS
+};
+
+typedef enum
+{
+    AUDIO_PIPELINE_SETTINGS_MIC_GAIN_FIELD = (1u << 0),
+    AUDIO_PIPELINE_SETTINGS_REF_GAIN_FIELD = (1u << 1),
+    AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD = (1u << 2),
+    AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD = (1u << 3),
+    AUDIO_PIPELINE_SETTINGS_UPSAMPLE_CHANNEL_MAP_FIELD = (1u << 4),
+} audio_pipeline_mic_settings_field_mask_t;
+
+typedef enum
+{
+    AUDIO_PIPELINE_SETTINGS_SPK_EQ_ENABLED_FIELD = (1u << 0),
+    AUDIO_PIPELINE_SETTINGS_SPK_EQ_PROFILE_ID_FIELD = (1u << 1),
+} audio_pipeline_speaker_settings_field_mask_t;
