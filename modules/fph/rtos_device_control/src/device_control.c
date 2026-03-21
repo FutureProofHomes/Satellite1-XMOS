@@ -472,7 +472,8 @@ control_ret_t device_control_resources_register(device_control_t *ctx,
     }
 
     if (registered_count == ctx->servicer_count) {
-        ctx->status_buffer = rtos_osal_malloc( registered_count );
+        ctx->status_buffer = rtos_osal_malloc(MAX_STATUS_BUFFER_LEN);
+        xassert(ctx->status_buffer != NULL);
         ctx->status_buffer_len = MAX_STATUS_BUFFER_LEN;
         memset( ctx->status_buffer, 0, ctx->status_buffer_len );
         return CONTROL_SUCCESS;
