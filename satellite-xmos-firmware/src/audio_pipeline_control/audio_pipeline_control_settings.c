@@ -5,11 +5,9 @@
 
 static const audio_pipeline_gain_t audio_pipeline_unity_gain = 0x40000000;
 
-void fixed_delay_mic_pipeline_settings_default(
-    fixed_delay_mic_pipeline_settings_t *settings)
+void mic_output_pipeline_settings_default(
+    mic_output_pipeline_settings_t *settings)
 {
-    settings->mic_gain = audio_pipeline_unity_gain;
-    settings->ref_gain = audio_pipeline_unity_gain;
     settings->pack_extra_upsample_channels = 0;
 
     settings->i2s_channel_map[0] = 0;
@@ -21,6 +19,13 @@ void fixed_delay_mic_pipeline_settings_default(
     settings->upsample_channel_map[3] = 3;
     settings->upsample_channel_map[4] = 0;
     settings->upsample_channel_map[5] = 3;
+}
+
+void mic_input_pipeline_settings_default(
+    mic_input_pipeline_settings_t *settings)
+{
+    settings->mic_gain = audio_pipeline_unity_gain;
+    settings->ref_gain = audio_pipeline_unity_gain;
 }
 
 void speaker_pipeline_settings_default(
@@ -36,8 +41,8 @@ bool audio_pipeline_output_channel_index_is_valid(uint8_t channel_index)
            channel_index <= AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX;
 }
 
-bool fixed_delay_mic_pipeline_settings_channel_maps_are_valid(
-    const fixed_delay_mic_pipeline_settings_t *settings)
+bool mic_output_pipeline_settings_channel_maps_are_valid(
+    const mic_output_pipeline_settings_t *settings)
 {
     size_t index;
 
@@ -58,10 +63,17 @@ bool fixed_delay_mic_pipeline_settings_channel_maps_are_valid(
     return true;
 }
 
-bool fixed_delay_mic_pipeline_settings_update_is_valid(
-    const fixed_delay_mic_pipeline_settings_update_t *settings_update)
+bool mic_output_pipeline_settings_update_is_valid(
+    const mic_output_pipeline_settings_update_t *settings_update)
 {
     uint32_t field_mask = settings_update->field_mask;
+
+    if ((field_mask &
+            ~(AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD |
+              AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD |
+              AUDIO_PIPELINE_SETTINGS_UPSAMPLE_CHANNEL_MAP_FIELD)) != 0) {
+        return false;
+    }
 
     if ((field_mask & AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD) != 0) {
         size_t index;
@@ -86,6 +98,37 @@ bool fixed_delay_mic_pipeline_settings_update_is_valid(
     }
 
     return true;
+}
+
+bool mic_input_pipeline_settings_are_valid(
+    const mic_input_pipeline_settings_t *settings)
+{
+    (void) settings;
+    return true;
+}
+
+bool mic_input_pipeline_settings_update_is_valid(
+    const mic_input_pipeline_settings_update_t *settings_update)
+{
+    mic_input_pipeline_settings_t settings;
+
+    if ((settings_update->field_mask &
+            ~(AUDIO_PIPELINE_SETTINGS_MIC_GAIN_FIELD |
+              AUDIO_PIPELINE_SETTINGS_REF_GAIN_FIELD)) != 0) {
+        return false;
+    }
+
+    mic_input_pipeline_settings_default(&settings);
+
+    if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_MIC_GAIN_FIELD) != 0) {
+        settings.mic_gain = settings_update->settings.mic_gain;
+    }
+
+    if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_REF_GAIN_FIELD) != 0) {
+        settings.ref_gain = settings_update->settings.ref_gain;
+    }
+
+    return mic_input_pipeline_settings_are_valid(&settings);
 }
 
 bool speaker_pipeline_settings_are_valid(
