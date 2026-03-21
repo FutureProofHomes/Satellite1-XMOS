@@ -10,9 +10,16 @@
 
 static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS, 1,
-      sizeof(fixed_delay_mic_pipeline_settings_t), CMD_READ_ONLY },
+      sizeof(mic_output_pipeline_settings_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL, 1,
-      sizeof(fixed_delay_mic_pipeline_settings_update_t), CMD_WRITE_ONLY },
+      sizeof(mic_output_pipeline_settings_update_t), CMD_WRITE_ONLY },
+};
+
+static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS, 1,
+      sizeof(mic_input_pipeline_settings_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL, 1,
+      sizeof(mic_input_pipeline_settings_update_t), CMD_WRITE_ONLY },
 };
 
 static control_cmd_info_t audio_pipeline_speaker_settings_cmd_map[] = {
@@ -22,19 +29,11 @@ static control_cmd_info_t audio_pipeline_speaker_settings_cmd_map[] = {
       sizeof(speaker_pipeline_settings_update_t), CMD_WRITE_ONLY },
 };
 
-static void fixed_delay_mic_pipeline_settings_apply_update(
-    fixed_delay_mic_pipeline_settings_runtime_t *settings_runtime,
-    const fixed_delay_mic_pipeline_settings_update_t *settings_update)
+static void mic_output_pipeline_settings_apply_update(
+    mic_output_pipeline_settings_runtime_t *settings_runtime,
+    const mic_output_pipeline_settings_update_t *settings_update)
 {
-    fixed_delay_mic_pipeline_settings_t *settings = &settings_runtime->pending;
-
-    if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_MIC_GAIN_FIELD) != 0) {
-        settings->mic_gain = settings_update->settings.mic_gain;
-    }
-
-    if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_REF_GAIN_FIELD) != 0) {
-        settings->ref_gain = settings_update->settings.ref_gain;
-    }
+    mic_output_pipeline_settings_t *settings = &settings_runtime->pending;
 
     if ((settings_update->field_mask &
             AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD) != 0) {
@@ -52,6 +51,24 @@ static void fixed_delay_mic_pipeline_settings_apply_update(
         memcpy(settings->upsample_channel_map,
                settings_update->settings.upsample_channel_map,
                sizeof(settings->upsample_channel_map));
+    }
+
+    settings_runtime->active = settings_runtime->pending;
+    settings_runtime->pending_valid = 1;
+}
+
+static void mic_input_pipeline_settings_apply_update(
+    mic_input_pipeline_settings_runtime_t *settings_runtime,
+    const mic_input_pipeline_settings_update_t *settings_update)
+{
+    mic_input_pipeline_settings_t *settings = &settings_runtime->pending;
+
+    if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_MIC_GAIN_FIELD) != 0) {
+        settings->mic_gain = settings_update->settings.mic_gain;
+    }
+
+    if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_REF_GAIN_FIELD) != 0) {
+        settings->ref_gain = settings_update->settings.ref_gain;
     }
 
     settings_runtime->active = settings_runtime->pending;
@@ -78,10 +95,18 @@ static void speaker_pipeline_settings_apply_update(
     settings_runtime->pending_valid = 1;
 }
 
-void fixed_delay_mic_pipeline_settings_runtime_init(
-    fixed_delay_mic_pipeline_settings_runtime_t *settings_runtime)
+void mic_output_pipeline_settings_runtime_init(
+    mic_output_pipeline_settings_runtime_t *settings_runtime)
 {
-    fixed_delay_mic_pipeline_settings_default(&settings_runtime->active);
+    mic_output_pipeline_settings_default(&settings_runtime->active);
+    settings_runtime->pending = settings_runtime->active;
+    settings_runtime->pending_valid = 0;
+}
+
+void mic_input_pipeline_settings_runtime_init(
+    mic_input_pipeline_settings_runtime_t *settings_runtime)
+{
+    mic_input_pipeline_settings_default(&settings_runtime->active);
     settings_runtime->pending = settings_runtime->active;
     settings_runtime->pending_valid = 0;
 }
@@ -119,13 +144,20 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
     }
 
     switch (resid) {
-    case AUDIO_PIPELINE_MIC_SETTINGS_RESID:
-        memcpy(payload, &ctx->mic_settings->active,
-               sizeof(ctx->mic_settings->active));
+    case AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID:
+        xassert(ctx->mic_output_settings != NULL);
+        memcpy(payload, &ctx->mic_output_settings->active,
+               sizeof(ctx->mic_output_settings->active));
         break;
     case AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID:
+        xassert(ctx->speaker_settings != NULL);
         memcpy(payload, &ctx->speaker_settings->active,
                sizeof(ctx->speaker_settings->active));
+        break;
+    case AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID:
+        xassert(ctx->mic_input_settings != NULL);
+        memcpy(payload, &ctx->mic_input_settings->active,
+               sizeof(ctx->mic_input_settings->active));
         break;
     default:
         ret = CONTROL_BAD_RESOURCE;
@@ -157,30 +189,49 @@ static control_ret_t audio_pipeline_servicer_write_cmd(
     }
 
     switch (resid) {
-    case AUDIO_PIPELINE_MIC_SETTINGS_RESID:
+    case AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID:
     {
-        const fixed_delay_mic_pipeline_settings_update_t *settings_update =
-            (const fixed_delay_mic_pipeline_settings_update_t *) payload;
+        mic_output_pipeline_settings_update_t settings_update;
 
-        if (!fixed_delay_mic_pipeline_settings_update_is_valid(settings_update)) {
+        memcpy(&settings_update, payload, sizeof(settings_update));
+
+        if (!mic_output_pipeline_settings_update_is_valid(&settings_update)) {
             return SERVICER_WRONG_PAYLOAD;
         }
 
-        fixed_delay_mic_pipeline_settings_apply_update(ctx->mic_settings,
-                                                       settings_update);
+        xassert(ctx->mic_output_settings != NULL);
+        mic_output_pipeline_settings_apply_update(ctx->mic_output_settings,
+                                                  &settings_update);
         break;
     }
     case AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID:
     {
-        const speaker_pipeline_settings_update_t *settings_update =
-            (const speaker_pipeline_settings_update_t *) payload;
+        speaker_pipeline_settings_update_t settings_update;
 
-        if (!speaker_pipeline_settings_update_is_valid(settings_update)) {
+        memcpy(&settings_update, payload, sizeof(settings_update));
+
+        if (!speaker_pipeline_settings_update_is_valid(&settings_update)) {
             return SERVICER_WRONG_PAYLOAD;
         }
 
+        xassert(ctx->speaker_settings != NULL);
         speaker_pipeline_settings_apply_update(ctx->speaker_settings,
-                                               settings_update);
+                                               &settings_update);
+        break;
+    }
+    case AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID:
+    {
+        mic_input_pipeline_settings_update_t settings_update;
+
+        memcpy(&settings_update, payload, sizeof(settings_update));
+
+        if (!mic_input_pipeline_settings_update_is_valid(&settings_update)) {
+            return SERVICER_WRONG_PAYLOAD;
+        }
+
+        xassert(ctx->mic_input_settings != NULL);
+        mic_input_pipeline_settings_apply_update(ctx->mic_input_settings,
+                                                 &settings_update);
         break;
     }
     default:
@@ -191,24 +242,40 @@ static control_ret_t audio_pipeline_servicer_write_cmd(
     return ret;
 }
 
-void audio_pipeline_servicer_init(servicer_t *servicer)
+void audio_pipeline_tile0_servicer_init(servicer_t *servicer)
 {
-    static control_resource_info_t audio_pipeline_res_info[
-        NUM_RESOURCES_AUDIO_PIPELINE_SERVICER];
+    static control_resource_info_t audio_pipeline_tile0_res_info[
+        NUM_RESOURCES_AUDIO_PIPELINE_TILE0_SERVICER];
 
     memset(servicer, 0, sizeof(servicer_t));
-    servicer->id = AUDIO_PIPELINE_MIC_SETTINGS_RESID;
+    servicer->id = AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID;
     servicer->start_io = 0;
-    servicer->num_resources = NUM_RESOURCES_AUDIO_PIPELINE_SERVICER;
-    servicer->res_info = &audio_pipeline_res_info[0];
+    servicer->num_resources = NUM_RESOURCES_AUDIO_PIPELINE_TILE0_SERVICER;
+    servicer->res_info = &audio_pipeline_tile0_res_info[0];
 
-    servicer->res_info[0].resource = AUDIO_PIPELINE_MIC_SETTINGS_RESID;
+    servicer->res_info[0].resource = AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID;
     servicer->res_info[0].command_map.num_commands = NUM_AUDIO_PIPELINE_SETTINGS_CMDS;
     servicer->res_info[0].command_map.commands = audio_pipeline_mic_settings_cmd_map;
+}
 
-    servicer->res_info[1].resource = AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID;
+void audio_pipeline_tile1_servicer_init(servicer_t *servicer)
+{
+    static control_resource_info_t audio_pipeline_tile1_res_info[
+        NUM_RESOURCES_AUDIO_PIPELINE_TILE1_SERVICER];
+
+    memset(servicer, 0, sizeof(servicer_t));
+    servicer->id = AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID;
+    servicer->start_io = 0;
+    servicer->num_resources = NUM_RESOURCES_AUDIO_PIPELINE_TILE1_SERVICER;
+    servicer->res_info = &audio_pipeline_tile1_res_info[0];
+
+    servicer->res_info[0].resource = AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID;
+    servicer->res_info[0].command_map.num_commands = NUM_AUDIO_PIPELINE_SETTINGS_CMDS;
+    servicer->res_info[0].command_map.commands = audio_pipeline_speaker_settings_cmd_map;
+
+    servicer->res_info[1].resource = AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID;
     servicer->res_info[1].command_map.num_commands = NUM_AUDIO_PIPELINE_SETTINGS_CMDS;
-    servicer->res_info[1].command_map.commands = audio_pipeline_speaker_settings_cmd_map;
+    servicer->res_info[1].command_map.commands = audio_pipeline_mic_input_settings_cmd_map;
 }
 
 void audio_pipeline_servicer(void *args)
