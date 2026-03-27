@@ -11,8 +11,30 @@
 #define AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MIN        (0)
 #define AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX        (5)
 #define AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT      (6)
+#define AUDIO_PIPELINE_REF_INPUT_CHANNEL_COUNT         (2)
+#define AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT     (2)
+#define AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT    (6)
+#define AUDIO_PIPELINE_PACKAGED_INPUT_INDEX_MIN        (0)
+#define AUDIO_PIPELINE_PACKAGED_INPUT_INDEX_MAX        \
+    (AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT - 1)
 
 typedef int32_t audio_pipeline_gain_t;
+
+typedef enum
+{
+    AUDIO_PIPELINE_REF_SOURCE_LEGACY_DOWNSAMPLED = 0,
+    AUDIO_PIPELINE_REF_SOURCE_PACKAGED_INPUT,
+
+    NUM_AUDIO_PIPELINE_REF_SOURCE_MODES
+} audio_pipeline_ref_source_mode_t;
+
+typedef enum
+{
+    AUDIO_PIPELINE_MIC_SOURCE_PDM = 0,
+    AUDIO_PIPELINE_MIC_SOURCE_PACKAGED_INPUT,
+
+    NUM_AUDIO_PIPELINE_MIC_SOURCE_MODES
+} audio_pipeline_mic_source_mode_t;
 
 typedef enum
 {
@@ -40,6 +62,10 @@ typedef struct
 {
     audio_pipeline_gain_t mic_gain;
     audio_pipeline_gain_t ref_gain;
+    uint8_t ref_source_mode;
+    uint8_t mic_source_mode;
+    uint8_t ref_input_channel_map[AUDIO_PIPELINE_REF_INPUT_CHANNEL_COUNT];
+    uint8_t mic_input_channel_map[AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT];
 } mic_input_pipeline_settings_t;
 
 typedef struct

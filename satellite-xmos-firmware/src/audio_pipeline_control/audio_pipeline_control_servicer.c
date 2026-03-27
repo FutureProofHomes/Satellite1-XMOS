@@ -71,6 +71,30 @@ static void mic_input_pipeline_settings_apply_update(
         settings->ref_gain = settings_update->settings.ref_gain;
     }
 
+    if ((settings_update->field_mask &
+            AUDIO_PIPELINE_SETTINGS_REF_SOURCE_MODE_FIELD) != 0) {
+        settings->ref_source_mode = settings_update->settings.ref_source_mode;
+    }
+
+    if ((settings_update->field_mask &
+            AUDIO_PIPELINE_SETTINGS_MIC_SOURCE_MODE_FIELD) != 0) {
+        settings->mic_source_mode = settings_update->settings.mic_source_mode;
+    }
+
+    if ((settings_update->field_mask &
+            AUDIO_PIPELINE_SETTINGS_REF_INPUT_CHANNEL_MAP_FIELD) != 0) {
+        memcpy(settings->ref_input_channel_map,
+               settings_update->settings.ref_input_channel_map,
+               sizeof(settings->ref_input_channel_map));
+    }
+
+    if ((settings_update->field_mask &
+            AUDIO_PIPELINE_SETTINGS_MIC_INPUT_CHANNEL_MAP_FIELD) != 0) {
+        memcpy(settings->mic_input_channel_map,
+               settings_update->settings.mic_input_channel_map,
+               sizeof(settings->mic_input_channel_map));
+    }
+
     settings_runtime->active = settings_runtime->pending;
     settings_runtime->pending_valid = 1;
 }

@@ -1,0 +1,97 @@
+# Device Control Command Index
+
+Fast lookup index for SPI device-control resource and command IDs.
+
+Use this as the first source for command-inventory questions, then spot-check the
+relevant `*_cmds.h` and `*_servicer.c` files if needed.
+
+Source references:
+
+- `satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_settings.h`
+- `satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_cmds.h`
+- `satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_servicer.c`
+- `satellite-xmos-firmware/src/gpio/gpio_cmds.h`
+- `satellite-xmos-firmware/src/dfu_int/dfu_cmds.h`
+- `satellite-xmos-firmware/src/led_ring/led_ring_cmds.h`
+
+## Audio Pipeline Commands
+
+### Resource IDs
+
+| Resource ID | Symbol | Scope |
+| --- | --- | --- |
+| `230` | `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` | Mic output settings |
+| `231` | `AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID` | Speaker settings |
+| `232` | `AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID` | Mic input settings |
+
+### Commands (shared across all three audio-pipeline resources)
+
+| Command ID | Symbol | Direction | Purpose |
+| --- | --- | --- | --- |
+| `0` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` | Read | Return current active settings for the selected resource |
+| `1` | `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` | Write | Apply partial update via field mask and update struct |
+
+### Payload shape summary
+
+- `GET_SETTINGS` (read):
+  - Mic output (`230`): `mic_output_pipeline_settings_t` (`10` bytes)
+  - Speaker (`231`): `speaker_pipeline_settings_t` (`2` bytes)
+  - Mic input (`232`): `mic_input_pipeline_settings_t` (`16` bytes)
+- `SET_SETTINGS_PARTIAL` (write):
+  - Mic output (`230`): `mic_output_pipeline_settings_update_t` (`16` bytes)
+  - Speaker (`231`): `speaker_pipeline_settings_update_t` (`8` bytes)
+  - Mic input (`232`): `mic_input_pipeline_settings_update_t` (`20` bytes)
+
+### Mic input settings (`232`) field summary
+
+- `mic_gain` (`int32`, Q2.30)
+- `ref_gain` (`int32`, Q2.30)
+- `ref_source_mode` (`uint8`):
+  - `0` `AUDIO_PIPELINE_REF_SOURCE_LEGACY_DOWNSAMPLED`
+  - `1` `AUDIO_PIPELINE_REF_SOURCE_PACKAGED_INPUT`
+- `mic_source_mode` (`uint8`):
+  - `0` `AUDIO_PIPELINE_MIC_SOURCE_PDM`
+  - `1` `AUDIO_PIPELINE_MIC_SOURCE_PACKAGED_INPUT`
+- `ref_input_channel_map[2]` (`uint8[2]`, valid indices `0..5`)
+- `mic_input_channel_map[2]` (`uint8[2]`, valid indices `0..5`)
+
+### Mic input partial-update mask bits (`232`, command `1`)
+
+- bit `0`: `AUDIO_PIPELINE_SETTINGS_MIC_GAIN_FIELD`
+- bit `1`: `AUDIO_PIPELINE_SETTINGS_REF_GAIN_FIELD`
+- bit `5`: `AUDIO_PIPELINE_SETTINGS_REF_SOURCE_MODE_FIELD`
+- bit `6`: `AUDIO_PIPELINE_SETTINGS_MIC_SOURCE_MODE_FIELD`
+- bit `7`: `AUDIO_PIPELINE_SETTINGS_REF_INPUT_CHANNEL_MAP_FIELD`
+- bit `8`: `AUDIO_PIPELINE_SETTINGS_MIC_INPUT_CHANNEL_MAP_FIELD`
+
+## Other Servicers (quick reference)
+
+### GPIO
+
+- Resources: `211`, `212`, `221`
+- Commands:
+  - `0` `GPIO_CONTROLLER_SERVICER_CMD_READ_PORT`
+  - `1` `GPIO_CONTROLLER_SERVICER_CMD_WRITE_PORT`
+  - `2` `GPIO_CONTROLLER_SERVICER_CMD_SET_PIN`
+
+### DFU
+
+- Resource: `240`
+- Commands:
+  - `0` DETACH
+  - `1` DNLOAD
+  - `2` UPLOAD
+  - `3` GETSTATUS
+  - `4` CLRSTATUS
+  - `5` GETSTATE
+  - `6` ABORT
+  - `64` SETALTERNATE
+  - `65` TRANSFERBLOCK
+  - `88` GETVERSION
+  - `89` REBOOT
+
+### LED ring
+
+- Resource: `200`
+- Commands:
+  - `0` `LED_RING_SERVICER_CMD_WRITE_RAW`
