@@ -25,6 +25,7 @@ Firmware commit(s): base `e6bb662` plus uncommitted protocol changes in working 
 |---|---:|---|---|---|---|
 | `232` (`AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID`) | `0` (`GET_SETTINGS`) | read | returns gains only | returns gains + source modes + lane maps | same command id/direction |
 | `232` (`AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID`) | `1` (`SET_SETTINGS_PARTIAL`) | write | partial update for gain fields | partial update for gain + mode + map fields | same command id/direction |
+| `232` (`AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID`) | `2` (`GET_AVAILABLE_MIC_COUNT`) | read | n/a | returns compiled mic input channel count (`uint8`) | new command id |
 
 No resource IDs were added/removed.
 
@@ -37,7 +38,7 @@ No resource IDs were added/removed.
     - `uint8 ref_source_mode`
     - `uint8 mic_source_mode`
     - `uint8 ref_input_channel_map[2]`
-    - `uint8 mic_input_channel_map[2]`
+    - `uint8 mic_input_channel_map[4]`
   - field masks added in `audio_pipeline_control_cmds.h`:
     - bit 5: `AUDIO_PIPELINE_SETTINGS_REF_SOURCE_MODE_FIELD`
     - bit 6: `AUDIO_PIPELINE_SETTINGS_MIC_SOURCE_MODE_FIELD`
@@ -48,6 +49,10 @@ No resource IDs were added/removed.
   - old size: `8` bytes (`mic_gain`, `ref_gain`)
   - new size: `16` bytes (expanded settings struct)
   - status-byte convention unchanged (`payload[0]` status in servicer read path)
+
+- Response payload, resource `232`, command `GET_AVAILABLE_MIC_COUNT`:
+  - size: `1` byte (`uint8`)
+  - value: `appconfMIC_PIPELINE_INPUT_CHANNELS`
 
 ### Status / Return Code Semantics
 
@@ -67,6 +72,7 @@ No resource IDs were added/removed.
   - old SDK against new firmware will fail on `SET_SETTINGS_PARTIAL` length validation for resource `232`.
 - Runtime detection strategy (if needed):
   - probe firmware version and branch behavior in SDK, or attempt `GET_SETTINGS` and branch by returned payload length.
+  - `GET_AVAILABLE_MIC_COUNT` can be used by SDK/CLI to adapt mic routing UX to firmware build-time mic count.
 
 ## 4) Required Satellite1-RPi Updates
 
@@ -79,9 +85,10 @@ No resource IDs were added/removed.
     - `ref_source_mode`
     - `mic_source_mode`
     - `ref_input_channel_map[2]`
-    - `mic_input_channel_map[2]`
+    - `mic_input_channel_map[4]`
   - extend partial-update encoder to support new field masks.
   - decode GET payload with new size/layout.
+  - add read helper/API for command `2` to expose available mic count.
 - Config/env behavior changes:
   - none required.
 
@@ -91,6 +98,7 @@ No resource IDs were added/removed.
   - encoder/decoder tests for resource `232` old/new layout assumptions (new layout required)
   - field-mask tests for new mode/map bits
   - bounds checks for lane maps (`0..5`) and enum values
+  - decode/read test for command `GET_AVAILABLE_MIC_COUNT` returning `uint8`
 - HIL checks to run:
   - read/write roundtrip for new mic-input fields via SDK
   - switch `mic_source_mode` between live and packaged and verify behavior transitions
@@ -99,6 +107,7 @@ No resource IDs were added/removed.
 ## 6) Acceptance Criteria
 
 - [ ] SDK `GET_SETTINGS`/`SET_SETTINGS_PARTIAL` for resource `232` works with new payload sizes
+- [ ] SDK `GET_AVAILABLE_MIC_COUNT` command works and drives mic-count-aware UX
 - [ ] New mode/map fields are encoded/decoded correctly
 - [ ] Invalid mode/map writes are rejected as expected
 - [ ] SQ66 HIL checks pass with updated SDK against updated firmware

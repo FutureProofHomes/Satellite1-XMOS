@@ -198,7 +198,7 @@ References:
 | GPIO servicer | `satellite-xmos-firmware/src/gpio/gpio_servicer.c` | `211` (`GPIO_CONTROLLER_RESOURCE_IN_A`), `212` (`GPIO_CONTROLLER_RESOURCE_IN_B`), `221` (`GPIO_CONTROLLER_RESOURCE_OUT_A`) | `GPIO_CONTROLLER_SERVICER_CMD_READ_PORT` (0), `GPIO_CONTROLLER_SERVICER_CMD_WRITE_PORT` (1), `GPIO_CONTROLLER_SERVICER_CMD_SET_PIN` (2) | Read GPIO input state and drive output GPIOs through device control commands. | `appconfDEVICE_CTRL_SPI`; started on `GPIO_SERVICER_NO` tile. Board config may expose only a subset of defined GPIO resources. |
 | DFU servicer | `satellite-xmos-firmware/src/dfu_int/dfu_servicer.c` | `240` (`DFU_CONTROLLER_SERVICER_RESID`) | `DFU_*` command set: detach, dnload, upload, getstatus, clrstatus, getstate, abort, setalternate, transferblock, getversion, reboot | Firmware update and DFU state-machine control over SPI device control. | `appconfDEVICE_CTRL_SPI`; task created on tile 0. |
 | Audio pipeline servicer (tile 0) | `satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_servicer.c` | `230` (`AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID`) | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` (0), `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` (1) | Runtime control of microphone output pipeline settings (channel map/packing). | `appconfDEVICE_CTRL_SPI`; task created on tile 0. |
-| Audio pipeline servicer (tile 1) | `satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_servicer.c` | `231` (`AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID`), `232` (`AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID`) | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` (0), `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` (1) | Runtime control of mic-input gains and source-routing controls (legacy vs packaged source modes, ref/mic lane maps) and control-plane storage/readback for speaker settings. | `appconfDEVICE_CTRL_SPI`; task created on `SPEAKER_PIPELINE_TILE_NO`. |
+| Audio pipeline servicer (tile 1) | `satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_servicer.c` | `231` (`AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID`), `232` (`AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID`) | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` (0), `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` (1), `AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT` (2, resource `232` only) | Runtime control of mic-input gains and source-routing controls (legacy vs packaged source modes, ref/mic lane maps), runtime query of compiled mic-channel count, and control-plane storage/readback for speaker settings. | `appconfDEVICE_CTRL_SPI`; task created on `SPEAKER_PIPELINE_TILE_NO`. |
 | LED ring servicer (optional) | `satellite-xmos-firmware/src/led_ring/led_ring_servicer.c` | `200` (`LED_RING_SERVICER_RESID`) | `LED_RING_SERVICER_CMD_WRITE_RAW` (0) | Write raw LED data to WS2812 LED ring. | `appconfDEVICE_CTRL_SPI && appconfLED_RING_ENABLED`; started on `WS2812_TILE_NO`. |
 
 ### Notes on availability
@@ -219,6 +219,7 @@ IDs:
 
 - `GET_SETTINGS` (`cmd 0`, read)
 - `SET_SETTINGS_PARTIAL` (`cmd 1`, write)
+- `GET_AVAILABLE_MIC_COUNT` (`cmd 2`, read)
 
 Current payload layout (firmware branch with packaged source-routing support):
 
@@ -228,7 +229,7 @@ Current payload layout (firmware branch with packaged source-routing support):
   - `uint8 ref_source_mode`
   - `uint8 mic_source_mode`
   - `uint8 ref_input_channel_map[2]`
-  - `uint8 mic_input_channel_map[2]`
+  - `uint8 mic_input_channel_map[4]`
 - `SET_SETTINGS_PARTIAL` request struct size: `20` bytes
   - `uint32 field_mask`
   - `mic_input_pipeline_settings_t settings` (same field order as above)
@@ -255,6 +256,11 @@ Mic-input partial-update mask bits:
 
 Compatibility note: this is a breaking payload-layout change for resource `232`
 relative to the previous `8`/`12`-byte mic-input settings payloads.
+
+`GET_AVAILABLE_MIC_COUNT` response payload for resource `232`:
+
+- data size: `1` byte (`uint8_t`)
+- value: `appconfMIC_PIPELINE_INPUT_CHANNELS`
 
 ## Known Constraints and Caveats
 

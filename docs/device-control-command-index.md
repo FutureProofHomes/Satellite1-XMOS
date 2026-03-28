@@ -30,6 +30,7 @@ Source references:
 | --- | --- | --- | --- |
 | `0` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` | Read | Return current active settings for the selected resource |
 | `1` | `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` | Write | Apply partial update via field mask and update struct |
+| `2` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT` | Read | Return number of mic input channels compiled into firmware (resource `232` only) |
 
 ### Payload shape summary
 
@@ -41,6 +42,8 @@ Source references:
   - Mic output (`230`): `mic_output_pipeline_settings_update_t` (`16` bytes)
   - Speaker (`231`): `speaker_pipeline_settings_update_t` (`8` bytes)
   - Mic input (`232`): `mic_input_pipeline_settings_update_t` (`20` bytes)
+- `GET_AVAILABLE_MIC_COUNT` (read, mic input resource `232` only):
+  - Mic input (`232`): `uint8_t` (`1` byte), value equals `appconfMIC_PIPELINE_INPUT_CHANNELS`
 
 ### Mic input settings (`232`) field summary
 
@@ -53,7 +56,7 @@ Source references:
   - `0` `AUDIO_PIPELINE_MIC_SOURCE_PDM`
   - `1` `AUDIO_PIPELINE_MIC_SOURCE_PACKAGED_INPUT`
 - `ref_input_channel_map[2]` (`uint8[2]`, valid indices `0..5`)
-- `mic_input_channel_map[2]` (`uint8[2]`, valid indices `0..5`)
+- `mic_input_channel_map[4]` (`uint8[4]`, valid indices `0..5`)
 
 ### Mic input partial-update mask bits (`232`, command `1`)
 
