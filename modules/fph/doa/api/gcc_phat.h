@@ -99,6 +99,17 @@ typedef struct {
 void doa4_init(
         doa4_state_t *state);
 
+/**
+ * Estimate DOA angle from GCC lag triplet relative to mic0.
+ *
+ * Inputs are integer sample lags for mic1-mic0, mic2-mic0, mic3-mic0.
+ * Returns angle in radians using atan2(y, x).
+ */
+float doa4_estimate_from_lags(
+        int lag10,
+        int lag20,
+        int lag30);
+
 
 /**
  * Process one frame of 4-mic audio.

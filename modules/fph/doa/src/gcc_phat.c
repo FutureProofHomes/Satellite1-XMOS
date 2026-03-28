@@ -13,7 +13,6 @@
 
 #include "gcc_phat.h"
 #include <string.h>
-#include <math.h>
 
 #ifndef GCC_PHAT_EPS_MANT
 #define GCC_PHAT_EPS_MANT (1)   // magnitude clamp to avoid divide-by-zero
@@ -22,55 +21,6 @@
 // --- Utility: signed lag from correlation index in circular buffer ---
 static inline int signed_lag(unsigned idx, unsigned N) {
   return (idx > (N / 2)) ? ((int)idx - (int)N) : (int)idx;
-}
-
-// --- DOA from 3 lags for 4 mics on circle at 0,90,180,270 deg ---
-// Returns radians.
-static float doa_from_lags(int lag10, int lag20, int lag30)
-{
-  const float r  = DOA4_ARRAY_RADIUS_M;
-  const float fs = DOA4_SAMPLE_RATE_HZ;
-  const float c  = DOA4_SPEED_OF_SOUND;
-
-  // Positions:
-  // p0=( r, 0), p1=(0, r), p2=(-r,0), p3=(0,-r)
-  // A rows are (pi - p0):
-  // a1 = (-r,  r)
-  // a2 = (-2r, 0)
-  // a3 = (-r, -r)
-  const float a1x = -r,    a1y =  r;
-  const float a2x = -2*r,  a2y =  0.0f;
-  const float a3x = -r,    a3y = -r;
-
-  const float b1 = c * ((float)lag10 / fs);
-  const float b2 = c * ((float)lag20 / fs);
-  const float b3 = c * ((float)lag30 / fs);
-
-  // ATA = A^T A (2x2)
-  const float ata00 = a1x*a1x + a2x*a2x + a3x*a3x;
-  const float ata01 = a1x*a1y + a2x*a2y + a3x*a3y;
-  const float ata11 = a1y*a1y + a2y*a2y + a3y*a3y;
-
-  // ATb = A^T b (2x1)
-  const float atb0  = a1x*b1 + a2x*b2 + a3x*b3;
-  const float atb1  = a1y*b1 + a2y*b2 + a3y*b3;
-
-  // Invert ATA
-  const float det = ata00*ata11 - ata01*ata01;
-  if (fabsf(det) < 1e-12f) return 0.0f;
-
-  const float inv00 =  ata11 / det;
-  const float inv01 = -ata01 / det;
-  const float inv11 =  ata00 / det;
-
-  float ux = inv00*atb0 + inv01*atb1;
-  float uy = inv01*atb0 + inv11*atb1;
-
-  // Normalize to unit direction (recommended)
-  const float n = sqrtf(ux*ux + uy*uy);
-  if (n > 1e-12f) { ux /= n; uy /= n; }
-
-  return atan2f(uy, ux);
 }
 
 // --- GCC-PHAT using already-FFT’d spectra (unpacked mono FFT, length DOA4_SPEC_BINS) ---
@@ -239,5 +189,5 @@ float doa4_process_frame(doa4_state_t *state,
                                          DOA4_MAX_LAG_SAMPLES);
 
   // 4) Convert lags to DOA (radians)
-  return doa_from_lags(lag10, lag20, lag30);
+  return doa4_estimate_from_lags(lag10, lag20, lag30);
 }
