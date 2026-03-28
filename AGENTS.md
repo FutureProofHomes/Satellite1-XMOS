@@ -87,6 +87,7 @@ Do not duplicate fixed SQ66 runbook details in this file; keep those in the skil
 
 ## Setup Commands
 - Initialize the XMOS build environment first: `source tools/env/xmos_env.sh`.
+- Initialize Python env (recommended): `tools/env/python_env.sh --setup --with-tests && source .venv/bin/activate`.
 - Copy `.env.example` to `.env` for local machine-specific overrides when needed.
 - Create a Python venv: `python3.10 -m venv .venv`.
 - Activate it: `source .venv/bin/activate`.

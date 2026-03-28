@@ -70,14 +70,25 @@ The `xmos-ai-tools` python package is required for building the firmware modules
 It is recommended to install it into a virtual environment:
 
 ```bash
-python3.10 -m venv .venv
-source activate .venv/bin/activate
-pip install -r requirements.txt
+tools/env/python_env.sh --setup --with-tests
+source .venv/bin/activate
 ```
 
-for later builds simply activate the environment before calling cmake:
+The setup script always installs via `.venv/bin/python -m pip` so requirements are
+not accidentally installed into another Python environment.
+
+If you prefer manual setup:
+
 ```bash
-source activate .venv/bin/activate
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install -r requirements_tests.txt
+```
+
+for later builds, activate the environment before calling cmake:
+```bash
+source .venv/bin/activate
 ```
 
 
@@ -148,6 +159,4 @@ xgdb variant-name.xe
 connect --xscope
 run
 ```
-
-
 
