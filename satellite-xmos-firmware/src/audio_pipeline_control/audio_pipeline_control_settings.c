@@ -16,17 +16,17 @@ static bool audio_pipeline_packaged_input_channel_index_is_valid(
 void mic_output_pipeline_settings_default(
     mic_output_pipeline_settings_t *settings)
 {
-    settings->pack_extra_upsample_channels = 0;
+    settings->pack_extra_upsample_channels = 1;
 
     settings->i2s_channel_map[0] = 0;
     settings->i2s_channel_map[1] = 3;
 
     settings->upsample_channel_map[0] = 0;
     settings->upsample_channel_map[1] = 3;
-    settings->upsample_channel_map[2] = 0;
-    settings->upsample_channel_map[3] = 3;
-    settings->upsample_channel_map[4] = 0;
-    settings->upsample_channel_map[5] = 3;
+    settings->upsample_channel_map[2] = 4;
+    settings->upsample_channel_map[3] = 5;
+    settings->upsample_channel_map[4] = 6;
+    settings->upsample_channel_map[5] = 7;
 }
 
 void mic_input_pipeline_settings_default(

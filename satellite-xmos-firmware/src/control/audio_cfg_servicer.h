@@ -1,7 +1,9 @@
 #pragma once
 
 #include "servicer.h"
+#include "audio_pipeline_control/audio_pipeline_control_servicer.h"
 
+/* Deprecated compatibility shim: use AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID (230). */
 #define AUDIO_CFG_SERVICER_RESID (30)
 #define AUDIO_CFG_SERVICER_NUM_RESOURCES (1)
 
@@ -20,11 +22,12 @@ typedef struct {
     servicer_t  *servicer;
     device_control_t **device_control_ctx;
     size_t device_control_ctx_count;
+    mic_output_pipeline_settings_runtime_t *mic_output_settings;
     channel_sel_t mic_out_ch_select;
-    rtos_osal_queue_t *cfg_out_queue;
 } device_control_audio_cfg_ctx_t;
 
 
 
-void audio_cfg_servicer_init(device_control_audio_cfg_ctx_t *ctx, rtos_osal_queue_t *cfg_out_queue);
+void audio_cfg_servicer_init(device_control_audio_cfg_ctx_t *ctx,
+                             mic_output_pipeline_settings_runtime_t *mic_output_settings);
 void audio_cfg_servicer_start(device_control_audio_cfg_ctx_t *ctx, device_control_t **device_control_ctx, size_t device_control_ctx_count);

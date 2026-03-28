@@ -5,6 +5,8 @@
 file(GLOB APP_SOURCES   
     ${CMAKE_CURRENT_LIST_DIR}/src/*.c
     ${CMAKE_CURRENT_LIST_DIR}/src/control/*.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/audio_pipeline_control/*.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/audio_runtime/*.c
     ${CMAKE_CURRENT_LIST_DIR}/src/gpio/*.c
     ${CMAKE_CURRENT_LIST_DIR}/src/dfu_int/*.c
     ${CMAKE_CURRENT_LIST_DIR}/src/led_ring/*.c
@@ -109,5 +111,4 @@ endif()
 #**********************
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/xk-voice-sq66.cmake)
-
 

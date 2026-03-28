@@ -3,6 +3,7 @@
 #include "servicer.h"
 #include "audio_cfg_servicer.h"
 #include "FreeRTOS.h"
+#include "audio_pipeline_control/audio_pipeline_control_settings.h"
 
 #include "platform/platform_conf.h"
 
@@ -11,12 +12,35 @@ static control_cmd_info_t audio_cfg_servicer_cmd_map[] = {
     { CFG_SERVICER_CMD_MIC_RIGHT_SELECT,  1, sizeof(uint8_t), CMD_READ_WRITE  },
 };
 
-static inline void osal_queue_overwrite_latest(rtos_osal_queue_t *q, const channel_sel_t *item) {
-    if (rtos_osal_queue_send(q, item, RTOS_OSAL_PORT_NO_WAIT) == RTOS_OSAL_TIMEOUT) {
-        channel_sel_t drop;
-        (void) rtos_osal_queue_receive(q, &drop, RTOS_OSAL_PORT_NO_WAIT);
-        (void) rtos_osal_queue_send(q, item, RTOS_OSAL_PORT_NO_WAIT);
+static uint8_t clamp_channel_select(uint8_t channel)
+{
+    if (channel > AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX) {
+        return AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX;
     }
+
+    return channel;
+}
+
+static void update_mic_output_channel_map(device_control_audio_cfg_ctx_t *ctx)
+{
+    mic_output_pipeline_settings_t *settings;
+
+    xassert(ctx->mic_output_settings != NULL);
+
+    settings = &ctx->mic_output_settings->pending;
+    settings->i2s_channel_map[0] = ctx->mic_out_ch_select.left;
+    settings->i2s_channel_map[1] = ctx->mic_out_ch_select.right;
+
+    settings->upsample_channel_map[0] = ctx->mic_out_ch_select.left;
+    settings->upsample_channel_map[1] = ctx->mic_out_ch_select.right;
+    settings->upsample_channel_map[2] = 4;
+    settings->upsample_channel_map[3] = 5;
+    settings->upsample_channel_map[4] = 6;
+    settings->upsample_channel_map[5] = 7;
+    settings->pack_extra_upsample_channels = 1;
+
+    ctx->mic_output_settings->active = *settings;
+    ctx->mic_output_settings->pending_valid = 1;
 }
 
 //-----------------Servicer read write callback functions-----------------------//
@@ -104,15 +128,15 @@ static control_ret_t audio_cfg_servicer_write_cmd(control_resid_t resid, control
     case CFG_SERVICER_CMD_MIC_LEFT_SELECT:
     {
         debug_printf("CFG_SERVICER_CMD_MIC_LEFT_SELECT: %d\n", payload[0]);
-        ctx->mic_out_ch_select.left = payload[0] < 0 ? 0 : ( payload[0] > 7 ? 7 : payload[0]);
-        osal_queue_overwrite_latest(ctx->cfg_out_queue, &ctx->mic_out_ch_select);
+        ctx->mic_out_ch_select.left = clamp_channel_select(payload[0]);
+        update_mic_output_channel_map(ctx);
         break;
     }
     case CFG_SERVICER_CMD_MIC_RIGHT_SELECT:
     {        
         debug_printf("CFG_SERVICER_CMD_MIC_RIGHT_SELECT: %d\n", payload[0]);
-        ctx->mic_out_ch_select.right = payload[0] < 0 ? 0 : ( payload[0] > 7 ? 7 : payload[0]);
-        osal_queue_overwrite_latest(ctx->cfg_out_queue, &ctx->mic_out_ch_select);
+        ctx->mic_out_ch_select.right = clamp_channel_select(payload[0]);
+        update_mic_output_channel_map(ctx);
         break;
     }
     default:
@@ -157,13 +181,15 @@ void audio_cfg_servicer_task(void *args) {
     }
 }
 
-void audio_cfg_servicer_init(device_control_audio_cfg_ctx_t *ctx, rtos_osal_queue_t *cfg_out_queue){
+void audio_cfg_servicer_init(device_control_audio_cfg_ctx_t *ctx,
+                             mic_output_pipeline_settings_runtime_t *mic_output_settings){
     static servicer_t servicer;
     static control_resource_info_t servicer_res_info[AUDIO_CFG_SERVICER_NUM_RESOURCES];
     
     ctx->servicer = &servicer;
     
     memset(&servicer, 0, sizeof(servicer_t));
+    /* Deprecated: use AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID (230) instead. */
     servicer.id = AUDIO_CFG_SERVICER_RESID;
     servicer.start_io = 0;
     servicer.num_resources = AUDIO_CFG_SERVICER_NUM_RESOURCES;
@@ -173,9 +199,16 @@ void audio_cfg_servicer_init(device_control_audio_cfg_ctx_t *ctx, rtos_osal_queu
     servicer.res_info[0].command_map.num_commands = NUM_CFG_SERVICER_RESID_CMDS;
     servicer.res_info[0].command_map.commands = audio_cfg_servicer_cmd_map; 
     
-    ctx->mic_out_ch_select.left = 0;
-    ctx->mic_out_ch_select.right = 7;
-    ctx->cfg_out_queue = cfg_out_queue;
+    ctx->mic_output_settings = mic_output_settings;
+    if (mic_output_settings != NULL) {
+        ctx->mic_out_ch_select.left =
+            mic_output_settings->active.i2s_channel_map[0];
+        ctx->mic_out_ch_select.right =
+            mic_output_settings->active.i2s_channel_map[1];
+    } else {
+        ctx->mic_out_ch_select.left = 0;
+        ctx->mic_out_ch_select.right = AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX;
+    }
 }
 
 void audio_cfg_servicer_start(device_control_audio_cfg_ctx_t *ctx, device_control_t **device_control_ctx, size_t device_control_ctx_count ){
@@ -191,5 +224,4 @@ void audio_cfg_servicer_start(device_control_audio_cfg_ctx_t *ctx, device_contro
         NULL
     );
 }
-
 

@@ -9,6 +9,7 @@
 #include "platform/app_pll_ctrl.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_init.h"
+#include "control/device_control_servicer_config.h"
 
 #if appconfUSB_ENABLED
 #include "adaptive_rate_adjust.h"
@@ -108,7 +109,7 @@ static void spi_init(void)
     
     device_control_init(device_control_spi_ctx,
                         DEVICE_CONTROL_HOST_MODE,
-                        3 + !!(BUILTIN_TESTS_SPI_ECHO_SERVICER), //number of servicers
+                        APP_DEVICE_CTRL_TOTAL_SERVICER_COUNT,
                         client_intertile_ctx,
                         1); 
     

@@ -122,11 +122,11 @@ typedef int32_t samp_t;
 
 void usb_audio_send(rtos_intertile_t *intertile_ctx,
                     size_t frame_count,
-                    int32_t **frame_buffers,
+                    int32_t *frame_buffers,
                     size_t num_chans)
 {
     samp_t usb_audio_in_frame[appconfAUDIO_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
-    int32_t *frame_buf_ptr = (int32_t *) frame_buffers;
+    int32_t *frame_buf_ptr = frame_buffers;
 
 #if CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX == 2
     const int src_32_shift = 16;
@@ -159,12 +159,12 @@ void usb_audio_send(rtos_intertile_t *intertile_ctx,
 
 void usb_audio_recv(rtos_intertile_t *intertile_ctx,
                     size_t frame_count,
-                    int32_t **frame_buffers,
+                    int32_t *frame_buffers,
                     size_t num_chans)
 {
     static samp_t usb_audio_out_frame[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX];
     size_t bytes_received;
-    int32_t *frame_buf_ptr = (int32_t *) frame_buffers;
+    int32_t *frame_buf_ptr = frame_buffers;
 
 #if CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_RX == 2
     const int src_32_shift = 16;

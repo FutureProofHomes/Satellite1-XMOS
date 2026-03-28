@@ -8,6 +8,8 @@
 #include "audio_pipeline_control_servicer.h"
 #include "platform/platform_conf.h"
 
+#define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
+
 static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS, 1,
       sizeof(mic_output_pipeline_settings_t), CMD_READ_ONLY },
@@ -20,6 +22,8 @@ static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
       sizeof(mic_input_pipeline_settings_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL, 1,
       sizeof(mic_input_pipeline_settings_update_t), CMD_WRITE_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT, 1,
+      sizeof(uint8_t), CMD_READ_ONLY },
 };
 
 static control_cmd_info_t audio_pipeline_speaker_settings_cmd_map[] = {
@@ -155,6 +159,7 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
     servicer_t *servicer = ctx->servicer;
     control_resource_info_t *current_res_info = get_res_info(resid, servicer);
     control_cmd_info_t *current_cmd_info;
+    uint8_t cmd_id;
 
     xassert(current_res_info != NULL);
 
@@ -163,6 +168,20 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
 
     ret = validate_cmd(&current_cmd_info, current_res_info, cmd, payload, payload_len);
     if (ret != CONTROL_SUCCESS) {
+        payload[-1] = ret;
+        return ret;
+    }
+
+    cmd_id = CONTROL_CMD_CLEAR_READ(cmd);
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT) {
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+
+        payload[0] = AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT;
         payload[-1] = ret;
         return ret;
     }
@@ -278,7 +297,8 @@ void audio_pipeline_tile0_servicer_init(servicer_t *servicer)
     servicer->res_info = &audio_pipeline_tile0_res_info[0];
 
     servicer->res_info[0].resource = AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID;
-    servicer->res_info[0].command_map.num_commands = NUM_AUDIO_PIPELINE_SETTINGS_CMDS;
+    servicer->res_info[0].command_map.num_commands =
+        ARRAY_LENGTH(audio_pipeline_mic_settings_cmd_map);
     servicer->res_info[0].command_map.commands = audio_pipeline_mic_settings_cmd_map;
 }
 
@@ -294,11 +314,13 @@ void audio_pipeline_tile1_servicer_init(servicer_t *servicer)
     servicer->res_info = &audio_pipeline_tile1_res_info[0];
 
     servicer->res_info[0].resource = AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID;
-    servicer->res_info[0].command_map.num_commands = NUM_AUDIO_PIPELINE_SETTINGS_CMDS;
+    servicer->res_info[0].command_map.num_commands =
+        ARRAY_LENGTH(audio_pipeline_speaker_settings_cmd_map);
     servicer->res_info[0].command_map.commands = audio_pipeline_speaker_settings_cmd_map;
 
     servicer->res_info[1].resource = AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID;
-    servicer->res_info[1].command_map.num_commands = NUM_AUDIO_PIPELINE_SETTINGS_CMDS;
+    servicer->res_info[1].command_map.num_commands =
+        ARRAY_LENGTH(audio_pipeline_mic_input_settings_cmd_map);
     servicer->res_info[1].command_map.commands = audio_pipeline_mic_input_settings_cmd_map;
 }
 
@@ -310,21 +332,24 @@ void audio_pipeline_servicer(void *args)
         (audio_pipeline_servicer_ctx_t *) servicer_reg_ctx->app_data;
     servicer_t *servicer = servicer_reg_ctx->servicer;
     control_resid_t *resources;
+    control_ret_t dc_ret;
     int i;
 
     xassert(servicer != NULL);
     xassert(audio_ctx != NULL);
 
     resources = pvPortMalloc(servicer->num_resources * sizeof(control_resid_t));
+    xassert(resources != NULL);
     for (i = 0; i < servicer->num_resources; i++) {
         resources[i] = servicer->res_info[i].resource;
     }
 
-    (void) device_control_servicer_register(&servicer_ctx,
-                                            servicer_reg_ctx->device_control_ctx,
-                                            servicer_reg_ctx->device_control_ctx_count,
-                                            resources,
-                                            servicer->num_resources);
+    dc_ret = device_control_servicer_register(&servicer_ctx,
+                                              servicer_reg_ctx->device_control_ctx,
+                                              servicer_reg_ctx->device_control_ctx_count,
+                                              resources,
+                                              servicer->num_resources);
+    xassert(dc_ret == CONTROL_SUCCESS);
 
     vPortFree(resources);
 
