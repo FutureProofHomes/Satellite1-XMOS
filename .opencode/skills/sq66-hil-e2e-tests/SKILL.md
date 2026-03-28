@@ -23,10 +23,18 @@ This workflow covers:
 
 ## Required environment
 
+Source XMOS env in the current shell before checking/setting SQ66 HIL vars:
+
+- `source tools/env/xmos_env.sh`
+
 Set these before running HIL tests:
 
 - `SQ66_HIL=1`
 - `SQ66_RPI_HOST=<ssh-host>`
+
+Ensure local Python environment is prepared in repo `.venv`:
+
+- `tools/env/python_env.sh --setup --with-tests && source .venv/bin/activate`
 
 Optional:
 
@@ -59,24 +67,26 @@ Recommended wrapper command:
 
 Primary:
 
-- `.venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
+- `source tools/env/xmos_env.sh && .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
 
 Marker scoped:
 
-- `.venv/bin/python -m pytest -m "hil and sq66" tests/test_hw_sq66_firmware -q`
+- `source tools/env/xmos_env.sh && .venv/bin/python -m pytest -m "hil and sq66" tests/test_hw_sq66_firmware -q`
 
 Single test examples:
 
-- `.venv/bin/python -m pytest tests/test_hw_sq66_firmware/test_sq66_hil_smoke.py::test_sq66_detect_only_reports_adapter -q`
-- `.venv/bin/python -m pytest tests/test_hw_sq66_firmware/test_sq66_hil_smoke.py::test_sq66_cli_enforces_lineout_only -q`
+- `source tools/env/xmos_env.sh && .venv/bin/python -m pytest tests/test_hw_sq66_firmware/test_sq66_hil_smoke.py::test_sq66_detect_only_reports_adapter -q`
+- `source tools/env/xmos_env.sh && .venv/bin/python -m pytest tests/test_hw_sq66_firmware/test_sq66_hil_smoke.py::test_sq66_cli_enforces_lineout_only -q`
 
 ## Recommended execution order
 
-1. Confirm adapter visibility with detect-only test.
-2. Run firmware (`SQ66_HIL_RUN_FIRMWARE=1`) or ensure firmware is already running.
-3. Preflight Pi-side CLI command:
+1. Preflight local environment and Pi-side CLI command:
+   - `tools/env/python_env.sh --check --with-tests`
+   - `source tools/env/xmos_env.sh`
    - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} --help"`
    - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} -c 'import satellite1; print(1)'"`
+2. Confirm adapter visibility with detect-only test.
+3. Run firmware (`SQ66_HIL_RUN_FIRMWARE=1`) or ensure firmware is already running.
 4. Run full SQ66 HIL smoke suite.
 
 ## Expected behavior

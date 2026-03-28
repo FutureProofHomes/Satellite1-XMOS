@@ -31,11 +31,13 @@ Fallback implementation:
 
 ## Default assumptions
 
+- load `tools/env/xmos_env.sh` before validating SQ66 env vars in shell checks
 - build directory: `build_sq66_dev`
 - target: `sq66_firmware_fixed_delay`
 - configuration: `-DUSE_DEV_MODE=ON`
 - XMOS environment wrapper: `tools/env/xmos_env.sh`
 - `.venv` is activated automatically if present
+- local Python env helper: `tools/env/python_env.sh --setup --with-tests && source .venv/bin/activate`
 - adapter id may be auto-detected if not explicitly provided
 
 ## Tool usage
@@ -83,6 +85,7 @@ Avoid reconstructing this workflow manually with ad hoc `cmake`, `xrun`, `xgdb`,
 ## Execution policy
 
 - Prefer the `run_sq66_dev` tool over bash.
+- When manually validating environment variables, source `tools/env/xmos_env.sh` first in the same shell.
 - Do not manually set up XMOS environment, `.venv`, adapter detection, build, run, or debug steps when the dedicated tool or helper script can do it.
 - Do not use destructive cleanup commands such as `rm -rf build_sq66_dev` unless explicitly required by the task.
 - Use `dryRun=true` when the user wants to inspect the exact command path without executing it.

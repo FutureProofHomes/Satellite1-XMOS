@@ -18,6 +18,8 @@ This skill combines:
 
 ## Required inputs
 
+- Load `tools/env/xmos_env.sh` in the current shell before validating inputs;
+  it sources repo `.env` and exports SQ66 HIL variables.
 - `SQ66_RPI_HOST` must be set.
 - `SQ66_HIL=1` must be set.
 
@@ -39,17 +41,25 @@ that supports both CLI and remote Python `-c` usage:
 
 ## Canonical command sequence
 
-1. Build SQ66 dev-mode firmware:
+0. Load XMOS env first so required variables are exported in this shell:
+
+   `source tools/env/xmos_env.sh`
+
+1. Ensure local Python env exists and is active for this shell:
+
+   `tools/env/python_env.sh --setup --with-tests && source .venv/bin/activate`
+
+2. Build SQ66 dev-mode firmware:
 
    `tools/e2e/run_sq66_dev.sh --build`
 
-2. Run full SQ66 HIL/e2e suite:
+3. Run full SQ66 HIL/e2e suite:
 
-   `SQ66_HIL=1 SQ66_HIL_RUN_FIRMWARE=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
+   `source tools/env/xmos_env.sh && SQ66_HIL=1 SQ66_HIL_RUN_FIRMWARE=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
 
 If firmware is already running and should not be restarted:
 
-`SQ66_HIL=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
+`source tools/env/xmos_env.sh && SQ66_HIL=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
 
 Pi-side preflight (recommended):
 
@@ -57,18 +67,20 @@ Pi-side preflight (recommended):
 
 `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} -c 'import satellite1; print(1)'"`
 
-Environment setup reminder:
+Environment setup reminders:
 
-`source tools/env/xmos_env.sh`
+- `tools/env/python_env.sh --setup --with-tests`
+- `source tools/env/xmos_env.sh`
 
-This wrapper loads repo `.env` and exports variables used by pytest and child
-processes.
+`python_env.sh` keeps installs pinned to repo `.venv`. `xmos_env.sh` loads repo
+`.env` and exports variables used by pytest and child processes.
 
 ## Execution rules
 
 - Do not replace this sequence with ad hoc manual environment probing.
 - Do not inspect external toolchain doc/version files (for example `XMOS_XTC_15.3.1/doc/version.txt`).
 - Use repo wrappers/scripts only:
+  - `tools/env/python_env.sh`
   - `tools/env/xmos_env.sh`
   - `tools/e2e/run_sq66_dev.sh`
   - `.venv/bin/python -m pytest ...`
