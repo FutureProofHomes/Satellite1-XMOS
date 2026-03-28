@@ -10,12 +10,6 @@ from tests.conftest import PROJ_ROOT, SQ66_HIL_ENABLED
 
 _default_runner = PROJ_ROOT / "tools" / "e2e" / "run_sq66_dev.sh"
 RUNNER = Path(os.getenv("SQ66_RUNNER", str(_default_runner)))
-if not RUNNER.exists():
-    _fallback_runner = (
-        PROJ_ROOT.parent / "Satellite1-XMOS-15.3" / "tools" / "e2e" / "run_sq66_dev.sh"
-    )
-    if _fallback_runner.exists():
-        RUNNER = _fallback_runner
 
 
 def _env_flag(name: str, default: str = "0") -> bool:

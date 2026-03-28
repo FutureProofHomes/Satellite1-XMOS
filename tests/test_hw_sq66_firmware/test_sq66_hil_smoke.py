@@ -68,9 +68,7 @@ def test_sq66_detect_only_reports_adapter(
 ) -> None:
     runner = os.getenv("SQ66_RUNNER", "tools/e2e/run_sq66_dev.sh")
     if not os.path.exists(runner):
-        fallback = "/Users/mischa/Projects/FutureProofHomes/Satellite1-XMOS-15.3/tools/e2e/run_sq66_dev.sh"
-        if os.path.exists(fallback):
-            runner = fallback
+        pytest.skip(f"SQ66 runner not found: {runner}")
 
     cmd = [runner, "--detect-only"]
     if sq66_adapter_id:
