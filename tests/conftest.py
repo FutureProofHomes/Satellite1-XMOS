@@ -12,3 +12,4 @@ def _env_flag(name: str, default: str = "0") -> bool:
 
 HW_TESTS = os.getenv("HW_TESTS")
 SQ66_HIL_ENABLED = _env_flag("SQ66_HIL")
+SAT1_HIL_ENABLED = _env_flag("SAT1_HIL")
