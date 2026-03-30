@@ -31,6 +31,9 @@ Source references:
 | `0` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` | Read | Return current active settings for the selected resource |
 | `1` | `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` | Write | Apply partial update via field mask and update struct |
 | `2` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT` | Read | Return number of mic input channels compiled into firmware (resource `232` only) |
+| `3` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_RAW` | Read | Return latest raw DoA estimate in mrad (resource `232` only) |
+| `4` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_SMOOTH` | Read | Return latest smoothed DoA estimate in mrad (resource `232` only) |
+| `5` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS` | Read | Return frame counter and per-channel mean-abs at DoA input (resource `232` only) |
 
 ### Payload shape summary
 
@@ -44,6 +47,16 @@ Source references:
   - Mic input (`232`): `mic_input_pipeline_settings_update_t` (`20` bytes)
 - `GET_AVAILABLE_MIC_COUNT` (read, mic input resource `232` only):
   - Mic input (`232`): `uint8_t` (`1` byte), value equals `appconfMIC_PIPELINE_INPUT_CHANNELS`
+- `GET_DOA_RAW` / `GET_DOA_SMOOTH` (read, mic input resource `232` only):
+  - Mic input (`232`): `doa_reading_t` (`8` bytes):
+    - `int32_t doa_mrad`
+    - `uint16_t seq`
+    - `uint8_t valid`
+    - `uint8_t reserved`
+- `GET_MIC_INPUT_DEBUG_STATS` (read, mic input resource `232` only):
+  - Mic input (`232`): `mic_input_debug_stats_t` (`20` bytes):
+    - `uint32_t frame_counter`
+    - `uint32_t mic_mean_abs[4]`
 
 ### Mic input settings (`232`) field summary
 

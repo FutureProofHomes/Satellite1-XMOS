@@ -70,6 +70,20 @@ typedef struct
 
 typedef struct
 {
+    int32_t doa_mrad;
+    uint16_t seq;
+    uint8_t valid;
+    uint8_t reserved;
+} doa_reading_t;
+
+typedef struct
+{
+    uint32_t frame_counter;
+    uint32_t mic_mean_abs[AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT];
+} mic_input_debug_stats_t;
+
+typedef struct
+{
     uint32_t field_mask;
     mic_input_pipeline_settings_t settings;
 } mic_input_pipeline_settings_update_t;

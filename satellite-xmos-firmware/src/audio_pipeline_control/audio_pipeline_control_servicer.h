@@ -26,10 +26,17 @@ typedef struct {
 } speaker_pipeline_settings_runtime_t;
 
 typedef struct {
+    doa_reading_t raw;
+    doa_reading_t smooth;
+    mic_input_debug_stats_t mic_input_debug;
+} doa_runtime_t;
+
+typedef struct {
     servicer_t *servicer;
     mic_output_pipeline_settings_runtime_t *mic_output_settings;
     speaker_pipeline_settings_runtime_t *speaker_settings;
     mic_input_pipeline_settings_runtime_t *mic_input_settings;
+    doa_runtime_t *doa;
 } audio_pipeline_servicer_ctx_t;
 
 void audio_pipeline_servicer(void *args);
