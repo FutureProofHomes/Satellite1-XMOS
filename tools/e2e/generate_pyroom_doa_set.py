@@ -87,8 +87,12 @@ def simulate_mics_pyroom(
     )
     room.add_microphone_array(pra.MicrophoneArray(center[:, None] + mic_xyz, fs))
 
+    # Convention: angle_deg follows current firmware DoA output convention.
+    # Firmware reports the wave arrival direction. Pyroom source azimuth is the
+    # direction from array center to source, which is the opposite vector.
+    # Therefore place the synthetic source at angle + 180 deg.
     dist = 2.0
-    az = math.radians(angle_deg)
+    az = math.radians(angle_deg + 180.0)
     src = center + np.array([dist * math.cos(az), dist * math.sin(az), 0.0])
     src[0] = min(max(src[0], 0.5), room_dim[0] - 0.5)
     src[1] = min(max(src[1], 0.5), room_dim[1] - 0.5)
@@ -165,7 +169,10 @@ def main() -> int:
     parser.add_argument(
         "--angles-deg",
         default="30,90,150,-90",
-        help="Comma-separated source angles per segment",
+        help=(
+            "Comma-separated target DoA angles per segment in firmware convention "
+            "(arrival direction)"
+        ),
     )
     parser.add_argument(
         "--segment-s",
@@ -263,6 +270,7 @@ def main() -> int:
     print(f"WAV: {out_wav}")
     print(f"Expected schedule: {out_expected}")
     print(f"Mic map used: {mic_map}")
+    print("Angle convention: firmware DoA (arrival direction)")
 
     if args.inject_and_play:
         scp = subprocess.run(

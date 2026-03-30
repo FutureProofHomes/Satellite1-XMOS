@@ -31,6 +31,10 @@ Usage: tools/e2e/run_pyroom_doa_demo.sh [options]
 Generate a pyroomacoustics DoA test set, play it on the Pi, and open the
 live DoA plot with expected-angle overlay.
 
+Angle convention:
+  --angles-deg uses firmware DoA convention (arrival direction).
+  The generator places pyroom sources at the opposite bearing automatically.
+
 Options:
   --host HOST          SSH host (default: SAT1_RPI_HOST)
   --py-cmd CMD         Remote python command (default: SAT1_RPI_PY_CMD or /opt/satellite1/venv/bin/python)
