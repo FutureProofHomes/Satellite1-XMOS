@@ -24,6 +24,12 @@ static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
       sizeof(mic_input_pipeline_settings_update_t), CMD_WRITE_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT, 1,
       sizeof(uint8_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_RAW, 1,
+      sizeof(doa_reading_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_SMOOTH, 1,
+      sizeof(doa_reading_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS, 1,
+      sizeof(mic_input_debug_stats_t), CMD_READ_ONLY },
 };
 
 static control_cmd_info_t audio_pipeline_speaker_settings_cmd_map[] = {
@@ -182,6 +188,37 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         }
 
         payload[0] = AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT;
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_RAW ||
+        cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_SMOOTH) {
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID ||
+            ctx->doa == NULL) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+
+        if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_RAW) {
+            memcpy(payload, &ctx->doa->raw, sizeof(ctx->doa->raw));
+        } else {
+            memcpy(payload, &ctx->doa->smooth, sizeof(ctx->doa->smooth));
+        }
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS) {
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID ||
+            ctx->doa == NULL) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+
+        memcpy(payload, &ctx->doa->mic_input_debug, sizeof(ctx->doa->mic_input_debug));
         payload[-1] = ret;
         return ret;
     }

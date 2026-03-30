@@ -53,8 +53,11 @@ volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 #define DEVICE_STATUS_READY_REGISTER_IDX   0
 #define DEVICE_STATUS_READY_VALUE          1
 
-#if ON_TILE(1)
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 DWORD_ALIGNED doa4_state_t doa;
+#if appconfDEVICE_CTRL_SPI
+static doa_runtime_t doa_runtime;
+#endif
 #endif
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
@@ -76,6 +79,39 @@ mic_output_pipeline_settings_runtime_t mic_output_pipeline_settings_runtime;
 static audio_pipeline_servicer_ctx_t mic_audio_pipeline_servicer_context;
 static servicer_register_ctx_t mic_audio_pipeline_servicer_reg_ctx;
 #endif
+#endif
+
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO) && appconfDEVICE_CTRL_SPI
+static void doa_runtime_update(doa_runtime_t *runtime,
+                               const int32_t *doa_input,
+                               size_t frame_count,
+                               float raw_angle_rad,
+                               float smooth_angle_rad)
+{
+    xassert(runtime != NULL);
+    xassert(doa_input != NULL);
+
+    runtime->raw.doa_mrad = (int32_t) (raw_angle_rad * 1000.0f);
+    runtime->raw.seq++;
+    runtime->raw.valid = 1;
+
+    runtime->smooth.doa_mrad = (int32_t) (smooth_angle_rad * 1000.0f);
+    runtime->smooth.seq++;
+    runtime->smooth.valid = 1;
+
+    runtime->mic_input_debug.frame_counter++;
+    for (size_t ch = 0; ch < appconfMIC_PIPELINE_INPUT_CHANNELS; ch++) {
+        uint64_t sum_abs = 0;
+        for (size_t i = 0; i < frame_count; i++) {
+            int64_t sample = doa_input[(ch * frame_count) + i];
+            if (sample < 0) {
+                sample = -sample;
+            }
+            sum_abs += (uint64_t)sample;
+        }
+        runtime->mic_input_debug.mic_mean_abs[ch] = (uint32_t)(sum_abs / frame_count);
+    }
+}
 #endif
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
@@ -374,17 +410,24 @@ void audio_pipeline_input(void *input_app_data,
     }
 #endif
 
-#if ON_TILE(1)
-    float ang = doa4_process_frame(&doa, mic_ptr, -31);
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
+    const int32_t *doa_input = mic_data;
+    float ang = doa4_process_frame(&doa, doa_input, -31);
+    static float doa_smooth_ux = 1.0f;
+    static float doa_smooth_uy = 0.0f;
+    const float doa_alpha = 0.2f;
+    float doa_newx = cosf(ang);
+    float doa_newy = sinf(ang);
+    doa_smooth_ux = (1.0f - doa_alpha) * doa_smooth_ux + doa_alpha * doa_newx;
+    doa_smooth_uy = (1.0f - doa_alpha) * doa_smooth_uy + doa_alpha * doa_newy;
+    float ang_smooth = atan2f(doa_smooth_uy, doa_smooth_ux);
+
+#if appconfDEVICE_CTRL_SPI
+    doa_runtime_update(&doa_runtime, doa_input, frame_count, ang, ang_smooth);
+#endif
 
 #if appconfLED_RING
     static uint8_t led_buffer[LED_RING_NUM_LEDS * 3];
-    static float ux=1.0f, uy=0.0f;
-    float newx = cosf(ang), newy = sinf(ang);
-    float alpha = 0.2f; // 0..1 (higher = faster)
-    ux = (1.0f-alpha)*ux + alpha*newx;
-    uy = (1.0f-alpha)*uy + alpha*newy;
-    float ang_smooth = atan2f(uy, ux);
     led_ring_show_doa(
         led_buffer,
         LED_RING_NUM_LEDS,
@@ -609,6 +652,7 @@ void startup_task(void *arg)
         &mic_output_pipeline_settings_runtime;
     mic_audio_pipeline_servicer_context.speaker_settings = NULL;
     mic_audio_pipeline_servicer_context.mic_input_settings = NULL;
+    mic_audio_pipeline_servicer_context.doa = NULL;
 
     mic_audio_pipeline_servicer_reg_ctx.servicer = &mic_audio_pipeline_servicer_state;
     mic_audio_pipeline_servicer_reg_ctx.device_control_ctx = device_control_ctx;
@@ -659,6 +703,11 @@ void startup_task(void *arg)
         &speaker_pipeline_settings_runtime;
     speaker_audio_pipeline_servicer_context.mic_input_settings =
         &mic_input_pipeline_settings_runtime;
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
+    speaker_audio_pipeline_servicer_context.doa = &doa_runtime;
+#else
+    speaker_audio_pipeline_servicer_context.doa = NULL;
+#endif
 
     speaker_audio_pipeline_servicer_reg_ctx.servicer =
         &speaker_audio_pipeline_servicer_state;
@@ -728,7 +777,7 @@ void startup_task(void *arg)
     rtos_osal_queue_create(mic_input_sim_queue, NULL, 2, sizeof(void *));
     speaker_pipeline_init(NULL, NULL);
 #endif
-#if ON_TILE(1)
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     doa4_init(&doa);
 #endif
 
