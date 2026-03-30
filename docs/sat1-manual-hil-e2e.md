@@ -29,6 +29,8 @@ Common/optional:
 - `SAT1_HIL_SSH_CONNECT_TIMEOUT_S=<seconds>`
 - `SAT1_HIL_SSH_TIMEOUT_S=<seconds>`
 - `SAT1_HIL_REMOTE_SDK_TIMEOUT_S=<seconds>`
+- `SAT1_HIL_SPI_CONSISTENCY_ITERS=<count>` (default `20`)
+- `SAT1_HIL_SPI_CONSISTENCY_DELAY_S=<seconds>` (default `0.05`)
 
 ## Command sequence
 
@@ -61,11 +63,13 @@ SAT1_HIL=1 .venv/bin/python -m pytest -m "hil and sat1" tests/test_hw_sat1_firmw
 ## Current test inventory
 
 - `tests/test_hw_sat1_firmware/test_sat1_hil_smoke.py`
-  - CLI smoke checks for firmware/status read and DAC setup + volume flow.
+  - CLI smoke checks for firmware/status read, repeated SPI read consistency, and DAC setup + volume flow.
 - `tests/test_hw_sat1_firmware/test_sat1_hil_mic_input_gain.py`
   - Mic/ref gain round-trip and captured-level checks.
 - `tests/test_hw_sat1_firmware/test_sat1_hil_mic_output_routing.py`
   - Mic output settings shape and partial/round-trip update checks.
+- `tests/test_hw_sat1_firmware/test_sat1_hil_doa_spi.py`
+  - Packaged WAV playback DoA validation via SPI `get-doa` reads.
 
 ## Notes on xscope
 

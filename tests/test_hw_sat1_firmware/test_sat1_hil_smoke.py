@@ -13,6 +13,8 @@ RETRY_ATTEMPTS = int(os.getenv("SAT1_HIL_RETRY_ATTEMPTS", "4"))
 RETRY_DELAY_S = float(os.getenv("SAT1_HIL_RETRY_DELAY_S", "0.5"))
 SCRIPT_TIMEOUT_S = int(os.getenv("SAT1_HIL_FLASH_VERIFY_TIMEOUT_S", "90"))
 SAT1_FLASH_SCRIPT = PROJ_ROOT / "tools" / "e2e" / "run_sat1_flash_via_rpi.sh"
+SPI_CONSISTENCY_ITERS = int(os.getenv("SAT1_HIL_SPI_CONSISTENCY_ITERS", "20"))
+SPI_CONSISTENCY_DELAY_S = float(os.getenv("SAT1_HIL_SPI_CONSISTENCY_DELAY_S", "0.05"))
 
 
 def _run_local(cmd: list[str], timeout: int = 120) -> subprocess.CompletedProcess[str]:
@@ -75,6 +77,25 @@ def _can_set_and_read_dac_volume(host: str, sat1_cmd: str, dac: str) -> bool:
     return bool(vol_get.stdout.strip())
 
 
+def _normalize_cli_output(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _collect_cli_samples(host: str, cmd: str, count: int) -> list[str]:
+    samples: list[str] = []
+
+    for _ in range(count):
+        res = _run_ssh(host, cmd)
+        assert res.returncode == 0, res.stdout + res.stderr
+        out = _normalize_cli_output(res.stdout)
+        assert out and out != "None", f"Expected non-empty output for: {cmd}"
+        samples.append(out)
+        if SPI_CONSISTENCY_DELAY_S > 0:
+            time.sleep(SPI_CONSISTENCY_DELAY_S)
+
+    return samples
+
+
 @pytest.mark.hil
 @pytest.mark.sat1
 def test_sat1_cli_reads_firmware_and_status(
@@ -92,6 +113,39 @@ def test_sat1_cli_reads_firmware_and_status(
     assert status.returncode == 0, status.stdout + status.stderr
     assert status.stdout.strip() and status.stdout.strip() != "None", (
         "Expected xmos status output"
+    )
+
+
+@pytest.mark.hil
+@pytest.mark.sat1
+def test_sat1_cli_spi_reads_are_consistent(
+    require_sat1_hil: None,
+    sat1_rpi_host: str,
+    sat1_rpi_sat1_cmd: str,
+) -> None:
+    if SPI_CONSISTENCY_ITERS < 2:
+        pytest.skip("Need SAT1_HIL_SPI_CONSISTENCY_ITERS >= 2 for consistency checks")
+
+    firmware_samples = _collect_cli_samples(
+        sat1_rpi_host,
+        f"{sat1_rpi_sat1_cmd} xmos read-firmware",
+        SPI_CONSISTENCY_ITERS,
+    )
+    firmware_unique = sorted(set(firmware_samples))
+    assert len(firmware_unique) == 1, (
+        "Firmware read output changed across repeated SPI reads: "
+        f"unique_count={len(firmware_unique)} unique_values={firmware_unique}"
+    )
+
+    status_samples = _collect_cli_samples(
+        sat1_rpi_host,
+        f"{sat1_rpi_sat1_cmd} xmos read-status",
+        SPI_CONSISTENCY_ITERS,
+    )
+    status_unique = sorted(set(status_samples))
+    assert len(status_unique) == 1, (
+        "Status read output changed across repeated SPI reads: "
+        f"unique_count={len(status_unique)} unique_values={status_unique}"
     )
 
 

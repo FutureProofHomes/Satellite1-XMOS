@@ -43,6 +43,14 @@ def sq66_rpi_sat1_cmd() -> str:
 
 
 @pytest.fixture(scope="session")
+def sq66_rpi_py_cmd() -> str:
+    return (
+        os.getenv("SQ66_RPI_PY_CMD", "/opt/satellite1/venv/bin/python").strip()
+        or "/opt/satellite1/venv/bin/python"
+    )
+
+
+@pytest.fixture(scope="session")
 def sq66_runner_proc(
     require_sq66_hil: None, sq66_adapter_id: str | None
 ) -> Iterator[subprocess.Popen[str] | None]:
