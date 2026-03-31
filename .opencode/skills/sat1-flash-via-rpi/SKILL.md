@@ -34,7 +34,7 @@ Set these before flash/verify steps:
 
 Optional:
 
-- `SAT1_RPI_SAT1_CMD=<remote sat1 command>` (default: `sat1`)
+- `SAT1_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
 - `SAT1_FLASH_SSH_CONNECT_TIMEOUT_S=<seconds>`
 - `SAT1_FLASH_REMOTE_SUDO=1` (run remote flash command under `sudo -n`)
 
@@ -74,7 +74,7 @@ Dry run:
 ## Recommended execution order
 
 1. Preflight Pi-side command:
-   - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_SAT1_CMD:-sat1} --help"`
+   - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_CLI_CMD:-sat1} --help"`
 2. Build factory image (`--build`) or run full flow (`--all`).
 3. Flash via Pi-side CLI (`--flash` or as part of `--all`).
 4. Verify firmware readback (`--verify` or as part of `--all`).
@@ -85,7 +85,7 @@ Dry run:
 - SSH/connectivity failure:
   - validate `SAT1_RPI_HOST`, keys, and reachability
 - `sat1` command not found on Pi:
-  - set `SAT1_RPI_SAT1_CMD` to the deployed command path/wrapper
+  - set `SAT1_RPI_CLI_CMD` to the deployed command path/wrapper
 - flash logs `flashrom ... not found on PATH`:
   - run with `SAT1_FLASH_REMOTE_SUDO=1` (or `--remote-sudo`)
   - verify host has non-interactive sudo for the flashing command

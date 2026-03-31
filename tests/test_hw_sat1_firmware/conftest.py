@@ -23,7 +23,7 @@ def sat1_rpi_host(require_sat1_hil: None) -> str:
 
 @pytest.fixture(scope="session")
 def sat1_rpi_sat1_cmd() -> str:
-    return os.getenv("SAT1_RPI_SAT1_CMD", "sat1").strip() or "sat1"
+    return os.getenv("SAT1_RPI_CLI_CMD", "sat1").strip() or "sat1"
 
 
 @pytest.fixture(scope="session")

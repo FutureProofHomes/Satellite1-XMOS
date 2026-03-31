@@ -23,7 +23,7 @@ Required:
 
 Common/optional:
 
-- `SAT1_RPI_SAT1_CMD=<remote sat1 command>` (defaults to `sat1`)
+- `SAT1_RPI_CLI_CMD=<remote sat1 command>` (defaults to `sat1`)
 - `SAT1_RPI_PY_CMD=<remote python command>` (defaults to `/opt/satellite1/venv/bin/python`)
 - `SAT1_HIL=1` (enables Satellite1 HIL tests)
 - `SAT1_HIL_SSH_CONNECT_TIMEOUT_S=<seconds>`
@@ -50,7 +50,7 @@ source .venv/bin/activate
 3) Optional Pi-side preflight checks
 
 ```bash
-ssh "$SAT1_RPI_HOST" "${SAT1_RPI_SAT1_CMD:-sat1} --help"
+ssh "$SAT1_RPI_HOST" "${SAT1_RPI_CLI_CMD:-sat1} --help"
 ssh "$SAT1_RPI_HOST" "${SAT1_RPI_PY_CMD:-/opt/satellite1/venv/bin/python} -c 'import satellite1; print(1)'"
 ```
 

@@ -14,6 +14,7 @@ if [[ -z "${SAT1_RPI_HOST:-}" && -f "$REPO_ROOT/.env" ]]; then
 fi
 
 HOST="${SAT1_RPI_HOST:-}"
+CLI_CMD="${SAT1_RPI_CLI_CMD:-sat1}"
 ANGLES_DEG="30,90,150,-90"
 SEGMENT_S="3"
 POLL_S="0.1"
@@ -38,6 +39,7 @@ doa_gcc_phat_test, and optionally run HIL injection/plot demo.
 
 Options:
   --host HOST             SSH host for HIL demo (default: SAT1_RPI_HOST)
+  --sat1-cmd CMD         Remote sat1 command (default: SAT1_RPI_CLI_CMD or sat1)
   --angles-deg CSV        Segment angles (default: 30,90,150,-90)
   --segment-s SEC         Seconds per segment (default: 3)
   --poll-s SEC            Plot polling interval (default: 0.1)
@@ -68,6 +70,10 @@ while [[ $# -gt 0 ]]; do
         --angles-deg)
             shift
             ANGLES_DEG="${1:-}"
+            ;;
+        --sat1-cmd)
+            shift
+            CLI_CMD="${1:-}"
             ;;
         --segment-s)
             shift
@@ -154,6 +160,7 @@ fi
 CMD=(
     python3 "$REPO_ROOT/tools/e2e/run_doa_wav_hil_eval.py"
     --host "$HOST"
+    --sat1-cmd "$CLI_CMD"
     --wav "$LOCAL_WAV"
     --expected-file "$LOCAL_EXPECTED"
     --poll-s "$POLL_S"

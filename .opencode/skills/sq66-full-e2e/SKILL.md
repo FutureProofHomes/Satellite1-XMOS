@@ -26,18 +26,18 @@ This skill combines:
 Recommended:
 
 - `XMOS_ADAPTER_ID=<xtag-id>` when multiple adapters are connected.
-- `SQ66_RPI_SAT1_CMD=<remote sat1 command>` when SDK is run from a non-default location (default: `sat1`).
+- `SQ66_RPI_CLI_CMD=<remote sat1 command>` when SDK is run from a non-default location (default: `sat1`).
 
 For cached SDK execution on Pi, prefer:
 
-`SQ66_RPI_SAT1_CMD='PYTHONPATH=$HOME/.cache/satellite1-rpi-e2e/src $HOME/.cache/venvs/satellite1-rpi-e2e/bin/python -m satellite1.cli.cli_sat1 --config $HOME/.cache/satellite1-rpi-e2e/satellite1.conf'`
+`SQ66_RPI_CLI_CMD='PYTHONPATH=$HOME/.cache/satellite1-rpi-e2e/src $HOME/.cache/venvs/satellite1-rpi-e2e/bin/python -m satellite1.cli.cli_sat1 --config $HOME/.cache/satellite1-rpi-e2e/satellite1.conf'`
 
 Use single quotes so `$HOME` expands on the remote host.
 
 If running the full `tests/test_hw_sq66_firmware` selection, prefer a wrapper
 that supports both CLI and remote Python `-c` usage:
 
-`SQ66_RPI_SAT1_CMD='/home/pi/.cache/satellite1-rpi-e2e/sat1_or_python.sh'`
+`SQ66_RPI_CLI_CMD='/home/pi/.cache/satellite1-rpi-e2e/sat1_or_python.sh'`
 
 ## Canonical command sequence
 
@@ -63,9 +63,9 @@ If firmware is already running and should not be restarted:
 
 Pi-side preflight (recommended):
 
-`ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} --help"`
+`ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} --help"`
 
-`ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} -c 'import satellite1; print(1)'"`
+`ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} -c 'import satellite1; print(1)'"`
 
 Environment setup reminders:
 
@@ -84,7 +84,7 @@ Environment setup reminders:
   - `tools/env/xmos_env.sh`
   - `tools/e2e/run_sq66_dev.sh`
   - `.venv/bin/python -m pytest ...`
-- SDK deployment/install on target Pi is out of scope; provide `SQ66_RPI_SAT1_CMD` to point tests at the desired SDK location.
+- SDK deployment/install on target Pi is out of scope; provide `SQ66_RPI_CLI_CMD` to point tests at the desired SDK location.
 - If runner fails with `device is in use`, clear stale `xrun/xgdb/xgdbserver` processes before retrying.
 
 ## Output contract

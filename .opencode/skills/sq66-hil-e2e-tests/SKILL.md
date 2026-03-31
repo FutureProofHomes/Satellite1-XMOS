@@ -14,7 +14,7 @@ Use this skill when validating SQ66 end-to-end behavior with real hardware.
 This workflow covers:
 - adapter detect-only checks
 - optional firmware run orchestration via `tools/e2e/run_sq66_dev.sh`
-- Pi-side CLI smoke checks (`<SQ66_RPI_SAT1_CMD> --board sq66 ...`)
+- Pi-side CLI smoke checks (`<SQ66_RPI_CLI_CMD> --board sq66 ...`)
 - line-out-only capability enforcement checks
 
 ## Test suite
@@ -38,13 +38,13 @@ Ensure local Python environment is prepared in repo `.venv`:
 
 Optional:
 
-- `SQ66_RPI_SAT1_CMD=<remote sat1 command>` (default: `sat1`)
+- `SQ66_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
 - `XMOS_ADAPTER_ID=<xtag-id>` (recommended when multiple adapters are connected)
 - `SQ66_HIL_RUN_FIRMWARE=1` (start firmware runner fixture automatically)
 - `SQ66_HIL_REQUIRE_RUNNER=1` (require local runner fixture, otherwise skip)
 - `SQ66_HIL_BOOT_WAIT_S=<seconds>` (boot settle time when auto-running firmware)
 
-`SQ66_RPI_SAT1_CMD` allows running SDK tests from any install location on the Pi,
+`SQ66_RPI_CLI_CMD` allows running SDK tests from any install location on the Pi,
 for example:
 
 `PYTHONPATH=$HOME/.cache/satellite1-rpi-e2e/src $HOME/.cache/venvs/satellite1-rpi-e2e/bin/python -m satellite1.cli.cli_sat1 --config $HOME/.cache/satellite1-rpi-e2e/satellite1.conf`
@@ -52,16 +52,16 @@ for example:
 When exporting from local shell, wrap the command in single quotes so `$HOME`
 expands on the remote Pi shell (not locally), for example:
 
-`SQ66_RPI_SAT1_CMD='PYTHONPATH=$HOME/.cache/satellite1-rpi-e2e/src $HOME/.cache/venvs/satellite1-rpi-e2e/bin/python -m satellite1.cli.cli_sat1 --config $HOME/.cache/satellite1-rpi-e2e/satellite1.conf'`
+`SQ66_RPI_CLI_CMD='PYTHONPATH=$HOME/.cache/satellite1-rpi-e2e/src $HOME/.cache/venvs/satellite1-rpi-e2e/bin/python -m satellite1.cli.cli_sat1 --config $HOME/.cache/satellite1-rpi-e2e/satellite1.conf'`
 
 If the HIL selection includes tests that run remote Python `-c` snippets, ensure
-`SQ66_RPI_SAT1_CMD` supports both patterns:
+`SQ66_RPI_CLI_CMD` supports both patterns:
 - CLI mode: `<cmd> --board sq66 ...`
 - Python mode: `<cmd> -c '<python>'`
 
 Recommended wrapper command:
 
-`SQ66_RPI_SAT1_CMD='/home/pi/.cache/satellite1-rpi-e2e/sat1_or_python.sh'`
+`SQ66_RPI_CLI_CMD='/home/pi/.cache/satellite1-rpi-e2e/sat1_or_python.sh'`
 
 ## Commands
 
@@ -83,8 +83,8 @@ Single test examples:
 1. Preflight local environment and Pi-side CLI command:
    - `tools/env/python_env.sh --check --with-tests`
    - `source tools/env/xmos_env.sh`
-   - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} --help"`
-   - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} -c 'import satellite1; print(1)'"`
+   - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} --help"`
+   - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} -c 'import satellite1; print(1)'"`
 2. Confirm adapter visibility with detect-only test.
 3. Run firmware (`SQ66_HIL_RUN_FIRMWARE=1`) or ensure firmware is already running.
 4. Run full SQ66 HIL smoke suite.
@@ -102,14 +102,14 @@ Single test examples:
   - verify xTAG connection and retry detect-only test
   - provide `XMOS_ADAPTER_ID` explicitly
 - SSH/host failures:
-  - verify `SQ66_RPI_HOST` connectivity and that `SQ66_RPI_SAT1_CMD` works on target
+  - verify `SQ66_RPI_HOST` connectivity and that `SQ66_RPI_CLI_CMD` works on target
 - `invalid choice` / argument parser errors in Python-snippet tests:
   - your command likely points to `sat1` only and does not support `-c`
   - switch to a wrapper command that dispatches `-c` to Python interpreter
 - CLI expectation mismatch:
   - verify Satellite1-RPi branch/commit deployed on Pi matches local SDK contract
   - if CLI fails with `pydantic ... extra_forbidden`, ensure `--config` points to
-    the SDK-matching config file and `SQ66_RPI_SAT1_CMD` uses remote `$HOME`
+    the SDK-matching config file and `SQ66_RPI_CLI_CMD` uses remote `$HOME`
 - Runner exited early:
   - run `tools/e2e/run_sq66_dev.sh --run` manually and inspect xscope output
 

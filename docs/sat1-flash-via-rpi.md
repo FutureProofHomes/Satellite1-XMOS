@@ -24,7 +24,7 @@ Required:
 
 Optional:
 
-- `SAT1_RPI_SAT1_CMD=<remote sat1 command>` (default: `sat1`)
+- `SAT1_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
 - `SAT1_FLASH_SSH_CONNECT_TIMEOUT_S=<seconds>`
 - `SAT1_FLASH_REMOTE_SUDO=1` (run remote flash command with `sudo -n`)
 

@@ -29,7 +29,7 @@ Set:
 
 Optional:
 
-- `SAT1_RPI_SAT1_CMD=<remote sat1 command>` (default: `sat1`)
+- `SAT1_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
 - `SAT1_RPI_PY_CMD=<remote python command>` (default: `/opt/satellite1/venv/bin/python`)
 
 ## Commands
@@ -50,7 +50,7 @@ Smoke only:
 
 1. Preflight local env and Pi CLI:
    - `source tools/env/xmos_env.sh`
-   - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_SAT1_CMD:-sat1} --help"`
+   - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_CLI_CMD:-sat1} --help"`
    - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_PY_CMD:-/opt/satellite1/venv/bin/python} -c 'import satellite1; print(1)'"`
 2. If firmware state is unknown, run flash-first workflow:
    - `SAT1_RPI_HOST=<ssh-host> tools/e2e/run_sat1_flash_via_rpi.sh --all`
@@ -63,5 +63,5 @@ Smoke only:
 - `tools/env/xmos_env.sh` is required for loading repo `.env` values like
   `SAT1_RPI_HOST` into the shell running pytest.
 - Full Sat1 HIL uses two remote command paths:
-  - CLI path via `SAT1_RPI_SAT1_CMD` for `sat1 ...`
+  - CLI path via `SAT1_RPI_CLI_CMD` for `sat1 ...`
   - Python path via `SAT1_RPI_PY_CMD` for `python -c '...'` snippets

@@ -12,7 +12,7 @@ MODE="all"
 SKIP_BUILD=0
 DRY_RUN=0
 RPI_HOST="${SAT1_RPI_HOST:-}"
-SAT1_CMD="${SAT1_RPI_SAT1_CMD:-sat1}"
+SAT1_CMD="${SAT1_RPI_CLI_CMD:-sat1}"
 FACTORY_BIN=""
 REMOTE_PATH=""
 SSH_CONNECT_TIMEOUT_S="${SAT1_FLASH_SSH_CONNECT_TIMEOUT_S:-5}"
@@ -32,7 +32,7 @@ Modes (default: --all):
 
 Options:
   --rpi-host HOST      Pi SSH host (default: SAT1_RPI_HOST env var).
-  --sat1-cmd CMD       Remote sat1 command (default: SAT1_RPI_SAT1_CMD or 'sat1').
+  --sat1-cmd CMD       Remote sat1 command (default: SAT1_RPI_CLI_CMD or 'sat1').
   --build-dir DIR      Build directory (default: build_SATELLITE1).
   --target NAME        Firmware target (default: satellite1_firmware_fixed_delay).
   --factory-bin PATH   Local factory image path (must end with .factory.bin).

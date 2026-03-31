@@ -39,8 +39,8 @@ Check for matching skills for:
 - For prompts like "build sq66 in dev mode and run full end-to-end test", load `sq66-full-e2e` and follow it exactly.
 - For Satellite1 HIL/e2e validation, load `sat1-hil-e2e-tests` before running pytest hardware checks.
 - For Satellite1 flash without xTAG, load `sat1-flash-via-rpi` and use `tools/e2e/run_sat1_flash_via_rpi.sh`.
-- Use `SQ66_RPI_SAT1_CMD` to point HIL tests at a non-default Pi-side SDK command; default is plain `sat1`.
-- For full SQ66 HIL selections that include remote Python snippets, `SQ66_RPI_SAT1_CMD` must support both CLI calls and `-c` Python execution (wrapper command recommended).
+- Use `SQ66_RPI_CLI_CMD` to point HIL tests at a non-default Pi-side SDK command; default is plain `sat1`.
+- For full SQ66 HIL selections that include remote Python snippets, `SQ66_RPI_CLI_CMD` must support both CLI calls and `-c` Python execution (wrapper command recommended).
 - For any SPI device-control protocol changes intended for SDK consumption, load `device-control-sdk-handoff` and generate/update a handoff file.
 - Treat command-level deltas in existing servicers as protocol changes (for example adding/changing command IDs, direction, or payload layout).
 - For command-inventory questions (for example "list audio pipeline device-control commands"), load `device-control-command-lookup` and use targeted file reads instead of broad codebase scans.

@@ -25,7 +25,7 @@ Required:
 Common/optional:
 
 - `XMOS_ADAPTER_ID=<xtag-id>` (recommended if multiple adapters are present)
-- `SQ66_RPI_SAT1_CMD=<remote sat1 command>` (defaults to `sat1`)
+- `SQ66_RPI_CLI_CMD=<remote sat1 command>` (defaults to `sat1`)
 - `SQ66_HIL_BOOT_WAIT_S=<seconds>` (runner settle time; default from tests is 8)
 
 Test-control variables used by this suite:
@@ -74,8 +74,8 @@ source .venv/bin/activate
 3) Optional Pi-side preflight checks
 
 ```bash
-ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} --help"
-ssh "$SQ66_RPI_HOST" "${SQ66_RPI_SAT1_CMD:-sat1} -c 'import satellite1; print(1)'"
+ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} --help"
+ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} -c 'import satellite1; print(1)'"
 ```
 
 4) Build SQ66 dev-mode firmware

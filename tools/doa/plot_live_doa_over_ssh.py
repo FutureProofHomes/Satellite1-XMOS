@@ -19,7 +19,6 @@ from dataclasses import dataclass
 DOA_RE = re.compile(r"doa_mrad\s*=\s*(-?\d+)")
 SEQ_RE = re.compile(r"seq\s*=\s*(\d+)")
 VALID_RE = re.compile(r"valid\s*=\s*(\d+)")
-STREAM_MARKER = "sat1_doa_stream_marker_v1"
 
 
 @dataclass
@@ -61,6 +60,64 @@ def host_default_from_env(repo_root: Path) -> str:
         return ""
 
     return ""
+
+
+def sat1_cmd_default_from_env() -> str:
+    return (
+        os.getenv("SAT1_RPI_CLI_CMD", "").strip()
+        or os.getenv("SQ66_RPI_CLI_CMD", "").strip()
+        or "sat1"
+    )
+
+
+def sat1_xmos_cmd(sat1_cmd: str, board: str | None, subcmd: str) -> str:
+    if board:
+        return f"{sat1_cmd} --board {board} xmos {subcmd}"
+    return f"{sat1_cmd} xmos {subcmd}"
+
+
+def _supports_required_xmos_cli(host: str, sat1_cmd: str, timeout_s: float) -> bool:
+    get_pipeline = run_ssh_cmd(
+        host,
+        sat1_xmos_cmd(sat1_cmd, None, "get-mic-pipeline-settings -h"),
+        timeout=timeout_s,
+    )
+    if get_pipeline.returncode != 0:
+        return False
+
+    get_doa_help = run_ssh_cmd(
+        host,
+        sat1_xmos_cmd(sat1_cmd, None, "get-doa -h"),
+        timeout=timeout_s,
+    )
+    if get_doa_help.returncode != 0:
+        return False
+    return "--stream" in (get_doa_help.stdout + get_doa_help.stderr)
+
+
+def resolve_remote_sat1_cmd(host: str, requested_cmd: str, timeout_s: float) -> str:
+    candidates: list[str] = [requested_cmd]
+    if requested_cmd == "sat1":
+        candidates.extend(
+            [
+                "/home/pi/.cache/venvs/satellite1-rpi-e2e/bin/sat1",
+                "/opt/satellite1/venv/bin/sat1",
+            ]
+        )
+
+    seen: set[str] = set()
+    for cmd in candidates:
+        if cmd in seen:
+            continue
+        seen.add(cmd)
+        if _supports_required_xmos_cli(host, cmd, timeout_s):
+            return cmd
+
+    raise SystemExit(
+        "Remote sat1 CLI does not support required commands "
+        "(xmos get-mic-pipeline-settings, get-doa --stream). "
+        "Deploy newer SDK or pass --sat1-cmd with the correct remote binary path."
+    )
 
 
 def load_expected_windows(path: str | None) -> list[ExpectedWindow]:
@@ -119,20 +176,6 @@ def run_ssh_cmd(
     )
 
 
-def readings_from_body(body: dict) -> tuple[DoaReading, DoaReading]:
-    raw = DoaReading(
-        doa_mrad=int(body["raw"]["doa_mrad"]),
-        seq=int(body["raw"]["seq"]),
-        valid=int(body["raw"]["valid"]),
-    )
-    smooth = DoaReading(
-        doa_mrad=int(body["smooth"]["doa_mrad"]),
-        seq=int(body["smooth"]["seq"]),
-        valid=int(body["smooth"]["valid"]),
-    )
-    return raw, smooth
-
-
 def parse_reading(text: str) -> DoaReading | None:
     doa_match = DOA_RE.search(text)
     seq_match = SEQ_RE.search(text)
@@ -154,13 +197,9 @@ def fetch_raw_smooth(
     ssh_mux: bool,
     ssh_control_path: str,
 ) -> tuple[DoaReading | None, DoaReading | None]:
-    board_arg = ""
-    if board:
-        board_arg = f" --board {board}"
-
     remote_cmd = (
-        f"{sat1_cmd} xmos{board_arg} get-doa --mode raw && "
-        f"{sat1_cmd} xmos{board_arg} get-doa --mode smooth"
+        f"{sat1_xmos_cmd(sat1_cmd, board, 'get-doa --mode raw')} && "
+        f"{sat1_xmos_cmd(sat1_cmd, board, 'get-doa --mode smooth')}"
     )
 
     ssh_cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
@@ -204,63 +243,20 @@ def fetch_raw_smooth(
 
 def fetch_raw_smooth_python(
     host: str,
-    py_cmd: str,
+    sat1_cmd: str,
+    board: str | None,
     timeout_s: float,
     ssh_mux: bool,
     ssh_control_path: str,
 ) -> tuple[DoaReading | None, DoaReading | None]:
-    script = (
-        "import json;"
-        "from satellite1.sat1_hat import XMOS;"
-        "x=XMOS();x.setup();"
-        "_ = x.read_firmware();"
-        "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
-        "r=x.get_doa_raw();s=x.get_doa_smooth();"
-        "print(json.dumps({'raw':{'doa_mrad':int(r.doa_mrad),'seq':int(r.seq),'valid':int(r.valid)},'smooth':{'doa_mrad':int(s.doa_mrad),'seq':int(s.seq),'valid':int(s.valid)}}));"
-        "c=getattr(x,'_cntrl',None);"
-        "c.close() if c is not None and hasattr(c,'close') else None"
+    return fetch_raw_smooth(
+        host=host,
+        sat1_cmd=sat1_cmd,
+        board=board,
+        timeout_s=timeout_s,
+        ssh_mux=ssh_mux,
+        ssh_control_path=ssh_control_path,
     )
-    cmd_tokens = shlex.split(py_cmd)
-    if not cmd_tokens:
-        return None, None
-
-    remote_cmd = " ".join(shlex.quote(v) for v in cmd_tokens + ["-c", script])
-    ssh_cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
-    if ssh_mux:
-        ssh_cmd.extend(
-            [
-                "-o",
-                "ControlMaster=auto",
-                "-o",
-                "ControlPersist=60",
-                "-o",
-                f"ControlPath={ssh_control_path}",
-            ]
-        )
-    ssh_cmd.extend([host, remote_cmd])
-    try:
-        proc = subprocess.run(
-            [*ssh_cmd],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
-    except subprocess.TimeoutExpired:
-        return None, None
-
-    if proc.returncode != 0:
-        return None, None
-
-    lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-    if not lines:
-        return None, None
-
-    try:
-        body = json.loads(lines[-1])
-        return readings_from_body(body)
-    except Exception:
-        return None, None
 
 
 class RemoteDoaStream:
@@ -268,13 +264,15 @@ class RemoteDoaStream:
         self,
         *,
         host: str,
-        py_cmd: str,
+        sat1_cmd: str,
+        board: str | None,
         period_s: float,
         ssh_mux: bool,
         ssh_control_path: str,
     ) -> None:
         self.host = host
-        self.py_cmd = py_cmd
+        self.sat1_cmd = sat1_cmd
+        self.board = board
         self.period_s = max(0.05, period_s)
         self.ssh_mux = ssh_mux
         self.ssh_control_path = ssh_control_path
@@ -286,106 +284,24 @@ class RemoteDoaStream:
         self._running = False
 
     def start(self) -> None:
-        cmd_tokens = shlex.split(self.py_cmd)
-        if not cmd_tokens:
-            raise RuntimeError("--py-cmd resolved to empty command")
-
-        script = f"""
-import json
-import signal
-import time
-from satellite1.sat1_hat import XMOS
-
-MARKER = "{STREAM_MARKER}"
-
-period = {self.period_s!r}
-running = True
-
-def _handle_stop(_sig, _frm):
-    global running
-    running = False
-
-signal.signal(signal.SIGTERM, _handle_stop)
-signal.signal(signal.SIGINT, _handle_stop)
-signal.signal(signal.SIGHUP, _handle_stop)
-
-def open_xmos():
-    x = XMOS()
-    x.setup()
-    _ = x.read_firmware()
-    _ = x.wait_until_ready(timeout_s=3.0, poll_interval_s=0.1)
-    return x
-
-x = open_xmos()
-
-try:
-    while running:
-        try:
-            r = x.get_doa_raw()
-            s = x.get_doa_smooth()
-            raw_mrad = int(r.doa_mrad)
-            smooth_mrad = int(s.doa_mrad)
-
-            if abs(raw_mrad) > 5000 or abs(smooth_mrad) > 5000:
-                time.sleep(period)
-                continue
-
-            print(json.dumps({{
-                'raw': {{
-                    'doa_mrad': raw_mrad,
-                    'seq': int(r.seq),
-                    'valid': int(r.valid),
-                }},
-                'smooth': {{
-                    'doa_mrad': smooth_mrad,
-                    'seq': int(s.seq),
-                    'valid': int(s.valid),
-                }},
-            }}), flush=True)
-        except Exception:
-            c = getattr(x, '_cntrl', None)
-            if c is not None and hasattr(c, 'close'):
-                try:
-                    c.close()
-                except Exception:
-                    pass
-            if not running:
-                break
-            time.sleep(period)
-            x = open_xmos()
-            continue
-        time.sleep(period)
-finally:
-    c = getattr(x, '_cntrl', None)
-    if c is not None and hasattr(c, 'close'):
-        c.close()
-"""
-        remote_cmd = " ".join(shlex.quote(v) for v in cmd_tokens + ["-u", "-c", script])
+        remote_cmd = sat1_xmos_cmd(
+            self.sat1_cmd,
+            self.board,
+            f"get-doa --stream --period-s {self.period_s}",
+        )
 
         ssh_cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
         if self.ssh_mux:
-            ssh_cmd.extend(
-                [
-                    "-o",
-                    "ControlMaster=auto",
-                    "-o",
-                    "ControlPersist=60",
-                    "-o",
-                    f"ControlPath={self.ssh_control_path}",
-                ]
-            )
+            mux_args = [
+                "-o",
+                "ControlMaster=auto",
+                "-o",
+                "ControlPersist=60",
+                "-o",
+                f"ControlPath={self.ssh_control_path}",
+            ]
+            ssh_cmd.extend(mux_args)
         ssh_cmd.extend([self.host, remote_cmd])
-
-        kill_prev_cmd = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=5",
-            self.host,
-            f"pkill -f {shlex.quote(STREAM_MARKER)} >/dev/null 2>&1 || true",
-        ]
-        subprocess.run(kill_prev_cmd, check=False, capture_output=True, text=True)
 
         self.proc = subprocess.Popen(
             ssh_cmd,
@@ -407,11 +323,21 @@ finally:
                 continue
             try:
                 body = json.loads(line)
-                parsed = readings_from_body(body)
+                raw = DoaReading(
+                    doa_mrad=int(body["raw"]["doa_mrad"]),
+                    seq=int(body["raw"]["seq"]),
+                    valid=int(body["raw"]["valid"]),
+                )
+                smooth_node = body.get("smooth", body["raw"])
+                smooth = DoaReading(
+                    doa_mrad=int(smooth_node["doa_mrad"]),
+                    seq=int(smooth_node["seq"]),
+                    valid=int(smooth_node["valid"]),
+                )
             except Exception:
                 continue
             with self._latest_lock:
-                self._latest = parsed
+                self._latest = (raw, smooth)
                 self._latest_monotonic = time.monotonic()
         self._running = False
 
@@ -444,9 +370,7 @@ finally:
         return " | ".join(self._stderr_tail)
 
     def stop(self) -> None:
-        if self.proc is None:
-            return
-        if self.proc.poll() is None:
+        if self.proc is not None and self.proc.poll() is None:
             self.proc.terminate()
             try:
                 self.proc.wait(timeout=2)
@@ -454,17 +378,6 @@ finally:
                 self.proc.kill()
                 self.proc.wait(timeout=2)
         self._running = False
-
-        kill_prev_cmd = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=5",
-            self.host,
-            f"pkill -f {shlex.quote(STREAM_MARKER)} >/dev/null 2>&1 || true",
-        ]
-        subprocess.run(kill_prev_cmd, check=False, capture_output=True, text=True)
 
     def restart(self) -> None:
         self.stop()
@@ -488,19 +401,14 @@ def main() -> int:
     )
     parser.add_argument(
         "--sat1-cmd",
-        default="sat1",
+        default=sat1_cmd_default_from_env(),
         help="Remote sat1 command (default: sat1)",
-    )
-    parser.add_argument(
-        "--py-cmd",
-        default="/opt/satellite1/venv/bin/python",
-        help="Remote python command for fast mode (default: /opt/satellite1/venv/bin/python)",
     )
     parser.add_argument(
         "--source",
         choices=["stream", "python", "cli"],
         default="stream",
-        help="Data source mode: stream is smoothest, python is single-shot, cli is simplest (default: stream)",
+        help="Data source mode: stream uses get-doa --stream, python aliases to cli polling, cli is simplest (default: stream)",
     )
     parser.add_argument(
         "--board",
@@ -513,6 +421,11 @@ def main() -> int:
         type=float,
         default=0.2,
         help="Polling interval in seconds (default: 0.2)",
+    )
+    parser.add_argument(
+        "--mic-map",
+        default="1,2,3,4",
+        help="Mic input channel map CSV when forcing live mics (default: 1,2,3,4)",
     )
     parser.add_argument(
         "--ssh-timeout-s",
@@ -560,22 +473,21 @@ def main() -> int:
         )
         return 2
 
+    mic_map = [int(v.strip()) for v in args.mic_map.split(",") if v.strip()]
+    if len(mic_map) != 4:
+        print("error: --mic-map must have 4 integers", file=sys.stderr)
+        return 2
+
+    args.sat1_cmd = resolve_remote_sat1_cmd(
+        args.host, args.sat1_cmd, args.ssh_timeout_s
+    )
+
     # Force live microphones (disable packaged injection) unless explicitly disabled.
     original_mic_source_mode: int | None = None
+    original_mic_input_map: list[int] | None = None
     if not args.no_force_live_mics:
-        get_script = (
-            "import json;"
-            "from satellite1.sat1_hat import XMOS;"
-            "x=XMOS();x.setup();"
-            "_ = x.read_firmware();"
-            "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
-            "s=x.get_mic_input_settings();"
-            "print(json.dumps({'mic_source_mode':int(s.mic_source_mode)}));"
-            "c=getattr(x,'_cntrl',None);"
-            "c.close() if c is not None and hasattr(c,'close') else None"
-        )
-        get_cmd = " ".join(
-            shlex.quote(v) for v in shlex.split(args.py_cmd) + ["-c", get_script]
+        get_cmd = sat1_xmos_cmd(
+            args.sat1_cmd, args.board, "get-mic-pipeline-settings --json"
         )
         res = run_ssh_cmd(args.host, get_cmd, timeout=args.ssh_timeout_s)
         if res.returncode != 0:
@@ -584,26 +496,57 @@ def main() -> int:
         lines = [ln.strip() for ln in res.stdout.splitlines() if ln.strip()]
         if lines:
             try:
-                original_mic_source_mode = int(json.loads(lines[-1])["mic_source_mode"])
+                payload = json.loads(lines[-1])
+                original_mic_source_mode = int(payload["mic_input"]["mic_source_mode"])
+                original_mic_input_map = [
+                    int(v) for v in payload["mic_input"]["mic_input_channel_map"]
+                ]
             except Exception:
                 original_mic_source_mode = None
+                original_mic_input_map = None
 
-        set_live_script = (
-            "from satellite1.sat1_hat import XMOS;"
-            "x=XMOS();x.setup();"
-            "_ = x.read_firmware();"
-            "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
-            "_ = x.set_mic_input_source_modes(mic_source_mode=0);"
-            "c=getattr(x,'_cntrl',None);"
-            "c.close() if c is not None and hasattr(c,'close') else None"
+        set_live_payload = json.dumps(
+            {"mic_input": {"mic_source_mode": 0, "mic_input_channel_map": mic_map}},
+            separators=(",", ":"),
         )
-        set_live_cmd = " ".join(
-            shlex.quote(v) for v in shlex.split(args.py_cmd) + ["-c", set_live_script]
+        set_live_cmd = (
+            f"{sat1_xmos_cmd(args.sat1_cmd, args.board, 'set-mic-pipeline-settings')} --json "
+            f"{shlex.quote(set_live_payload)}"
         )
         res = run_ssh_cmd(args.host, set_live_cmd, timeout=args.ssh_timeout_s)
         if res.returncode != 0:
             print(res.stderr or res.stdout, file=sys.stderr)
             return 1
+
+        verify = run_ssh_cmd(
+            args.host,
+            sat1_xmos_cmd(
+                args.sat1_cmd, args.board, "get-mic-pipeline-settings --json"
+            ),
+            timeout=args.ssh_timeout_s,
+        )
+        if verify.returncode != 0:
+            print("warning: unable to verify forced live mic settings", file=sys.stderr)
+        else:
+            vlines = [ln.strip() for ln in verify.stdout.splitlines() if ln.strip()]
+            if vlines:
+                try:
+                    vbody = json.loads(vlines[-1])
+                    cur_mode = int(vbody["mic_input"]["mic_source_mode"])
+                    cur_map = [
+                        int(v) for v in vbody["mic_input"]["mic_input_channel_map"]
+                    ]
+                    if cur_mode != 0 or cur_map != mic_map:
+                        print(
+                            "warning: live mic routing did not apply as requested "
+                            f"(mode={cur_mode}, map={cur_map})",
+                            file=sys.stderr,
+                        )
+                except Exception:
+                    print(
+                        "warning: could not parse mic pipeline verification",
+                        file=sys.stderr,
+                    )
 
     expected_windows = load_expected_windows(args.expected_file)
 
@@ -622,14 +565,16 @@ def main() -> int:
 
     stream: RemoteDoaStream | None = None
     start_t = time.time()
-    last_emitted_raw_seq: int | None = None
-    last_emitted_smooth_seq: int | None = None
+    last_seq_seen: int | None = None
+    last_seq_change_t = time.monotonic()
+    last_seq_stall_warn_t = 0.0
 
     try:
         if args.source == "stream":
             stream = RemoteDoaStream(
                 host=args.host,
-                py_cmd=args.py_cmd,
+                sat1_cmd=args.sat1_cmd,
+                board=args.board,
                 period_s=args.poll_s,
                 ssh_mux=not args.no_ssh_mux,
                 ssh_control_path=args.ssh_control_path,
@@ -647,7 +592,8 @@ def main() -> int:
             elif args.source == "python":
                 raw, smooth = fetch_raw_smooth_python(
                     host=args.host,
-                    py_cmd=args.py_cmd,
+                    sat1_cmd=args.sat1_cmd,
+                    board=args.board,
                     timeout_s=args.ssh_timeout_s,
                     ssh_mux=not args.no_ssh_mux,
                     ssh_control_path=args.ssh_control_path,
@@ -666,15 +612,20 @@ def main() -> int:
                 time.sleep(max(args.poll_s, 0.05))
                 continue
 
-            if args.source == "stream":
-                if (
-                    last_emitted_raw_seq == raw.seq
-                    and last_emitted_smooth_seq == smooth.seq
-                ):
-                    time.sleep(max(args.poll_s, 0.05))
-                    continue
-                last_emitted_raw_seq = raw.seq
-                last_emitted_smooth_seq = smooth.seq
+            now_mono = time.monotonic()
+            if last_seq_seen is None or raw.seq != last_seq_seen:
+                last_seq_seen = raw.seq
+                last_seq_change_t = now_mono
+            elif (
+                now_mono - last_seq_change_t > 2.0
+                and now_mono - last_seq_stall_warn_t > 5.0
+            ):
+                print(
+                    "warning: DoA seq counter not advancing for >2s; "
+                    "stream is alive but upstream DoA output appears static",
+                    file=sys.stderr,
+                )
+                last_seq_stall_warn_t = now_mono
 
             t_rel = time.time() - start_t
             expected_deg = expected_angle_at(
@@ -722,18 +673,19 @@ def main() -> int:
                 gui_proc.kill()
 
         if (not args.no_force_live_mics) and original_mic_source_mode is not None:
-            restore_script = (
-                "from satellite1.sat1_hat import XMOS;"
-                "x=XMOS();x.setup();"
-                "_ = x.read_firmware();"
-                "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
-                f"_ = x.set_mic_input_source_modes(mic_source_mode={int(original_mic_source_mode)});"
-                "c=getattr(x,'_cntrl',None);"
-                "c.close() if c is not None and hasattr(c,'close') else None"
+            restore_body: dict[str, object] = {
+                "mic_source_mode": int(original_mic_source_mode)
+            }
+            if original_mic_input_map is not None:
+                restore_body["mic_input_channel_map"] = [
+                    int(v) for v in original_mic_input_map
+                ]
+            restore_payload = json.dumps(
+                {"mic_input": restore_body}, separators=(",", ":")
             )
-            restore_cmd = " ".join(
-                shlex.quote(v)
-                for v in shlex.split(args.py_cmd) + ["-c", restore_script]
+            restore_cmd = (
+                f"{sat1_xmos_cmd(args.sat1_cmd, args.board, 'set-mic-pipeline-settings')} --json "
+                f"{shlex.quote(restore_payload)}"
             )
             run_ssh_cmd(args.host, restore_cmd, timeout=args.ssh_timeout_s)
 
