@@ -2,23 +2,21 @@ import json
 import math
 import os
 import shlex
-import struct
 import subprocess
-import tempfile
 import time
-import wave
 from pathlib import Path
 
 import pytest
 
 from tests.conftest import PROJ_ROOT
+from tests.test_doa.conftest import (
+    fixture_missing_angles,
+    fixture_wav_required,
+    supported_fixture_angles,
+)
 
 
 I2S_RATE_HZ = 48000
-PIPELINE_RATE_HZ = 16000
-UPSAMPLE_FACTOR = I2S_RATE_HZ // PIPELINE_RATE_HZ
-SPEED_OF_SOUND_M_S = 343.0
-ARRAY_RADIUS_M = 0.0355
 
 SQ66_HIL_APLAY_DEV = os.getenv("SQ66_HIL_APLAY_DEV", "hw:0,0")
 SQ66_HIL_DOA_TEST_ANGLES_DEG = os.getenv("SQ66_HIL_DOA_TEST_ANGLES_DEG", "45,135")
@@ -207,85 +205,6 @@ def _circular_median_deg(values_deg: list[float]) -> float:
     return _wrap_deg(best)
 
 
-def _synthesize_mic_frames(angle_deg: float, frame_count_16k: int) -> list[list[int]]:
-    ux = math.cos(math.radians(angle_deg))
-    uy = math.sin(math.radians(angle_deg))
-
-    mic_positions = [
-        (ARRAY_RADIUS_M, 0.0),
-        (0.0, ARRAY_RADIUS_M),
-        (-ARRAY_RADIUS_M, 0.0),
-        (0.0, -ARRAY_RADIUS_M),
-    ]
-
-    # Integer sample delays at 16 kHz
-    delays = [
-        int(round((PIPELINE_RATE_HZ / SPEED_OF_SOUND_M_S) * ((px * ux) + (py * uy))))
-        for px, py in mic_positions
-    ]
-
-    base = [0 for _ in range(frame_count_16k)]
-    pulse_amp = 240000000
-    pulse_offset = 80
-    for frame_start in range(0, frame_count_16k, 240):
-        idx = frame_start + pulse_offset
-        if idx < frame_count_16k:
-            base[idx] = pulse_amp
-
-    mics = [[0 for _ in range(frame_count_16k)] for _ in range(4)]
-
-    for mic in range(4):
-        delay = delays[mic]
-        for n in range(frame_count_16k):
-            src_idx = n - delay
-            if src_idx < 0 or src_idx >= frame_count_16k:
-                sample = 0
-            else:
-                sample = base[src_idx]
-            mics[mic][n] = sample
-
-    return mics
-
-
-def _pack_mics_to_stereo_48k(
-    mic_frames_16k: list[list[int]],
-    mic_input_channel_map: list[int],
-) -> tuple[list[int], list[int]]:
-    frame_count_16k = len(mic_frames_16k[0])
-    frame_count_48k = frame_count_16k * UPSAMPLE_FACTOR
-
-    left = [0 for _ in range(frame_count_48k)]
-    right = [0 for _ in range(frame_count_48k)]
-
-    for mic_idx, lane in enumerate(mic_input_channel_map):
-        channel = lane // 3
-        phase = lane % 3
-        assert channel in (0, 1)
-
-        for i in range(frame_count_16k):
-            out_idx = (i * UPSAMPLE_FACTOR) + phase
-            if channel == 0:
-                left[out_idx] = mic_frames_16k[mic_idx][i]
-            else:
-                right[out_idx] = mic_frames_16k[mic_idx][i]
-
-    return left, right
-
-
-def _write_stereo_wav_s32(path: Path, left: list[int], right: list[int]) -> None:
-    assert len(left) == len(right)
-
-    with wave.open(str(path), "wb") as wf:
-        wf.setnchannels(2)
-        wf.setsampwidth(4)
-        wf.setframerate(I2S_RATE_HZ)
-
-        data = bytearray()
-        for l, r in zip(left, right):
-            data.extend(struct.pack("<ii", l, r))
-        wf.writeframes(data)
-
-
 def _read_new_doa_samples(log_path: Path, start_pos: int) -> tuple[list[float], int]:
     text = ""
     with log_path.open("rb") as f:
@@ -338,23 +257,16 @@ def _play_angle_and_collect_estimate(
     test_map: list[int],
     remote_wav: str,
 ) -> tuple[float, list[float]]:
-    frame_count_16k = SQ66_HIL_DOA_PLAYBACK_S * PIPELINE_RATE_HZ
-    mics = _synthesize_mic_frames(angle_deg, frame_count_16k)
-    left, right = _pack_mics_to_stereo_48k(mics, test_map)
-
-    with tempfile.TemporaryDirectory(prefix="sq66_doa_playback_") as tmpdir:
-        local_wav = Path(tmpdir) / "doa_input.wav"
-        _write_stereo_wav_s32(local_wav, left, right)
-
-        scp_res = subprocess.run(
-            ["scp", str(local_wav), f"{sq66_rpi_host}:{remote_wav}"],
-            cwd=PROJ_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        assert scp_res.returncode == 0, scp_res.stdout + scp_res.stderr
+    local_wav = fixture_wav_required(angle_deg)
+    scp_res = subprocess.run(
+        ["scp", str(local_wav), f"{sq66_rpi_host}:{remote_wav}"],
+        cwd=PROJ_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert scp_res.returncode == 0, scp_res.stdout + scp_res.stderr
 
     start_pos = xscope_log_path.stat().st_size
     aplay_cmd = (
@@ -409,6 +321,12 @@ def test_sq66_doa_estimate_from_packaged_wav_playback(
     remote_wav = f"/tmp/sq66_doa_playback_{int(time.time())}.wav"
     test_map = list(original["mic_input_channel_map"])
     test_angles_deg = _parse_test_angles()
+    missing = fixture_missing_angles(test_angles_deg)
+    if missing:
+        pytest.skip(
+            "Missing DoA lag-synth fixture WAV(s) for angles "
+            f"{missing}; supported={supported_fixture_angles()}"
+        )
     angle_results: list[tuple[float, float, list[float]]] = []
 
     try:
