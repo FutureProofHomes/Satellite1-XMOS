@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import os
 import re
 import signal
 import shlex
@@ -37,6 +38,29 @@ class ExpectedWindow:
     start_s: float
     end_s: float
     angle_deg: float
+
+
+def host_default_from_env(repo_root: Path) -> str:
+    host = os.getenv("SAT1_RPI_HOST", "").strip()
+    if host:
+        return host
+
+    env_path = repo_root / ".env"
+    if not env_path.is_file():
+        return ""
+
+    try:
+        for line in env_path.read_text().splitlines():
+            s = line.strip()
+            if not s or s.startswith("#") or "=" not in s:
+                continue
+            k, v = s.split("=", 1)
+            if k.strip() == "SAT1_RPI_HOST":
+                return v.strip().strip('"').strip("'")
+    except Exception:
+        return ""
+
+    return ""
 
 
 def load_expected_windows(path: str | None) -> list[ExpectedWindow]:
@@ -81,6 +105,18 @@ def wrap_deg(angle_deg: float) -> float:
     while angle_deg < -180.0:
         angle_deg += 360.0
     return angle_deg
+
+
+def run_ssh_cmd(
+    host: str, remote_cmd: str, timeout: float
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, remote_cmd],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
 
 
 def readings_from_body(body: dict) -> tuple[DoaReading, DoaReading]:
@@ -177,6 +213,8 @@ def fetch_raw_smooth_python(
         "import json;"
         "from satellite1.sat1_hat import XMOS;"
         "x=XMOS();x.setup();"
+        "_ = x.read_firmware();"
+        "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
         "r=x.get_doa_raw();s=x.get_doa_smooth();"
         "print(json.dumps({'raw':{'doa_mrad':int(r.doa_mrad),'seq':int(r.seq),'valid':int(r.valid)},'smooth':{'doa_mrad':int(s.doa_mrad),'seq':int(s.seq),'valid':int(s.valid)}}));"
         "c=getattr(x,'_cntrl',None);"
@@ -437,10 +475,17 @@ finally:
 
 
 def main() -> int:
+    repo_root = Path(__file__).resolve().parents[2]
+    default_host = host_default_from_env(repo_root)
+
     parser = argparse.ArgumentParser(
         description="Live DoA plot from remote sat1 CLI over SSH"
     )
-    parser.add_argument("--host", required=True, help="SSH host (e.g. rasp0core2)")
+    parser.add_argument(
+        "--host",
+        default=default_host,
+        help="SSH host (default: SAT1_RPI_HOST from env/.env)",
+    )
     parser.add_argument(
         "--sat1-cmd",
         default="sat1",
@@ -468,12 +513,6 @@ def main() -> int:
         type=float,
         default=0.2,
         help="Polling interval in seconds (default: 0.2)",
-    )
-    parser.add_argument(
-        "--history-s",
-        type=float,
-        default=30.0,
-        help="Seconds of history to display (default: 30)",
     )
     parser.add_argument(
         "--ssh-timeout-s",
@@ -507,223 +546,197 @@ def main() -> int:
         action="store_true",
         help="Loop expected schedule over time",
     )
+    parser.add_argument(
+        "--no-force-live-mics",
+        action="store_true",
+        help="Do not force mic_source_mode=0 before plotting",
+    )
     args = parser.parse_args()
 
-    try:
-        import matplotlib.pyplot as plt
-        from matplotlib.animation import FuncAnimation
-    except Exception as exc:
+    if not args.host:
         print(
-            "matplotlib is required. Install with: python3 -m pip install matplotlib",
+            "error: --host is required (or set SAT1_RPI_HOST in env/.env)",
             file=sys.stderr,
         )
-        print(f"Import error: {exc}", file=sys.stderr)
         return 2
 
-    max_points = max(10, int(args.history_s / max(args.poll_s, 0.05)))
-    t_hist: deque[float] = deque(maxlen=max_points)
-    raw_hist: deque[float] = deque(maxlen=max_points)
-    smooth_hist: deque[float] = deque(maxlen=max_points)
-    expected_hist: deque[float] = deque(maxlen=max_points)
+    # Force live microphones (disable packaged injection) unless explicitly disabled.
+    original_mic_source_mode: int | None = None
+    if not args.no_force_live_mics:
+        get_script = (
+            "import json;"
+            "from satellite1.sat1_hat import XMOS;"
+            "x=XMOS();x.setup();"
+            "_ = x.read_firmware();"
+            "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
+            "s=x.get_mic_input_settings();"
+            "print(json.dumps({'mic_source_mode':int(s.mic_source_mode)}));"
+            "c=getattr(x,'_cntrl',None);"
+            "c.close() if c is not None and hasattr(c,'close') else None"
+        )
+        get_cmd = " ".join(
+            shlex.quote(v) for v in shlex.split(args.py_cmd) + ["-c", get_script]
+        )
+        res = run_ssh_cmd(args.host, get_cmd, timeout=args.ssh_timeout_s)
+        if res.returncode != 0:
+            print(res.stderr or res.stdout, file=sys.stderr)
+            return 1
+        lines = [ln.strip() for ln in res.stdout.splitlines() if ln.strip()]
+        if lines:
+            try:
+                original_mic_source_mode = int(json.loads(lines[-1])["mic_source_mode"])
+            except Exception:
+                original_mic_source_mode = None
+
+        set_live_script = (
+            "from satellite1.sat1_hat import XMOS;"
+            "x=XMOS();x.setup();"
+            "_ = x.read_firmware();"
+            "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
+            "_ = x.set_mic_input_source_modes(mic_source_mode=0);"
+            "c=getattr(x,'_cntrl',None);"
+            "c.close() if c is not None and hasattr(c,'close') else None"
+        )
+        set_live_cmd = " ".join(
+            shlex.quote(v) for v in shlex.split(args.py_cmd) + ["-c", set_live_script]
+        )
+        res = run_ssh_cmd(args.host, set_live_cmd, timeout=args.ssh_timeout_s)
+        if res.returncode != 0:
+            print(res.stderr or res.stdout, file=sys.stderr)
+            return 1
+
     expected_windows = load_expected_windows(args.expected_file)
 
-    fig = plt.figure(figsize=(10, 6))
-    ax_polar = fig.add_subplot(211, projection="polar")
-    ax_ts = fig.add_subplot(212)
+    gui_cmd = [
+        sys.executable,
+        str(Path(__file__).resolve().parent / "plot_doa_gui_stream.py"),
+    ]
+    if args.expected_file:
+        gui_cmd.extend(["--expected-file", str(args.expected_file)])
 
-    ax_polar.set_theta_zero_location("N")
-    ax_polar.set_theta_direction(-1)
-    ax_polar.set_ylim(0, 1.0)
-    ax_polar.set_yticks([])
-    ax_polar.set_title("Live DoA")
-
-    (raw_line,) = ax_polar.plot([], [], color="tab:red", linewidth=3, label="raw")
-    (smooth_line,) = ax_polar.plot(
-        [], [], color="tab:blue", linewidth=3, label="smooth"
+    gui_proc = subprocess.Popen(
+        gui_cmd,
+        stdin=subprocess.PIPE,
+        text=True,
     )
-    (expected_line,) = ax_polar.plot(
-        [], [], color="tab:green", linewidth=2, linestyle="--", label="expected"
-    )
-    ax_polar.legend(loc="lower left")
 
-    (ts_raw_line,) = ax_ts.plot([], [], color="tab:red", label="raw")
-    (ts_smooth_line,) = ax_ts.plot([], [], color="tab:blue", label="smooth")
-    (ts_expected_line,) = ax_ts.plot(
-        [], [], color="tab:green", linestyle="--", label="expected"
-    )
-    ax_ts.set_ylabel("Degrees")
-    ax_ts.set_xlabel("Time (s)")
-    ax_ts.set_ylim(-190, 190)
-    ax_ts.grid(True, alpha=0.3)
-    ax_ts.legend(loc="upper right")
-
-    start_t = time.time()
     stream: RemoteDoaStream | None = None
-    last_stream_restart_t = 0.0
-    last_raw_seq: int | None = None
-    last_smooth_seq: int | None = None
-    last_raw_change_t = start_t
-    last_smooth_change_t = start_t
-    if args.source == "stream":
-        stream = RemoteDoaStream(
-            host=args.host,
-            py_cmd=args.py_cmd,
-            period_s=args.poll_s,
-            ssh_mux=not args.no_ssh_mux,
-            ssh_control_path=args.ssh_control_path,
-        )
-        stream.start()
+    start_t = time.time()
+    last_emitted_raw_seq: int | None = None
+    last_emitted_smooth_seq: int | None = None
 
-    def update(_frame):
-        nonlocal last_raw_seq, last_smooth_seq, last_raw_change_t, last_smooth_change_t
-        nonlocal last_stream_restart_t
+    try:
         if args.source == "stream":
-            assert stream is not None
-            now_monotonic = time.monotonic()
-            if (not stream.is_running()) and (
-                now_monotonic - last_stream_restart_t > 2.0
-            ):
-                stream.restart()
-                last_stream_restart_t = now_monotonic
-            latest = stream.latest()
-            if latest is None:
-                if not stream.is_running():
-                    ax_ts.set_title(
-                        "stream stopped; check remote python command or SSH "
-                        + stream.stderr_summary()
-                    )
-                return (
-                    raw_line,
-                    smooth_line,
-                    expected_line,
-                    ts_raw_line,
-                    ts_smooth_line,
-                    ts_expected_line,
-                )
-            if stream.latest_age_s() > max(2.0, (4.0 * args.poll_s)):
-                if now_monotonic - last_stream_restart_t > 2.0:
-                    stream.restart()
-                    last_stream_restart_t = now_monotonic
-                ax_ts.set_title("stream stale; attempting restart")
-                return (
-                    raw_line,
-                    smooth_line,
-                    expected_line,
-                    ts_raw_line,
-                    ts_smooth_line,
-                    ts_expected_line,
-                )
-            raw, smooth = latest
-        elif args.source == "python":
-            raw, smooth = fetch_raw_smooth_python(
+            stream = RemoteDoaStream(
                 host=args.host,
                 py_cmd=args.py_cmd,
-                timeout_s=args.ssh_timeout_s,
+                period_s=args.poll_s,
                 ssh_mux=not args.no_ssh_mux,
                 ssh_control_path=args.ssh_control_path,
             )
-        else:
-            raw, smooth = fetch_raw_smooth(
-                host=args.host,
-                sat1_cmd=args.sat1_cmd,
-                board=args.board,
-                timeout_s=args.ssh_timeout_s,
-                ssh_mux=not args.no_ssh_mux,
-                ssh_control_path=args.ssh_control_path,
+            stream.start()
+
+        while gui_proc.poll() is None:
+            if args.source == "stream":
+                assert stream is not None
+                latest = stream.latest()
+                if latest is None:
+                    time.sleep(max(args.poll_s, 0.05))
+                    continue
+                raw, smooth = latest
+            elif args.source == "python":
+                raw, smooth = fetch_raw_smooth_python(
+                    host=args.host,
+                    py_cmd=args.py_cmd,
+                    timeout_s=args.ssh_timeout_s,
+                    ssh_mux=not args.no_ssh_mux,
+                    ssh_control_path=args.ssh_control_path,
+                )
+            else:
+                raw, smooth = fetch_raw_smooth(
+                    host=args.host,
+                    sat1_cmd=args.sat1_cmd,
+                    board=args.board,
+                    timeout_s=args.ssh_timeout_s,
+                    ssh_mux=not args.no_ssh_mux,
+                    ssh_control_path=args.ssh_control_path,
+                )
+
+            if raw is None or smooth is None or (not raw.valid) or (not smooth.valid):
+                time.sleep(max(args.poll_s, 0.05))
+                continue
+
+            if args.source == "stream":
+                if (
+                    last_emitted_raw_seq == raw.seq
+                    and last_emitted_smooth_seq == smooth.seq
+                ):
+                    time.sleep(max(args.poll_s, 0.05))
+                    continue
+                last_emitted_raw_seq = raw.seq
+                last_emitted_smooth_seq = smooth.seq
+
+            t_rel = time.time() - start_t
+            expected_deg = expected_angle_at(
+                t_rel, expected_windows, args.expected_loop
             )
+            if expected_deg is not None:
+                expected_deg = wrap_deg(expected_deg + args.expected_offset_deg)
 
-        if raw is None or smooth is None:
-            return (
-                raw_line,
-                smooth_line,
-                expected_line,
-                ts_raw_line,
-                ts_smooth_line,
-                ts_expected_line,
+            row = {
+                "t_s": t_rel,
+                "raw_deg": raw.deg,
+                "smooth_deg": smooth.deg,
+                "raw_seq": raw.seq,
+                "smooth_seq": smooth.seq,
+            }
+            if expected_deg is not None:
+                row["expected_deg"] = expected_deg
+
+            if gui_proc.stdin is None:
+                break
+            try:
+                gui_proc.stdin.write(json.dumps(row) + "\n")
+                gui_proc.stdin.flush()
+            except BrokenPipeError:
+                break
+
+            time.sleep(max(args.poll_s, 0.05))
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if stream is not None:
+            stream.stop()
+
+        if gui_proc.stdin is not None:
+            try:
+                gui_proc.stdin.close()
+            except Exception:
+                pass
+        if gui_proc.poll() is None:
+            gui_proc.terminate()
+            try:
+                gui_proc.wait(timeout=3)
+            except Exception:
+                gui_proc.kill()
+
+        if (not args.no_force_live_mics) and original_mic_source_mode is not None:
+            restore_script = (
+                "from satellite1.sat1_hat import XMOS;"
+                "x=XMOS();x.setup();"
+                "_ = x.read_firmware();"
+                "_ = x.wait_until_ready(timeout_s=3.0,poll_interval_s=0.1);"
+                f"_ = x.set_mic_input_source_modes(mic_source_mode={int(original_mic_source_mode)});"
+                "c=getattr(x,'_cntrl',None);"
+                "c.close() if c is not None and hasattr(c,'close') else None"
             )
-
-        if not raw.valid or not smooth.valid:
-            return (
-                raw_line,
-                smooth_line,
-                expected_line,
-                ts_raw_line,
-                ts_smooth_line,
-                ts_expected_line,
+            restore_cmd = " ".join(
+                shlex.quote(v)
+                for v in shlex.split(args.py_cmd) + ["-c", restore_script]
             )
+            run_ssh_cmd(args.host, restore_cmd, timeout=args.ssh_timeout_s)
 
-        now = time.time() - start_t
-        abs_now = time.time()
-        if last_raw_seq is None or raw.seq != last_raw_seq:
-            last_raw_change_t = abs_now
-            last_raw_seq = raw.seq
-        if last_smooth_seq is None or smooth.seq != last_smooth_seq:
-            last_smooth_change_t = abs_now
-            last_smooth_seq = smooth.seq
-        t_hist.append(now)
-        raw_hist.append(raw.deg)
-        smooth_hist.append(smooth.deg)
-        expected_deg = expected_angle_at(now, expected_windows, args.expected_loop)
-        if expected_deg is not None:
-            expected_deg = wrap_deg(expected_deg + args.expected_offset_deg)
-        expected_hist.append(float("nan") if expected_deg is None else expected_deg)
-
-        raw_rad = raw.doa_mrad / 1000.0
-        smooth_rad = smooth.doa_mrad / 1000.0
-        raw_line.set_data([raw_rad, raw_rad], [0, 1.0])
-        smooth_line.set_data([smooth_rad, smooth_rad], [0, 1.0])
-        if expected_deg is None:
-            expected_line.set_data([], [])
-        else:
-            expected_line.set_data(
-                [math.radians(expected_deg), math.radians(expected_deg)], [0, 1.0]
-            )
-
-        t_vals = list(t_hist)
-        ts_raw_line.set_data(t_vals, list(raw_hist))
-        ts_smooth_line.set_data(t_vals, list(smooth_hist))
-        ts_expected_line.set_data(t_vals, list(expected_hist))
-
-        if t_vals:
-            ax_ts.set_xlim(max(0, t_vals[0]), max(1.0, t_vals[-1]))
-
-        title = (
-            f"latest raw={raw.deg:.1f} deg (seq={raw.seq}) | "
-            f"smooth={smooth.deg:.1f} deg (seq={smooth.seq})"
-        )
-        title += (
-            f" | stale raw={abs_now - last_raw_change_t:.1f}s"
-            f" smooth={abs_now - last_smooth_change_t:.1f}s"
-        )
-        if expected_deg is not None:
-            title += f" | expected={expected_deg:.1f} deg"
-        ax_ts.set_title(title)
-
-        return (
-            raw_line,
-            smooth_line,
-            expected_line,
-            ts_raw_line,
-            ts_smooth_line,
-            ts_expected_line,
-        )
-
-    interval_ms = int(max(50, args.poll_s * 1000.0))
-    anim = FuncAnimation(
-        fig,
-        update,
-        interval=interval_ms,
-        blit=False,
-        cache_frame_data=False,
-    )
-    # Keep a strong reference to avoid garbage collection while the window is open.
-    _ = anim
-    if stream is not None:
-        fig.canvas.mpl_connect("close_event", lambda _evt: stream.stop())
-    plt.tight_layout()
-    plt.show()
-    if stream is not None:
-        stream.stop()
     return 0
 
 
