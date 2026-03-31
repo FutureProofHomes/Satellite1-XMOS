@@ -4,6 +4,12 @@ project(doa_unit_tests C)
 
 enable_testing()
 
+set(XCORE_MATH_DIR
+    ${CMAKE_CURRENT_LIST_DIR}/../../../../modules/core/modules/xcore_math/lib_xcore_math/lib_xcore_math)
+if(NOT TARGET lib_xcore_math)
+    add_subdirectory(${XCORE_MATH_DIR} ${CMAKE_CURRENT_BINARY_DIR}/lib_xcore_math)
+endif()
+
 add_executable(doa_from_lags_test
     src/test_doa_from_lags.c
     ../src/doa_geometry.c
@@ -20,3 +26,26 @@ if(PLATFORM_ID STREQUAL Linux OR PLATFORM_ID STREQUAL Darwin OR CMAKE_SYSTEM_NAM
 endif()
 
 add_test(NAME doa_from_lags_test COMMAND doa_from_lags_test)
+
+add_executable(doa_gcc_phat_test
+    src/test_doa_gcc_phat.c
+    ../src/gcc_phat.c
+    ../src/doa_geometry.c
+)
+
+target_include_directories(doa_gcc_phat_test
+    PRIVATE
+        ../api
+        ../../../../modules/core/modules/xcore_math/lib_xcore_math/lib_xcore_math/api
+)
+
+target_link_libraries(doa_gcc_phat_test
+    PRIVATE
+        lib_xcore_math
+)
+
+if(PLATFORM_ID STREQUAL Linux OR PLATFORM_ID STREQUAL Darwin OR CMAKE_SYSTEM_NAME MATCHES "Linux|Darwin")
+    target_link_libraries(doa_gcc_phat_test PRIVATE m)
+endif()
+
+add_test(NAME doa_gcc_phat_test COMMAND doa_gcc_phat_test)

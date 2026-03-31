@@ -5,9 +5,9 @@
 //
 // Assumptions (IMPORTANT):
 //   - Input buffer layout is [240 mic0][240 mic1][240 mic2][240 mic3].
-//   - Mic geometry mapping used for DOA is:
-//       mic0 at 0°, mic1 at 90°, mic2 at 180°, mic3 at 270°
-//     i.e. p0=(+r,0), p1=(0,+r), p2=(-r,0), p3=(0,-r)
+//   - Project mic indexing convention is clockwise from North:
+//       mic0=N, mic1=E, mic2=S, mic3=W
+//     i.e. p0=(0,+r), p1=(+r,0), p2=(0,-r), p3=(-r,0)
 //   - Angle returned is atan2(u_y, u_x) in radians.
 //     If your physical mic order differs, update the mapping in doa_from_lags().
 

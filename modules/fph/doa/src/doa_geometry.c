@@ -11,10 +11,11 @@ float doa4_estimate_from_lags(
     const float fs = DOA4_SAMPLE_RATE_HZ;
     const float c = DOA4_SPEED_OF_SOUND;
 
-    const float a1x = -r;
-    const float a1y = r;
-    const float a2x = -2 * r;
-    const float a2y = 0.0f;
+    /* Project mic indexing convention: mic0=N, mic1=E, mic2=S, mic3=W */
+    const float a1x = r;
+    const float a1y = -r;
+    const float a2x = 0.0f;
+    const float a2y = -2 * r;
     const float a3x = -r;
     const float a3y = -r;
 
