@@ -71,6 +71,9 @@ SAT1_HIL=1 .venv/bin/python -m pytest -m "hil and sat1" tests/test_hw_sat1_firmw
 - `tests/test_hw_sat1_firmware/test_sat1_hil_doa_spi.py`
   - Packaged WAV playback DoA validation via SPI `get-doa` reads.
 
+For deterministic DoA fixture generation and shared unit+HIL workflow, see
+`docs/doa-fixture-workflow.md`.
+
 ## Notes on xscope
 
 Satellite1 runs here do not rely on xscope logs or firmware print parsing. The
