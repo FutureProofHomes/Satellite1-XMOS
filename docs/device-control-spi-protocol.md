@@ -172,7 +172,13 @@ status buffer (`MAX_STATUS_BUFFER_LEN = 10`) and initializes it to zero.
 - SPI status-only responses include this buffer starting at `tx_buf[2]`.
 - Firmware can update entries via `device_control_set_resource_status()`.
 - In current application startup flow, one status slot is used as
-  "device ready" indicator.
+  "device ready" indicator (index `DEVICE_STATUS_READY_REGISTER_IDX`, value
+  `DEVICE_STATUS_READY_VALUE`).
+
+On first SPI transfer after registration, the SPI transport may return a
+status-only frame with `tx_buf[0]=1`, `tx_buf[1]=CONTROL_SUCCESS`, and the
+current status buffer (which can still be all zeros). This lets the host
+distinguish "device alive" from a physical no-response case.
 
 ## Firmware Servicers Using SPI Device Control
 

@@ -17,6 +17,7 @@ static uint8_t spi_xfer_rx_buf[SPI_XFER_RX_SIZE];
 static uint8_t spi_xfer_tx_buf[SPI_XFER_TX_SIZE];
 static uint8_t spi_xfer_rx_default_buf[SPI_XFER_RX_SIZE];
 static uint8_t spi_xfer_tx_default_buf[SPI_XFER_TX_SIZE];
+static uint32_t spi_xfer_count;
 
 RTOS_SPI_SLAVE_CALLBACK_ATTR
 void device_control_spi_start_cb(rtos_spi_slave_t *ctx,
@@ -39,7 +40,16 @@ void device_control_spi_start_cb(rtos_spi_slave_t *ctx,
         //rtos_printf("Device control resources registered for SPI on tile %d\n", THIS_XCORE_TILE);
     }
     xassert(dc_ret == CONTROL_SUCCESS);
-    
+
+    spi_xfer_tx_buf[0] = 1;
+    spi_xfer_tx_buf[1] = CONTROL_SUCCESS;
+    memset(&spi_xfer_tx_buf[2], 0, SPI_XFER_TX_SIZE - 2);
+    if (device_control_ctx->status_buffer != NULL) {
+        memcpy(&spi_xfer_tx_buf[2],
+               device_control_ctx->status_buffer,
+               device_control_ctx->status_buffer_len);
+    }
+     
     spi_slave_xfer_prepare(ctx, spi_xfer_rx_buf, SPI_XFER_RX_SIZE, spi_xfer_tx_buf, SPI_XFER_TX_SIZE);
 }
 
@@ -59,6 +69,23 @@ void device_control_spi_xfer_done_cb(rtos_spi_slave_t *ctx,
         // xfer completed in default buffer. Ignore
         return;
     }
+
+    spi_xfer_count++;
+    rtos_printf(
+        "SPI DC xfer %lu: len=%u hdr=%02x %02x %02x bytes=%02x %02x %02x %02x %02x %02x %02x %02x\n",
+        (unsigned long)spi_xfer_count,
+        (unsigned)rx_len,
+        rx_len > 0 ? rx_buf[0] : 0,
+        rx_len > 1 ? rx_buf[1] : 0,
+        rx_len > 2 ? rx_buf[2] : 0,
+        rx_len > 0 ? rx_buf[0] : 0,
+        rx_len > 1 ? rx_buf[1] : 0,
+        rx_len > 2 ? rx_buf[2] : 0,
+        rx_len > 3 ? rx_buf[3] : 0,
+        rx_len > 4 ? rx_buf[4] : 0,
+        rx_len > 5 ? rx_buf[5] : 0,
+        rx_len > 6 ? rx_buf[6] : 0,
+        rx_len > 7 ? rx_buf[7] : 0);
 
     if(rx_len < 3)
     {
