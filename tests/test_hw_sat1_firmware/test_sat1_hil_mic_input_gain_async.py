@@ -7,14 +7,18 @@ over a single persistent SSH connection.
 """
 
 import asyncio
+import json
 import math
 import os
 import re
+import shlex
 import statistics
 import struct
+import tempfile
 import time
+import wave
 from pathlib import Path
-from typing import cast
+from typing import Sequence, cast
 
 import pytest
 
@@ -29,7 +33,8 @@ Q30_LOW = 0x08000000
 REF_SOURCE_LEGACY_DOWNSAMPLED = 0
 MIC_SOURCE_PACKAGED_INPUT = 1
 MIC_OUTPUT_BASE_CH = 4
-PACKAGED_INPUT_FULL_MAP = [0, 1, 2, 3]
+REF_OUTPUT_CH_MAP = (2, 3)
+PACKAGED_INPUT_SKIP_SYNC_MAP = [1, 2, 3, 4]
 UPSAMPLE_CHANNEL_MAP_DEFAULT = [0, 1, 2, 3, 4, 5]
 
 # Configurable via environment
@@ -39,6 +44,7 @@ MIC_GAIN_WARMUP_SEC = float(os.getenv("SAT1_HIL_MIC_GAIN_WARMUP_SEC", "0.4"))
 MIC_GAIN_MIN_RATIO = float(os.getenv("SAT1_HIL_MIC_GAIN_MIN_RATIO", "1.05"))
 MIC_GAIN_MAX_PEAK = int(os.getenv("SAT1_HIL_MIC_GAIN_MAX_PEAK", str(0x70000000)))
 MIC_GAIN_TEST_HIGH = int(os.getenv("SAT1_HIL_MIC_GAIN_TEST_HIGH", str(0x20000000)))
+MIC_GAIN_RECORD_SECONDS = int(os.getenv("SAT1_HIL_MIC_GAIN_RECORD_SECONDS", "3"))
 SAT1_HIL_APLAY_DEV = os.getenv("SAT1_HIL_APLAY_DEV", "hw:0,0")
 SAT1_HIL_ARECORD_DEV = os.getenv("SAT1_HIL_ARECORD_DEV", "hw:0,1")
 MIC_GAIN_FIXTURE_USE_DEDICATED = bool(
@@ -57,6 +63,11 @@ MIC_GAIN_SIGNAL_CHECK_DURATION_S = float(
 MIC_GAIN_DECODER_SYNC_WAIT_S = float(
     os.getenv("SAT1_HIL_MIC_GAIN_DECODER_SYNC_WAIT_S", "0.02")
 )
+MIC_GAIN_ANALYZE_WINDOW_MS = int(
+    os.getenv("SAT1_HIL_MIC_GAIN_ANALYZE_WINDOW_MS", "100")
+)
+MIC_GAIN_ANALYZE_HOP_MS = int(os.getenv("SAT1_HIL_MIC_GAIN_ANALYZE_HOP_MS", "50"))
+MIC_GAIN_EXPECTED_TOL = float(os.getenv("SAT1_HIL_MIC_GAIN_EXPECTED_TOL", "0.25"))
 I2S_RATE_HZ = 48000
 PIPELINE_RATE_HZ = 16000
 UPSAMPLE_FACTOR = I2S_RATE_HZ // PIPELINE_RATE_HZ
@@ -67,13 +78,190 @@ def _timing_enabled() -> bool:
     return bool(os.getenv("SAT1_HIL_TIMING", ""))
 
 
-def _rms(samples: list[int]) -> float:
+def _rms(samples: Sequence[float | int]) -> float:
     """Calculate RMS of sample list."""
     assert samples, "Expected non-empty sample list"
     acc = 0
     for s in samples:
         acc += s * s
     return math.sqrt(acc / len(samples))
+
+
+def _decode_pcm(raw: bytes, sample_width: int) -> list[int]:
+    if sample_width == 4:
+        return [v[0] for v in struct.iter_unpack("<i", raw)]
+    if sample_width == 2:
+        return [v[0] for v in struct.iter_unpack("<h", raw)]
+    raise ValueError(f"Unsupported PCM sample width {sample_width}")
+
+
+def _load_wav_channel(path: Path, channel_index: int = 0) -> tuple[list[int], int]:
+    with wave.open(str(path), "rb") as wf:
+        num_channels = wf.getnchannels()
+        rate_hz = wf.getframerate()
+        sample_width = wf.getsampwidth()
+        num_frames = wf.getnframes()
+        assert num_channels == 2, f"expected stereo WAV, got {num_channels} channels"
+        raw = wf.readframes(num_frames)
+
+    samples = _decode_pcm(raw, sample_width)
+    selected = samples[channel_index::2]
+    assert selected, "Expected channel samples"
+    return selected, rate_hz
+
+
+def _load_packed_wav_lane(path: Path, lane: int) -> tuple[list[int], int]:
+    with wave.open(str(path), "rb") as wf:
+        num_channels = wf.getnchannels()
+        rate_hz = wf.getframerate()
+        sample_width = wf.getsampwidth()
+        num_frames = wf.getnframes()
+        assert num_channels == 2, f"expected stereo WAV, got {num_channels} channels"
+        assert rate_hz == I2S_RATE_HZ, f"expected 48kHz WAV, got {rate_hz}"
+        raw = wf.readframes(num_frames)
+
+    if lane < 1 or lane > 4:
+        raise ValueError("lane must be in range 1-4")
+
+    samples = _decode_pcm(raw, sample_width)
+    left = samples[0::2]
+    right = samples[1::2]
+    if lane in (1, 2):
+        signal = left[lane::UPSAMPLE_FACTOR]
+    else:
+        signal = right[lane - 3 :: UPSAMPLE_FACTOR]
+    return signal, PIPELINE_RATE_HZ
+
+
+def _rms_window_stats(
+    samples: Sequence[float | int],
+    rate_hz: int,
+    window_ms: int,
+    hop_ms: int,
+) -> dict[str, float | list[float] | int] | None:
+    window = max(1, int(rate_hz * (window_ms / 1000.0)))
+    hop = max(1, int(rate_hz * (hop_ms / 1000.0)))
+    rms_vals = []
+    for start in range(0, max(0, len(samples) - window + 1), hop):
+        segment = samples[start : start + window]
+        if segment:
+            rms_vals.append(_rms(segment))
+
+    if not rms_vals:
+        return None
+
+    rms_sorted = sorted(rms_vals)
+    rms_mean = sum(rms_sorted) / len(rms_sorted)
+    rms_p50 = rms_sorted[len(rms_sorted) // 2]
+    rms_p5 = rms_sorted[int(0.05 * (len(rms_sorted) - 1))]
+    rms_p95 = rms_sorted[int(0.95 * (len(rms_sorted) - 1))]
+    rms_max = rms_sorted[-1]
+    rms_min = rms_sorted[0]
+    threshold = max(rms_max * 0.2, 1.0)
+    active_vals = [v for v in rms_vals if v >= threshold]
+    active_p50 = rms_p50
+    if active_vals:
+        active_sorted = sorted(active_vals)
+        active_p50 = active_sorted[len(active_sorted) // 2]
+
+    return {
+        "rms_vals": rms_vals,
+        "rms_mean": rms_mean,
+        "rms_p50": rms_p50,
+        "rms_p5": rms_p5,
+        "rms_p95": rms_p95,
+        "rms_max": rms_max,
+        "rms_min": rms_min,
+        "active_p50": active_p50,
+        "threshold": threshold,
+        "window": window,
+        "hop": hop,
+    }
+
+
+def _estimate_gain_from_recording(
+    *,
+    injected_path: Path,
+    recorded_path: Path,
+    packed_lane: int,
+    recorded_channel: int = 0,
+    window_ms: int = MIC_GAIN_ANALYZE_WINDOW_MS,
+    hop_ms: int = MIC_GAIN_ANALYZE_HOP_MS,
+) -> dict[str, float]:
+    injected_signal, injected_rate = _load_packed_wav_lane(injected_path, packed_lane)
+    recorded_signal, recorded_rate = _load_wav_channel(recorded_path, recorded_channel)
+    recorded_peak = max(abs(v) for v in recorded_signal)
+
+    if recorded_rate == I2S_RATE_HZ and injected_rate == PIPELINE_RATE_HZ:
+        recorded_signal = recorded_signal[::UPSAMPLE_FACTOR]
+        recorded_rate = PIPELINE_RATE_HZ
+
+    injected_stats = _rms_window_stats(
+        injected_signal, injected_rate, window_ms, hop_ms
+    )
+    recorded_stats = _rms_window_stats(
+        recorded_signal, recorded_rate, window_ms, hop_ms
+    )
+    assert injected_stats is not None, "Expected injected RMS stats"
+    assert recorded_stats is not None, "Expected recorded RMS stats"
+
+    injected_p50 = cast(
+        float, injected_stats["active_p50"] or injected_stats["rms_p50"]
+    )
+    recorded_p50 = cast(
+        float, recorded_stats["active_p50"] or recorded_stats["rms_p50"]
+    )
+    assert injected_p50 > 0, "Expected non-zero injected RMS"
+
+    return {
+        "estimate": recorded_p50 / injected_p50,
+        "injected_active_p50": injected_p50,
+        "recorded_active_p50": recorded_p50,
+        "recorded_peak": float(recorded_peak),
+    }
+
+
+def _estimate_recorded_level(
+    *,
+    recorded_path: Path,
+    recorded_channel: int = 0,
+    window_ms: int = MIC_GAIN_ANALYZE_WINDOW_MS,
+    hop_ms: int = MIC_GAIN_ANALYZE_HOP_MS,
+) -> dict[str, float]:
+    recorded_signal, recorded_rate = _load_wav_channel(recorded_path, recorded_channel)
+    recorded_peak = max(abs(v) for v in recorded_signal)
+
+    recorded_stats = _rms_window_stats(
+        recorded_signal, recorded_rate, window_ms, hop_ms
+    )
+    assert recorded_stats is not None, "Expected recorded RMS stats"
+    recorded_p50 = cast(
+        float, recorded_stats["active_p50"] or recorded_stats["rms_p50"]
+    )
+    return {
+        "recorded_active_p50": recorded_p50,
+        "recorded_peak": float(recorded_peak),
+    }
+
+
+def _assert_gain_estimate(
+    *,
+    label: str,
+    mic_idx: int,
+    estimate: float,
+    expected: float,
+    peak: int,
+) -> None:
+    assert peak < MIC_GAIN_MAX_PEAK, (
+        f"Recording clipped (mic_idx={mic_idx}, peak={peak})"
+    )
+    assert estimate > 0.0, f"Expected positive gain estimate ({label})"
+    rel_err = abs(estimate - expected) / expected
+    assert rel_err <= MIC_GAIN_EXPECTED_TOL, (
+        f"Gain estimate out of tolerance ({label} mic_idx={mic_idx}, "
+        f"estimate={estimate:.4f}, expected={expected:.4f}, "
+        f"rel_err={rel_err:.3f}, tol={MIC_GAIN_EXPECTED_TOL:.3f})"
+    )
 
 
 def _extract_samples_from_wav(wav_data: bytes, channel_index: int = 0) -> list[int]:
@@ -270,18 +458,50 @@ async def _set_mic_output_packing(
     enabled: bool,
     upsample_channel_map: list[int] | None = None,
 ) -> None:
-    """No-op: CLI does not expose packing controls."""
+    t0 = time.monotonic()
+    mic_output: dict[str, object] = {
+        "pack_extra_upsample_channels": int(bool(enabled)),
+    }
+    if upsample_channel_map is not None:
+        mic_output["upsample_channel_map"] = [int(v) for v in upsample_channel_map]
+    payload = {"mic_output": mic_output}
+    payload_json = shlex.quote(json.dumps(payload, separators=(",", ":")))
+    cmd = f"set-mic-pipeline-settings --json {payload_json}"
+    result: CmdResult = await sess.cmd(
+        f"{sat1_cmd} xmos {cmd}", timeout=REMOTE_CLI_TIMEOUT_S
+    )
+    assert result.exit_status == 0, f"CLI failed: {result.stderr}"
     if _timing_enabled():
-        print(f"[TIMING] set_packing: enabled={enabled} -> SKIPPED (not in CLI)")
+        elapsed = time.monotonic() - t0
+        print(f"[TIMING] set_packing: enabled={enabled} -> {elapsed:.3f}s")
+
+
+async def _set_mic_output_ref_overwrite(
+    sess: RemoteAudioSession,
+    sat1_cmd: str,
+    *,
+    enabled: bool,
+) -> None:
+    payload = {"mic_output": {"overwrite_ref_with_ic_ns_output": int(bool(enabled))}}
+    payload_json = shlex.quote(json.dumps(payload, separators=(",", ":")))
+    cmd = f"set-mic-pipeline-settings --json {payload_json}"
+    result: CmdResult = await sess.cmd(
+        f"{sat1_cmd} xmos {cmd}", timeout=REMOTE_CLI_TIMEOUT_S
+    )
+    assert result.exit_status == 0, f"CLI failed: {result.stderr}"
 
 
 async def _capture_rms_fullband(
     sess: RemoteAudioSession,
     *,
     duration_s: float = 1.0,
+    channel_index: int = 0,
 ) -> tuple[float, int]:
     """Capture audio and return (RMS, peak)."""
     t0 = time.monotonic()
+
+    if sess.is_running:
+        await sess.stop()
 
     remote_path = f"/tmp/rec_{int(time.time() * 1000)}.wav"
     await sess.start_record(
@@ -305,7 +525,7 @@ async def _capture_rms_fullband(
         wav_data = f.read()
     local_tmp.unlink(missing_ok=True)
 
-    samples = _extract_samples_from_wav(wav_data, channel_index=0)
+    samples = _extract_samples_from_wav(wav_data, channel_index=channel_index)
     rms_val = _rms(samples)
     peak = max(abs(v) for v in samples)
 
@@ -325,6 +545,7 @@ async def _capture_rms_median_fullband(
     *,
     repeats: int,
     duration_s: float,
+    channel_index: int = 0,
 ) -> tuple[float, int]:
     """Capture multiple times and return median RMS with max peak."""
     rms_values: list[float] = []
@@ -333,10 +554,55 @@ async def _capture_rms_median_fullband(
         rms, capture_peak = await _capture_rms_fullband(
             sess,
             duration_s=duration_s,
+            channel_index=channel_index,
         )
         rms_values.append(rms)
         peak = max(peak, capture_peak)
     return statistics.median(rms_values), peak
+
+
+async def _record_play_and_download(
+    sess: RemoteAudioSession,
+    rec_sess: RemoteAudioSession,
+    *,
+    remote_wav: str,
+    duration_s: float,
+    local_dir: Path,
+) -> Path:
+    remote_recorded_path = f"/tmp/rec_{int(time.time() * 1000)}.wav"
+    duration_int = max(1, int(math.ceil(duration_s)))
+
+    if sess.is_running:
+        await sess.stop()
+    if rec_sess.is_running:
+        await rec_sess.stop()
+
+    await rec_sess.start_record(
+        remote_path=remote_recorded_path,
+        num_channels=2,
+        rate_hz=I2S_RATE_HZ,
+        fmt="S32_LE",
+        arecord_args=[
+            f"-D{SAT1_HIL_ARECORD_DEV}",
+            f"-d{duration_int}",
+        ],
+    )
+    await sess.start_play(
+        remote_path=remote_wav,
+        num_channels=2,
+        aplay_args=[f"-D{SAT1_HIL_APLAY_DEV}"],
+    )
+    await asyncio.sleep(duration_s)
+
+    if sess.is_running:
+        await sess.stop()
+    if rec_sess.is_running:
+        await rec_sess.stop()
+
+    local_path = local_dir / Path(remote_recorded_path).name
+    await rec_sess.download(local_path, remote_path=remote_recorded_path)
+    await rec_sess.cmd(f"rm -f {remote_recorded_path}", check=False)
+    return local_path
 
 
 async def _wait_for_signal(
@@ -365,26 +631,6 @@ async def _wait_for_signal(
         f"No signal detected (RMS<{min_rms}) within {timeout_s}s "
         f"(waited {elapsed:.2f}s, {attempts} attempts)"
     )
-
-
-@pytest.fixture
-def require_sat1_hil():
-    """Require SAT1_HIL environment variable for HIL tests."""
-    assert os.getenv("SAT1_HIL"), "SAT1_HIL=1 required for hardware-in-the-loop tests"
-
-
-@pytest.fixture
-def sat1_rpi_host() -> str:
-    """Get SAT1 RPi host from environment."""
-    host = os.getenv("SAT1_RPI_HOST")
-    assert host, "SAT1_RPI_HOST required for SAT1 HIL tests"
-    return host
-
-
-@pytest.fixture
-def sat1_rpi_sat1_cmd() -> str:
-    """Get SAT1 CLI command from environment."""
-    return os.getenv("SAT1_RPI_CLI_CMD", "sat1")
 
 
 @pytest.fixture
@@ -458,12 +704,18 @@ async def test_mic_input_gain_roundtrip_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-@pytest.mark.parametrize("mic_idx", [0, 1, 2, 3])
+@pytest.mark.parametrize(
+    ("mic_left", "mic_right", "mic_gain"),
+    [(0, 1, Q30_LOW), (2, 3, MIC_GAIN_TEST_HIGH)],
+    ids=("mic_0_1_low", "mic_2_3_high"),
+)
 async def test_mic_gain_changes_captured_level_sat1(
     audio_settings_guard: tuple,
     sat1_rpi_host: str,
     sat1_rpi_sat1_cmd: str,
-    mic_idx: int,
+    mic_left: int,
+    mic_right: int,
+    mic_gain: int,
 ) -> None:
     """Test that changing mic gain affects captured signal level."""
     total_t0 = time.monotonic()
@@ -491,8 +743,9 @@ async def test_mic_gain_changes_captured_level_sat1(
 
     sess, _ = audio_settings_guard
     rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(sat1_rpi_host))
-    target_output_ch = MIC_OUTPUT_BASE_CH + mic_idx
-    mic_map = list(PACKAGED_INPUT_FULL_MAP)
+    left_output_ch = MIC_OUTPUT_BASE_CH + mic_left
+    right_output_ch = MIC_OUTPUT_BASE_CH + mic_right
+    mic_map = list(PACKAGED_INPUT_SKIP_SYNC_MAP)
 
     if MIC_GAIN_FIXTURE_USE_DEDICATED:
         local_wav = (
@@ -515,15 +768,14 @@ async def test_mic_gain_changes_captured_level_sat1(
     await _set_mic_output_packing(
         sess,
         sat1_rpi_sat1_cmd,
-        enabled=True,
-        upsample_channel_map=UPSAMPLE_CHANNEL_MAP_DEFAULT,
+        enabled=False,
     )
     _step_timing("set_output_packing")
     await _set_mic_output_channels(
         sess,
         sat1_rpi_sat1_cmd,
-        target_output_ch,
-        target_output_ch,
+        left_output_ch,
+        right_output_ch,
     )
     _step_timing("set_output_channels")
 
@@ -561,65 +813,51 @@ async def test_mic_gain_changes_captured_level_sat1(
         await _ensure_playing(remote_wav)
         probe_rms = await _wait_for_signal(rec_sess)
         _step_timing("wait_for_signal_probe")
-        print(f"Signal detected: RMS={probe_rms:.1f} (mic_idx={mic_idx})")
+        print(
+            f"Signal detected: RMS={probe_rms:.1f} (mic_left={mic_left}, mic_right={mic_right})"
+        )
 
         await _set_mic_input_gains(
             sess,
             sat1_rpi_sat1_cmd,
-            mic_gain=Q30_LOW,
+            mic_gain=mic_gain,
             ref_gain=Q30_UNITY,
         )
-        _step_timing("set_gains_low")
+        _step_timing("set_gains")
         await _set_mic_input_routing(
             sess,
             sat1_rpi_sat1_cmd,
             mic_input_channel_map=mic_map,
         )
-        _step_timing("set_input_map_low")
+        _step_timing("set_input_map")
         await asyncio.sleep(MIC_GAIN_WARMUP_SEC)
-        _step_timing("warmup_low")
+        _step_timing("warmup")
 
         await _ensure_playing(remote_wav)
         await _wait_for_signal(rec_sess)
-        _step_timing("wait_for_signal_low")
+        _step_timing("wait_for_signal")
 
-        await _ensure_playing(remote_wav)
-        low_rms, low_peak = await _capture_rms_median_fullband(
-            rec_sess,
-            repeats=MIC_GAIN_CAPTURE_REPEATS,
-            duration_s=float(MIC_GAIN_CAPTURE_SEC),
-        )
-        _step_timing("capture_low")
-        print(f"LOW gain: RMS={low_rms:.1f}, peak={low_peak} (mic_idx={mic_idx})")
-
-        await _set_mic_input_gains(
-            sess,
-            sat1_rpi_sat1_cmd,
-            mic_gain=MIC_GAIN_TEST_HIGH,
-            ref_gain=Q30_UNITY,
-        )
-        _step_timing("set_gains_high")
-        await _set_mic_input_routing(
-            sess,
-            sat1_rpi_sat1_cmd,
-            mic_input_channel_map=mic_map,
-        )
-        _step_timing("set_input_map_high")
-        await asyncio.sleep(MIC_GAIN_WARMUP_SEC)
-        _step_timing("warmup_high")
-
-        await _ensure_playing(remote_wav)
-        await _wait_for_signal(rec_sess)
-        _step_timing("wait_for_signal_high")
-
-        await _ensure_playing(remote_wav)
-        high_rms, high_peak = await _capture_rms_median_fullband(
-            rec_sess,
-            repeats=MIC_GAIN_CAPTURE_REPEATS,
-            duration_s=float(MIC_GAIN_CAPTURE_SEC),
-        )
-        _step_timing("capture_high")
-        print(f"HIGH gain: RMS={high_rms:.1f}, peak={high_peak} (mic_idx={mic_idx})")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_recorded_path = await _record_play_and_download(
+                sess,
+                rec_sess,
+                remote_wav=remote_wav,
+                duration_s=float(MIC_GAIN_RECORD_SECONDS),
+                local_dir=Path(tmpdir),
+            )
+            _step_timing("capture_recording")
+            left = _estimate_gain_from_recording(
+                injected_path=local_wav,
+                recorded_path=local_recorded_path,
+                packed_lane=mic_left + 1,
+                recorded_channel=0,
+            )
+            right = _estimate_gain_from_recording(
+                injected_path=local_wav,
+                recorded_path=local_recorded_path,
+                packed_lane=mic_right + 1,
+                recorded_channel=1,
+            )
 
     finally:
         if sess.is_running:
@@ -631,22 +869,162 @@ async def test_mic_gain_changes_captured_level_sat1(
         if _timing_enabled():
             total_elapsed = time.monotonic() - total_t0
             print(f"[TIMING] test_total -> {total_elapsed:.3f}s")
+    for label, mic_idx, measure in (
+        ("left", mic_left, left),
+        ("right", mic_right, right),
+    ):
+        estimate = float(measure["estimate"])
+        peak = int(measure["recorded_peak"])
+        print(
+            f"{label.upper()} gain: "
+            f"estimate={estimate:.4f}, peak={peak}, mic_idx={mic_idx}, "
+            f"recorded_p50={measure['recorded_active_p50']:.1f}, "
+            f"injected_p50={measure['injected_active_p50']:.1f}"
+        )
+        expected = mic_gain / float(Q30_UNITY)
+        _assert_gain_estimate(
+            label=label,
+            mic_idx=mic_idx,
+            estimate=estimate,
+            expected=expected,
+            peak=peak,
+        )
 
-    assert low_rms >= 1.0 and high_rms >= 1.0, (
-        "Insufficient mic signal for gain validation "
-        f"(mic_idx={mic_idx}, low={low_rms:.2f}, high={high_rms:.2f})"
-    )
 
-    assert low_peak < MIC_GAIN_MAX_PEAK, (
-        f"Low-gain capture clipped (mic_idx={mic_idx}, peak={low_peak})"
+@pytest.mark.hil
+@pytest.mark.sat1
+async def test_ref_gain_changes_captured_level_sat1(
+    audio_settings_guard: tuple,
+    sat1_rpi_host: str,
+    sat1_rpi_sat1_cmd: str,
+) -> None:
+    local_wav = (
+        PROJ_ROOT
+        / "tests"
+        / "test_doa"
+        / "fixtures"
+        / "lag_synth"
+        / "mic_gain_test_fixture.wav"
     )
-    assert high_peak < MIC_GAIN_MAX_PEAK, (
-        f"High-gain capture clipped (mic_idx={mic_idx}, peak={high_peak})"
-    )
+    if not local_wav.exists():
+        raise FileNotFoundError(
+            f"Dedicated mic-gain fixture not found: {local_wav}. "
+            "Generate it with: python3 tools/doa/generate_mic_gain_fixture.py "
+            "--output tests/test_doa/fixtures/lag_synth/mic_gain_test_fixture.wav"
+        )
+    local_wav = Path(local_wav)
 
-    ratio = high_rms / low_rms
-    assert ratio > MIC_GAIN_MIN_RATIO, (
-        f"Expected mic gain to increase captured RMS "
-        f"(mic_idx={mic_idx}, low={low_rms:.2f}, high={high_rms:.2f}, "
-        f"ratio={ratio:.3f}, min_ratio={MIC_GAIN_MIN_RATIO:.3f})"
-    )
+    sess, _ = audio_settings_guard
+    rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(sat1_rpi_host))
+    remote_wav = f"/tmp/sat1_ref_gain_fixture_{int(time.time())}.wav"
+
+    await sess.upload(local_wav, remote_path=remote_wav)
+
+    try:
+        await _set_mic_output_ref_overwrite(
+            sess,
+            sat1_rpi_sat1_cmd,
+            enabled=False,
+        )
+        await _set_mic_output_packing(
+            sess,
+            sat1_rpi_sat1_cmd,
+            enabled=False,
+        )
+        await _set_mic_output_channels(
+            sess,
+            sat1_rpi_sat1_cmd,
+            REF_OUTPUT_CH_MAP[0],
+            REF_OUTPUT_CH_MAP[1],
+        )
+        await _set_mic_input_gains(
+            sess,
+            sat1_rpi_sat1_cmd,
+            mic_gain=Q30_UNITY,
+            ref_gain=Q30_LOW,
+        )
+        await _set_mic_input_routing(
+            sess,
+            sat1_rpi_sat1_cmd,
+            ref_source_mode=REF_SOURCE_LEGACY_DOWNSAMPLED,
+            mic_source_mode=MIC_SOURCE_PACKAGED_INPUT,
+            mic_input_channel_map=PACKAGED_INPUT_SKIP_SYNC_MAP,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            low_path = await _record_play_and_download(
+                sess,
+                rec_sess,
+                remote_wav=remote_wav,
+                duration_s=float(MIC_GAIN_RECORD_SECONDS),
+                local_dir=Path(tmpdir),
+            )
+            low_left = _estimate_recorded_level(
+                recorded_path=low_path,
+                recorded_channel=0,
+            )
+            low_right = _estimate_recorded_level(
+                recorded_path=low_path,
+                recorded_channel=1,
+            )
+
+        await _set_mic_input_gains(
+            sess,
+            sat1_rpi_sat1_cmd,
+            mic_gain=Q30_UNITY,
+            ref_gain=Q30_UNITY,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            high_path = await _record_play_and_download(
+                sess,
+                rec_sess,
+                remote_wav=remote_wav,
+                duration_s=float(MIC_GAIN_RECORD_SECONDS),
+                local_dir=Path(tmpdir),
+            )
+            high_left = _estimate_recorded_level(
+                recorded_path=high_path,
+                recorded_channel=0,
+            )
+            high_right = _estimate_recorded_level(
+                recorded_path=high_path,
+                recorded_channel=1,
+            )
+    finally:
+        if sess.is_running:
+            await sess.stop()
+        await sess.cmd(f"rm -f {remote_wav}", check=False)
+        if rec_sess.is_running:
+            await rec_sess.stop()
+        await rec_sess.close()
+
+    expected_ratio = float(Q30_UNITY) / float(Q30_LOW)
+    for label, low, high in (
+        ("left", low_left, high_left),
+        ("right", low_right, high_right),
+    ):
+        low_level = float(low["recorded_active_p50"])
+        high_level = float(high["recorded_active_p50"])
+        low_peak = int(low["recorded_peak"])
+        high_peak = int(high["recorded_peak"])
+        print(
+            f"REF {label.upper()}: "
+            f"low_p50={low_level:.1f} high_p50={high_level:.1f} "
+            f"low_peak={low_peak} high_peak={high_peak}"
+        )
+        assert low_peak < MIC_GAIN_MAX_PEAK, (
+            f"Ref low-gain recording clipped (peak={low_peak})"
+        )
+        assert high_peak < MIC_GAIN_MAX_PEAK, (
+            f"Ref high-gain recording clipped (peak={high_peak})"
+        )
+        assert low_level > 0.0, "Expected non-zero ref RMS at low gain"
+        assert high_level > 0.0, "Expected non-zero ref RMS at high gain"
+        ratio = high_level / low_level
+        rel_err = abs(ratio - expected_ratio) / expected_ratio
+        assert rel_err <= MIC_GAIN_EXPECTED_TOL, (
+            f"Ref gain ratio out of tolerance ({label} ratio={ratio:.3f}, "
+            f"expected={expected_ratio:.3f}, rel_err={rel_err:.3f}, "
+            f"tol={MIC_GAIN_EXPECTED_TOL:.3f})"
+        )
