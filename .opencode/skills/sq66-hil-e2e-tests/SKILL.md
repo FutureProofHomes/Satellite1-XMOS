@@ -41,6 +41,7 @@ Optional:
 - `SQ66_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
 - `XMOS_ADAPTER_ID=<xtag-id>` (recommended when multiple adapters are connected)
 - `SQ66_HIL_RUN_FIRMWARE=1` (start firmware runner fixture automatically)
+- `SQ66_HIL_RUN_MODE=run|debug` (runner mode; use `debug` for xgdb batch)
 - `SQ66_HIL_REQUIRE_RUNNER=1` (require local runner fixture, otherwise skip)
 - `SQ66_HIL_BOOT_WAIT_S=<seconds>` (boot settle time when auto-running firmware)
 

@@ -5,8 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 XMOS_ENV_WRAPPER="$REPO_ROOT/tools/env/xmos_env.sh"
-BUILD_DIR="build_sq66_dev"
-TARGET="sq66_firmware_fixed_delay"
+BUILD_DIR="build_sat1_dev_xtag"
+TARGET="satellite1_firmware_fixed_delay"
 MODE="run"
 SKIP_BUILD=0
 DRY_RUN=0
@@ -15,29 +15,30 @@ ADAPTER_ID=""
 
 usage() {
     cat <<'EOF'
-Usage: tools/e2e/run_sq66_dev.sh [options]
+Usage: tools/e2e/run_sat1_dev_xtag.sh [options]
 
-Build and run the SQ66 dev-mode firmware with xscope or xgdb.
+Build and run Satellite1 firmware over xTAG (JTAG/xgdb).
+This board does not use xscope in this workflow.
 
 Options:
   --build              Build only, do not run.
-  --run                Run with xrun --xscope (default).
+  --run                Run with xrun (default).
   --debug              Run with xgdb --batch.
   --adapter-id ID      Use the given xTAG adapter id.
-  --build-dir DIR      Override the build directory (default: build_sq66_dev).
-  --target NAME        Override the firmware target (default: sq66_firmware_fixed_delay).
+  --build-dir DIR      Override build directory (default: build_sat1_dev_xtag).
+  --target NAME        Override firmware target (default: satellite1_firmware_fixed_delay).
   --skip-build         Do not reconfigure/rebuild before launch.
-  --detect-only        Print the detected adapter id and exit.
+  --detect-only        Print detected adapter id and exit.
   --dry-run            Print commands without executing them.
   -h, --help           Show this help text.
 
 Examples:
-  tools/e2e/run_sq66_dev.sh --run
-  tools/e2e/run_sq66_dev.sh --debug --adapter-id 7A3VAER2
-  tools/e2e/run_sq66_dev.sh --detect-only
+  tools/e2e/run_sat1_dev_xtag.sh --run
+  tools/e2e/run_sat1_dev_xtag.sh --debug --adapter-id W256H8UD
+  tools/e2e/run_sat1_dev_xtag.sh --detect-only
 
 Env defaults:
-  SQ66_XTAG_ID         Preferred default adapter id.
+  SAT1_XTAG_ID         Preferred default adapter id.
   XMOS_ADAPTER_ID      Backward-compatible fallback.
 EOF
 }
@@ -117,8 +118,8 @@ if [[ -f ".venv/bin/activate" ]]; then
     set -u
 fi
 
-if [[ -z "$ADAPTER_ID" && -n "${SQ66_XTAG_ID:-}" ]]; then
-    ADAPTER_ID="$SQ66_XTAG_ID"
+if [[ -z "$ADAPTER_ID" && -n "${SAT1_XTAG_ID:-}" ]]; then
+    ADAPTER_ID="$SAT1_XTAG_ID"
 fi
 
 if [[ -z "$ADAPTER_ID" && -n "${XMOS_ADAPTER_ID:-}" ]]; then
@@ -159,7 +160,7 @@ fi
 XE_PATH="$BUILD_DIR/$TARGET.xe"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-    run_cmd cmake -B "$BUILD_DIR" --toolchain xmos_cmake_toolchain/xs3a.cmake -DUSE_DEV_MODE=ON
+    run_cmd cmake -B "$BUILD_DIR" --toolchain xmos_cmake_toolchain/xs3a.cmake
     run_cmd cmake --build "$BUILD_DIR" -j --target "$TARGET"
 fi
 
@@ -170,10 +171,10 @@ case "$MODE" in
         printf 'built=%s\n' "$XE_PATH"
         ;;
     run)
-        run_cmd xrun --adapter-id "$ADAPTER_ID" --xscope "$XE_PATH"
+        run_cmd xrun --adapter-id "$ADAPTER_ID" "$XE_PATH"
         ;;
     debug)
-        run_cmd xgdb --batch "$XE_PATH" -ex "connect --adapter-id $ADAPTER_ID --xscope --reset" -ex "run"
+        run_cmd xgdb --batch "$XE_PATH" -ex "connect --adapter-id $ADAPTER_ID --reset" -ex "run"
         ;;
     *)
         die "unexpected mode: $MODE"

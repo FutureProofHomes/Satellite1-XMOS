@@ -57,6 +57,10 @@ that supports both CLI and remote Python `-c` usage:
 
    `source tools/env/xmos_env.sh && SQ66_HIL=1 SQ66_HIL_RUN_FIRMWARE=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
 
+To run firmware under xgdb batch during tests:
+
+`source tools/env/xmos_env.sh && SQ66_HIL=1 SQ66_HIL_RUN_FIRMWARE=1 SQ66_HIL_RUN_MODE=debug .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
+
 If firmware is already running and should not be restarted:
 
 `source tools/env/xmos_env.sh && SQ66_HIL=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`

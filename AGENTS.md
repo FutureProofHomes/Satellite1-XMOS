@@ -21,6 +21,7 @@ Do not substitute bash for native tools.
 When a relevant skill exists, use the `skill` tool to load it before proceeding.
 Check for matching skills for:
   - sq66 devmode run / test
+  - sat1 xTAG dev run / debug
   - sq66 hil / e2e tests
   - sq66 full end-to-end run
   - sat1 hil / e2e tests
@@ -39,6 +40,7 @@ Check for matching skills for:
 - For prompts like "build sq66 in dev mode and run full end-to-end test", load `sq66-full-e2e` and follow it exactly.
 - For Satellite1 HIL/e2e validation, load `sat1-hil-e2e-tests` before running pytest hardware checks.
 - For Satellite1 flash without xTAG, load `sat1-flash-via-rpi` and use `tools/e2e/run_sat1_flash_via_rpi.sh`.
+- For Satellite1 xTAG bring-up/run/debug without xscope, load `sat1-dev-xtag-run` and use `tools/e2e/run_sat1_dev_xtag.sh`.
 - Use `SQ66_RPI_CLI_CMD` to point HIL tests at a non-default Pi-side SDK command; default is plain `sat1`.
 - For full SQ66 HIL selections that include remote Python snippets, `SQ66_RPI_CLI_CMD` must support both CLI calls and `-c` Python execution (wrapper command recommended).
 - For any SPI device-control protocol changes intended for SDK consumption, load `device-control-sdk-handoff` and generate/update a handoff file.

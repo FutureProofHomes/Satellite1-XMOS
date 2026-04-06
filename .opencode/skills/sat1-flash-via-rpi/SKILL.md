@@ -28,13 +28,13 @@ Source XMOS env before running the flow:
 
 - `source tools/env/xmos_env.sh`
 
-Set these before flash/verify steps:
+`tools/e2e/run_sat1_flash_via_rpi.sh` resolves `SAT1_RPI_HOST` automatically when it runs.
+Use the env var only if you need to override the auto-detected host.
 
-- `SAT1_RPI_HOST=<ssh-host>`
-
-Optional:
+Optional overrides:
 
 - `SAT1_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
+- `SAT1_RPI_HOST=<ssh-host>` (override auto-detected host)
 - `SAT1_FLASH_SSH_CONNECT_TIMEOUT_S=<seconds>`
 - `SAT1_FLASH_REMOTE_SUDO=1` (run remote flash command under `sudo -n`)
 
@@ -49,7 +49,7 @@ Optional:
 
 Full flow (build + flash + verify):
 
-- `source tools/env/xmos_env.sh && SAT1_RPI_HOST=<ssh-host> tools/e2e/run_sat1_flash_via_rpi.sh --all`
+- `source tools/env/xmos_env.sh && tools/e2e/run_sat1_flash_via_rpi.sh --all`
 
 Build only:
 
@@ -57,19 +57,19 @@ Build only:
 
 Flash only (prebuilt image):
 
-- `source tools/env/xmos_env.sh && SAT1_RPI_HOST=<ssh-host> tools/e2e/run_sat1_flash_via_rpi.sh --flash --factory-bin build_SATELLITE1/satellite1_firmware_fixed_delay.factory.bin`
+- `source tools/env/xmos_env.sh && tools/e2e/run_sat1_flash_via_rpi.sh --flash --factory-bin build_SATELLITE1/satellite1_firmware_fixed_delay.factory.bin`
 
 Flash only with remote sudo:
 
-- `source tools/env/xmos_env.sh && SAT1_RPI_HOST=<ssh-host> SAT1_FLASH_REMOTE_SUDO=1 tools/e2e/run_sat1_flash_via_rpi.sh --flash --factory-bin build_SATELLITE1/satellite1_firmware_fixed_delay.factory.bin`
+- `source tools/env/xmos_env.sh && SAT1_FLASH_REMOTE_SUDO=1 tools/e2e/run_sat1_flash_via_rpi.sh --flash --factory-bin build_SATELLITE1/satellite1_firmware_fixed_delay.factory.bin`
 
 Verify only:
 
-- `source tools/env/xmos_env.sh && SAT1_RPI_HOST=<ssh-host> tools/e2e/run_sat1_flash_via_rpi.sh --verify`
+- `source tools/env/xmos_env.sh && tools/e2e/run_sat1_flash_via_rpi.sh --verify`
 
 Dry run:
 
-- `source tools/env/xmos_env.sh && SAT1_RPI_HOST=<ssh-host> tools/e2e/run_sat1_flash_via_rpi.sh --all --dry-run`
+- `source tools/env/xmos_env.sh && tools/e2e/run_sat1_flash_via_rpi.sh --all --dry-run`
 
 ## Recommended execution order
 

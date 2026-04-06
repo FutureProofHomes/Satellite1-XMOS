@@ -16,52 +16,67 @@ This workflow covers:
 - mic input gain and output routing tests in `tests/test_hw_sat1_firmware`
 - optional flash-first flow via Pi-side CLI when xTAG is unavailable
 
-## Required environment
+## Primary Entry Point
 
-Load XMOS env in the current shell before setting/running Sat1 HIL variables:
+**Always use the helper script:** `tools/e2e/run_sat1_hil_e2e.sh`
 
-- `source tools/env/xmos_env.sh`
+This script handles all environment setup, variable exports, and pytest invocation.
+Do not manually run pytest for SAT1 HIL tests unless you have a specific reason.
 
-Set:
+## Usage
 
-- `SAT1_HIL=1`
-- `SAT1_RPI_HOST=<ssh-host>`
+### Full suite (default)
+```bash
+tools/e2e/run_sat1_hil_e2e.sh --full
+```
 
-Optional:
+### Smoke tests only
+```bash
+tools/e2e/run_sat1_hil_e2e.sh --smoke
+```
 
-- `SAT1_RPI_CLI_CMD=<remote sat1 command>` (default: `sat1`)
-- `SAT1_RPI_PY_CMD=<remote python command>` (default: `/opt/satellite1/venv/bin/python`)
+### Allow skipped tests (exploratory runs)
+```bash
+tools/e2e/run_sat1_hil_e2e.sh --full --allow-skips
+```
 
-## Commands
+### Run specific test(s) via pytest args
+```bash
+tools/e2e/run_sat1_hil_e2e.sh --full -- -k "mic_gain and sat1"
+```
 
-Primary:
+### Override RPi host or CLI commands
+```bash
+tools/e2e/run_sat1_hil_e2e.sh --full --rpi-host my-pi.local
+```
 
-- `source tools/env/xmos_env.sh && SAT1_HIL=1 .venv/bin/python -m pytest tests/test_hw_sat1_firmware -q`
+## Script Behavior
 
-Marker scoped:
+The helper script automatically:
 
-- `source tools/env/xmos_env.sh && SAT1_HIL=1 .venv/bin/python -m pytest -m "hil and sat1" tests/test_hw_sat1_firmware -q`
+1. Sources `tools/env/xmos_env.sh` (loads `.env` with `SAT1_RPI_HOST`, etc.)
+2. Exports required env vars: `SAT1_HIL=1`, `SAT1_RPI_HOST`, `SAT1_RPI_CLI_CMD`, `SAT1_RPI_PY_CMD`
+3. Enables optional test gates by default (`SAT1_HIL_MIC_PATTERN_TEST=1`, etc.)
+4. Runs pytest with fail-fast (`-x`) and no-skip enforcement
+5. Reports skipped tests as failures unless `--allow-skips` is used
 
-Smoke only:
+## Script Options
 
-- `source tools/env/xmos_env.sh && SAT1_HIL=1 .venv/bin/python -m pytest tests/test_hw_sat1_firmware/test_sat1_hil_smoke.py -q`
-
-## Recommended execution order
-
-1. Preflight local env and Pi CLI:
-   - `source tools/env/xmos_env.sh`
-   - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_CLI_CMD:-sat1} --help"`
-   - `ssh "$SAT1_RPI_HOST" "${SAT1_RPI_PY_CMD:-/opt/satellite1/venv/bin/python} -c 'import satellite1; print(1)'"`
-2. If firmware state is unknown, run flash-first workflow:
-   - `SAT1_RPI_HOST=<ssh-host> tools/e2e/run_sat1_flash_via_rpi.sh --all`
-3. Run Sat1 smoke tests.
-4. Run full Sat1 HIL suite.
+| Option | Description |
+|--------|-------------|
+| `--full` | Run full SAT1 HIL suite (default) |
+| `--smoke` | Run only smoke test file |
+| `--allow-skips` | Don't fail when tests are skipped |
+| `--no-fail-fast` | Disable pytest `-x` |
+| `--disable-optional` | Don't auto-enable optional pattern/playback gates |
+| `--rpi-host HOST` | Override `SAT1_RPI_HOST` |
+| `--sat1-cmd CMD` | Override `SAT1_RPI_CLI_CMD` |
+| `--sat1-py-cmd CMD` | Override `SAT1_RPI_PY_CMD` |
+| `--dry-run` | Print commands without executing |
+| `-- <pytest args>` | Pass extra args to pytest (e.g., `-k`, `--maxfail`) |
 
 ## Notes
 
 - Satellite1 HIL tests do not depend on xscope logs.
-- `tools/env/xmos_env.sh` is required for loading repo `.env` values like
-  `SAT1_RPI_HOST` into the shell running pytest.
-- Full Sat1 HIL uses two remote command paths:
-  - CLI path via `SAT1_RPI_CLI_CMD` for `sat1 ...`
-  - Python path via `SAT1_RPI_PY_CMD` for `python -c '...'` snippets
+- The script requires `SAT1_RPI_HOST` via `.env` or `--rpi-host` argument.
+- For exploratory runs with partial hardware, use `--allow-skips`.

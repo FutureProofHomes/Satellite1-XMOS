@@ -13,6 +13,7 @@ SKIP_BUILD=0
 DRY_RUN=0
 RPI_HOST="${SAT1_RPI_HOST:-}"
 SAT1_CMD="${SAT1_RPI_CLI_CMD:-sat1}"
+SAT1_ARGS="${SAT1_RPI_CLI_ARGS:-}"
 FACTORY_BIN=""
 REMOTE_PATH=""
 SSH_CONNECT_TIMEOUT_S="${SAT1_FLASH_SSH_CONNECT_TIMEOUT_S:-5}"
@@ -33,6 +34,7 @@ Modes (default: --all):
 Options:
   --rpi-host HOST      Pi SSH host (default: SAT1_RPI_HOST env var).
   --sat1-cmd CMD       Remote sat1 command (default: SAT1_RPI_CLI_CMD or 'sat1').
+  --sat1-args ARGS     Extra args passed to sat1 (default: SAT1_RPI_CLI_ARGS).
   --build-dir DIR      Build directory (default: build_SATELLITE1).
   --target NAME        Firmware target (default: satellite1_firmware_fixed_delay).
   --factory-bin PATH   Local factory image path (must end with .factory.bin).
@@ -41,6 +43,7 @@ Options:
   --remote-sudo        Run remote flash command with 'sudo -n'.
   --dry-run            Print commands without executing them.
   -h, --help           Show this help text.
+  --                  Stop option parsing; remaining args become --sat1-args.
 
 Examples:
   tools/e2e/run_sat1_flash_via_rpi.sh --all --rpi-host pi@192.168.1.22
@@ -48,6 +51,8 @@ Examples:
   tools/e2e/run_sat1_flash_via_rpi.sh --flash --rpi-host pi@192.168.1.22 --factory-bin build_SATELLITE1/satellite1_firmware_fixed_delay.factory.bin
   SAT1_FLASH_REMOTE_SUDO=1 tools/e2e/run_sat1_flash_via_rpi.sh --flash --rpi-host pi@192.168.1.22
   tools/e2e/run_sat1_flash_via_rpi.sh --verify --rpi-host pi@192.168.1.22
+  tools/e2e/run_sat1_flash_via_rpi.sh --flash --sat1-args "-vv" --rpi-host pi@192.168.1.22
+  tools/e2e/run_sat1_flash_via_rpi.sh --flash --rpi-host pi@192.168.1.22 -- -vv
 EOF
 }
 
@@ -88,6 +93,11 @@ while [[ $# -gt 0 ]]; do
             [[ $# -gt 0 ]] || die "--sat1-cmd requires a value"
             SAT1_CMD="$1"
             ;;
+        --sat1-args)
+            shift
+            [[ $# -gt 0 ]] || die "--sat1-args requires a value"
+            SAT1_ARGS="$1"
+            ;;
         --build-dir)
             shift
             [[ $# -gt 0 ]] || die "--build-dir requires a value"
@@ -116,6 +126,13 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)
             DRY_RUN=1
+            ;;
+        --)
+            shift
+            if [[ $# -gt 0 ]]; then
+                SAT1_ARGS="$*"
+            fi
+            break
             ;;
         -h|--help)
             usage
@@ -177,6 +194,7 @@ printf 'target=%s\n' "$TARGET"
 printf 'factory_bin=%s\n' "$FACTORY_BIN"
 printf 'rpi_host=%s\n' "${RPI_HOST:-<none>}"
 printf 'sat1_cmd=%s\n' "$SAT1_CMD"
+printf 'sat1_args=%s\n' "${SAT1_ARGS:-<none>}"
 printf 'remote_path=%s\n' "$REMOTE_PATH"
 printf 'remote_sudo=%s\n' "$REMOTE_SUDO"
 
@@ -229,7 +247,11 @@ do_flash() {
 
     remote_preflight_flashrom
 
-    remote_cmd="$SAT1_CMD xmos flash-firmware $REMOTE_PATH"
+    if [[ -n "$SAT1_ARGS" ]]; then
+        remote_cmd="$SAT1_CMD $SAT1_ARGS xmos flash-firmware $REMOTE_PATH"
+    else
+        remote_cmd="$SAT1_CMD xmos flash-firmware $REMOTE_PATH"
+    fi
     if [[ "$REMOTE_SUDO" -eq 1 ]]; then
         remote_cmd="sudo -n $remote_cmd"
     fi

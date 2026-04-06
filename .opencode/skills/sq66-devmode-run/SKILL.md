@@ -39,6 +39,7 @@ Fallback implementation:
 - `.venv` is activated automatically if present
 - local Python env helper: `tools/env/python_env.sh --setup --with-tests && source .venv/bin/activate`
 - adapter id may be auto-detected if not explicitly provided
+- optional adapter ids can be set in `.env` (see `.env.example`): `SQ66_XTAG_ID` or fallback `XMOS_ADAPTER_ID`
 
 ## Tool usage
 
@@ -87,6 +88,7 @@ Avoid reconstructing this workflow manually with ad hoc `cmake`, `xrun`, `xgdb`,
 - Prefer the `run_sq66_dev` tool over bash.
 - When manually validating environment variables, source `tools/env/xmos_env.sh` first in the same shell.
 - Do not manually set up XMOS environment, `.venv`, adapter detection, build, run, or debug steps when the dedicated tool or helper script can do it.
+- Before any `run` or `debug` attempt, check for stale `xrun`, `xgdb`, or `xgdbserver` processes and terminate them if they hold the adapter.
 - Do not use destructive cleanup commands such as `rm -rf build_sq66_dev` unless explicitly required by the task.
 - Use `dryRun=true` when the user wants to inspect the exact command path without executing it.
 - Use `detectOnly=true` before asking the user for adapter help.
