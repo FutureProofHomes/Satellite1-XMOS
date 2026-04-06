@@ -24,6 +24,17 @@ By default the versioning.py scripts obtains the actual firmware from the `firmw
 
 If it contains the string 'dev', ...
 
+### Dev tracking behavior (current)
+
+- `firmware_version.txt=dev` triggers dev-mode versioning using the latest git tag.
+- `-DUSE_DEV_TRACKING=ON` adds `--track` so dev builds increment the counter:
+  `vX.Y.Z-dev.N`.
+- `versioning.py` reads only the first line; it must be stripped of whitespace.
+- The `--build-dir` argument must point at the active CMake build directory so
+  `build_time.patch` can be created during tracking.
+- When running `xrun`, launching from the build directory (e.g.
+  `build_sat1_dev_xtag`) ensures the correct `.xe` is loaded.
+
 
 ## Keeping Track of Dev-Builds
 

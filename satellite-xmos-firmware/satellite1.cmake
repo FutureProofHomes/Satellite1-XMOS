@@ -5,6 +5,9 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(FFVA_INT_COMPILE_DEFINITIONS
         ${APP_COMPILE_DEFINITIONS}
+        DEBUG_PRINT_ENABLE=0
+        configENABLE_DEBUG_PRINTF=0
+        DEBUG_PRINT_ENABLE_DFU_SERVICER=0
         appconfEXTERNAL_MCLK=0
         appconfI2S_ENABLED=1
         appconfUSB_ENABLED=0
@@ -84,7 +87,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #*********************
     # Create version.h
     #*********************
-    SET(VERSIONING_CMD "build")
+    SET(VERSIONING_CMD "--build-dir" "${CMAKE_BINARY_DIR}" "build")
     if(USE_DEV_TRACKING)
         list(APPEND VERSIONING_CMD "--track")
     endif()

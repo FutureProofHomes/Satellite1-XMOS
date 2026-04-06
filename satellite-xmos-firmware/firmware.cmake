@@ -25,6 +25,8 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
 option(USE_DEV_MODE "Enable dev-mode" OFF)
+option(USE_MIC_PASSTHROUGH_TEST_PATTERN "Inject fixed raw-mic output pattern" OFF)
+option(USE_SPEAKER_OUTPUT_TEST_PATTERN "Inject fixed speaker-output lane pattern" OFF)
 
 #**********************
 # Flags
@@ -46,6 +48,26 @@ set(APP_COMPILE_DEFINITIONS
     CFG_TUSB_DEBUG=0
 )
 
+if(USE_MIC_PASSTHROUGH_TEST_PATTERN)
+list(APPEND APP_COMPILE_DEFINITIONS
+    appconfMIC_PASSTHROUGH_TEST_PATTERN=1
+)
+else()
+list(APPEND APP_COMPILE_DEFINITIONS
+    appconfMIC_PASSTHROUGH_TEST_PATTERN=0
+)
+endif()
+
+if(USE_SPEAKER_OUTPUT_TEST_PATTERN)
+list(APPEND APP_COMPILE_DEFINITIONS
+    appconfSPEAKER_OUTPUT_TEST_PATTERN=1
+)
+else()
+list(APPEND APP_COMPILE_DEFINITIONS
+    appconfSPEAKER_OUTPUT_TEST_PATTERN=0
+)
+endif()
+
 set(APP_LINK_OPTIONS
     -lquadspi
     -report
@@ -62,25 +84,11 @@ set(APP_COMMON_LINK_LIBRARIES
 
 if(USE_DEV_MODE)
 list(APPEND APP_COMPILE_DEFINITIONS
-    DEBUG_PRINT_ENABLE=1
-    configENABLE_DEBUG_PRINTF=1
-    DEBUG_PRINT_ENABLE_DFU_SERVICER=1
     appconfWATCHDOG_ENABLED=0
-    BUILTIN_TESTS_SPI_ECHO_SERVICER=1
-)
-file(GLOB_RECURSE BUILTIN_TESTS_SOURCES
-    ${CMAKE_CURRENT_LIST_DIR}/src/builtin_tests/*.c
-)
-list(APPEND APP_SOURCES
-    ${BUILTIN_TESTS_SOURCES}
-)
-list(APPEND APP_INCLUDES
-    ${CMAKE_CURRENT_LIST_DIR}/src/builtin_tests/spi_echo_servicer
+    BUILTIN_TESTS_SPI_ECHO_SERVICER=0
 )
 else()
 list(APPEND APP_COMPILE_DEFINITIONS
-    configENABLE_DEBUG_PRINTF=0    
-    DEBUG_PRINT_ENABLE=0
     appconfWATCHDOG_ENABLED=1
     BUILTIN_TESTS_SPI_ECHO_SERVICER=0
 )
@@ -111,4 +119,3 @@ endif()
 #**********************
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/xk-voice-sq66.cmake)
-

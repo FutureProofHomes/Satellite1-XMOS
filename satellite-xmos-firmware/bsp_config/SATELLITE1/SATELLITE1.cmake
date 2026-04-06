@@ -39,7 +39,7 @@ target_link_options(fph_ffva_board_support_satellite1
 # West:  5 (pin 1 rising edge )
 # pins 2 & 3 are not used
 
-# use East as first and West as second mic
+# N - E - S - W
 set(MIC_MAPPING "0, 4, 1, 5")
 
 target_compile_definitions(fph_ffva_board_support_satellite1

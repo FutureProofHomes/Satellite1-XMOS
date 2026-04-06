@@ -18,6 +18,20 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfINPUT_SAMPLES_MIC_DELAY_MS=20
     )
 
+    if(USE_DEV_MODE)
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS
+            DEBUG_PRINT_ENABLE=1
+            configENABLE_DEBUG_PRINTF=1
+            DEBUG_PRINT_ENABLE_DFU_SERVICER=1
+        )
+    else()
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS
+            DEBUG_PRINT_ENABLE=0
+            configENABLE_DEBUG_PRINTF=0
+            DEBUG_PRINT_ENABLE_DFU_SERVICER=0
+        )
+    endif()
+
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)
       list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=1)
@@ -86,7 +100,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #*********************
     # Create version.h
     #*********************
-    SET(VERSIONING_CMD "build")
+    SET(VERSIONING_CMD "--build-dir" "${CMAKE_BINARY_DIR}" "build")
     if(USE_DEV_TRACKING)
         list(APPEND VERSIONING_CMD "--track")
     endif()
