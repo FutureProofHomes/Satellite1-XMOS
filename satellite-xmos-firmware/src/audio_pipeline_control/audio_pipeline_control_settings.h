@@ -54,9 +54,9 @@ typedef enum
 typedef struct
 {
     uint8_t pack_extra_upsample_channels;
-    uint8_t overwrite_ref_with_ic_ns_output;
     uint8_t i2s_channel_map[AUDIO_PIPELINE_OUTPUT_CHANNEL_COUNT];
     uint8_t upsample_channel_map[AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT];
+    uint8_t overwrite_ref_with_ic_ns_output;
 } mic_output_pipeline_settings_t;
 
 typedef struct

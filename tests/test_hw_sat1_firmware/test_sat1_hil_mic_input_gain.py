@@ -304,6 +304,26 @@ def _log_remote_mic_settings(
         print(f"mic_output_settings: {mic_output.stdout.strip()}")
 
 
+def _set_mic_output_settings_partial(
+    sat1_rpi_host: str,
+    sat1_rpi_sat1_cmd: str,
+    *,
+    overwrite_ref_with_ic_ns_output: int | None = None,
+) -> None:
+    mic_output: dict[str, int] = {}
+    if overwrite_ref_with_ic_ns_output is not None:
+        mic_output["overwrite_ref_with_ic_ns_output"] = int(
+            overwrite_ref_with_ic_ns_output
+        )
+
+    payload_json = json.dumps({"mic_output": mic_output}, separators=(",", ":"))
+    _run_remote_cli(
+        sat1_rpi_host,
+        sat1_rpi_sat1_cmd,
+        ["set-mic-pipeline-settings", "--json", payload_json],
+    )
+
+
 def _ensure_remote_dir(sat1_rpi_host: str, remote_dir: str) -> None:
     res = _run_ssh(
         sat1_rpi_host,
@@ -1202,6 +1222,11 @@ def test_ref_gain_changes_captured_level_sat1(
     remote_wav = _copy_file_to_remote(sat1_rpi_host, local_wav)
 
     try:
+        _set_mic_output_settings_partial(
+            sat1_rpi_host,
+            sat1_rpi_sat1_cmd,
+            overwrite_ref_with_ic_ns_output=0,
+        )
         low = _measure_ref_gain_recording_pair(
             sat1_rpi_host,
             sat1_rpi_sat1_cmd,

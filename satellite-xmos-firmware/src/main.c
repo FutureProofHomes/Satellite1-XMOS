@@ -770,7 +770,7 @@ void audio_pipeline_input(void *input_app_data,
 
 bool mic_output_pipeline_ref_overwrite_enabled(void)
 {
-#if appconfDEVICE_CTRL_SPI
+#if appconfDEVICE_CTRL_SPI && ON_TILE(0)
     return mic_output_pipeline_settings_runtime.active
         .overwrite_ref_with_ic_ns_output;
 #else
