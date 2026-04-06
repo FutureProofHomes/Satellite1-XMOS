@@ -51,6 +51,14 @@
 #define appconfPIPELINE_BYPASS 0
 #endif
 
+#ifndef appconfMIC_PASSTHROUGH_TEST_PATTERN
+#define appconfMIC_PASSTHROUGH_TEST_PATTERN 0
+#endif
+
+#ifndef appconfSPEAKER_OUTPUT_TEST_PATTERN
+#define appconfSPEAKER_OUTPUT_TEST_PATTERN 0
+#endif
+
 #if appconfPIPELINE_BYPASS
 #define appconfAUDIO_PIPELINE_SKIP_STATIC_DELAY  1
 #define appconfAUDIO_PIPELINE_SKIP_AEC           1

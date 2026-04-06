@@ -14,9 +14,15 @@
 #define AUDIO_PIPELINE_REF_INPUT_CHANNEL_COUNT         (2)
 #define AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT     (4)
 #define AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT    (6)
+#define AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES       (4)
 #define AUDIO_PIPELINE_PACKAGED_INPUT_INDEX_MIN        (0)
 #define AUDIO_PIPELINE_PACKAGED_INPUT_INDEX_MAX        \
     (AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT - 1)
+#define AUDIO_PIPELINE_PACKAGED_SYNC_INDEX             (0)
+#define AUDIO_PIPELINE_PACKAGED_PAYLOAD_INDEX_MIN      (1)
+#define AUDIO_PIPELINE_PACKAGED_PAYLOAD_INDEX_MAX      \
+    (AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT - 1)
+#define AUDIO_PIPELINE_PACKAGED_SYNC_WORD              ((int32_t)0x7E57A55A)
 
 typedef int32_t audio_pipeline_gain_t;
 
@@ -81,6 +87,31 @@ typedef struct
     uint32_t frame_counter;
     uint32_t mic_mean_abs[AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT];
 } mic_input_debug_stats_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t guard_a;
+    uint32_t guard_b;
+    uint32_t frame_counter;
+    uint8_t mic_input_channel_map[AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT];
+    uint32_t sample_count;
+    int32_t packaged_lane_samples[AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT]
+                               [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
+    int32_t mapped_mic_samples[AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT]
+                             [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
+} mic_input_packaged_snapshot_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t guard_a;
+    uint32_t guard_b;
+    uint32_t frame_counter;
+    uint32_t sample_count;
+    int32_t packaged_lane_samples[AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT]
+                               [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
+} spk_input_packaged_snapshot_t;
 
 typedef struct
 {

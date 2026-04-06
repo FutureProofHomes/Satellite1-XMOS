@@ -29,6 +29,8 @@ typedef struct {
     doa_reading_t raw;
     doa_reading_t smooth;
     mic_input_debug_stats_t mic_input_debug;
+    mic_input_packaged_snapshot_t mic_input_packaged_snapshot;
+    spk_input_packaged_snapshot_t spk_input_packaged_snapshot;
 } doa_runtime_t;
 
 typedef struct {

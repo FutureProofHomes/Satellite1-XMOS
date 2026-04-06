@@ -30,6 +30,10 @@ static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
       sizeof(doa_reading_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS, 1,
       sizeof(mic_input_debug_stats_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_PACKAGED_SNAPSHOT, 1,
+      sizeof(mic_input_packaged_snapshot_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_SPK_INPUT_PACKAGED_SNAPSHOT, 1,
+      sizeof(spk_input_packaged_snapshot_t), CMD_READ_ONLY },
 };
 
 static control_cmd_info_t audio_pipeline_speaker_settings_cmd_map[] = {
@@ -219,6 +223,36 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         }
 
         memcpy(payload, &ctx->doa->mic_input_debug, sizeof(ctx->doa->mic_input_debug));
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_PACKAGED_SNAPSHOT) {
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID ||
+            ctx->doa == NULL) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+
+        memcpy(payload,
+               &ctx->doa->mic_input_packaged_snapshot,
+               sizeof(ctx->doa->mic_input_packaged_snapshot));
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_SPK_INPUT_PACKAGED_SNAPSHOT) {
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID ||
+            ctx->doa == NULL) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+
+        memcpy(payload,
+               &ctx->doa->spk_input_packaged_snapshot,
+               sizeof(ctx->doa->spk_input_packaged_snapshot));
         payload[-1] = ret;
         return ret;
     }

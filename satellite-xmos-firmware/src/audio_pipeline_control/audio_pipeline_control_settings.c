@@ -13,6 +13,13 @@ static bool audio_pipeline_packaged_input_channel_index_is_valid(
            channel_index <= AUDIO_PIPELINE_PACKAGED_INPUT_INDEX_MAX;
 }
 
+static bool audio_pipeline_packaged_payload_channel_index_is_valid(
+    uint8_t channel_index)
+{
+    return channel_index >= AUDIO_PIPELINE_PACKAGED_PAYLOAD_INDEX_MIN &&
+           channel_index <= AUDIO_PIPELINE_PACKAGED_PAYLOAD_INDEX_MAX;
+}
+
 void mic_output_pipeline_settings_default(
     mic_output_pipeline_settings_t *settings)
 {
@@ -39,13 +46,13 @@ void mic_input_pipeline_settings_default(
     settings->ref_source_mode = AUDIO_PIPELINE_REF_SOURCE_LEGACY_DOWNSAMPLED;
     settings->mic_source_mode = AUDIO_PIPELINE_MIC_SOURCE_PDM;
 
-    settings->ref_input_channel_map[0] = 0;
-    settings->ref_input_channel_map[1] = 3;
+    settings->ref_input_channel_map[0] = 1;
+    settings->ref_input_channel_map[1] = 4;
 
-    for (index = 0; index < AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT; index++) {
-        settings->mic_input_channel_map[index] =
-            (4 + index) % AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT;
-    }
+    settings->mic_input_channel_map[0] = 1;
+    settings->mic_input_channel_map[1] = 2;
+    settings->mic_input_channel_map[2] = 3;
+    settings->mic_input_channel_map[3] = 4;
 }
 
 void speaker_pipeline_settings_default(
@@ -134,14 +141,14 @@ bool mic_input_pipeline_settings_are_valid(
     }
 
     for (index = 0; index < AUDIO_PIPELINE_REF_INPUT_CHANNEL_COUNT; index++) {
-        if (!audio_pipeline_packaged_input_channel_index_is_valid(
+        if (!audio_pipeline_packaged_payload_channel_index_is_valid(
                 settings->ref_input_channel_map[index])) {
             return false;
         }
     }
 
     for (index = 0; index < AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT; index++) {
-        if (!audio_pipeline_packaged_input_channel_index_is_valid(
+        if (!audio_pipeline_packaged_payload_channel_index_is_valid(
                 settings->mic_input_channel_map[index])) {
             return false;
         }
