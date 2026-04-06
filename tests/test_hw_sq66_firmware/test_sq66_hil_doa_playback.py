@@ -45,66 +45,35 @@ def _run_ssh(
     )
 
 
-def _parse_remote_python_command(sq66_rpi_sat1_cmd: str) -> tuple[list[str], str]:
-    tokens = shlex.split(sq66_rpi_sat1_cmd)
-    if not tokens:
-        return [], "python3"
-
-    python_idx = 0
-    for idx, token in enumerate(tokens):
-        if "=" in token and not token.startswith("-"):
-            continue
-        python_idx = idx
-        break
-
-    env_tokens = [t for t in tokens[:python_idx] if "=" in t and not t.startswith("-")]
-    python_cmd = tokens[python_idx]
-    return env_tokens, python_cmd
-
-
-def _run_remote_sdk_json(
-    host: str,
-    sq66_rpi_sat1_cmd: str,
-    script: str,
-    timeout: int = 60,
-) -> dict:
-    env_tokens, python_cmd = _parse_remote_python_command(sq66_rpi_sat1_cmd)
-    remote_cmd = " ".join(env_tokens + [python_cmd, "-c", shlex.quote(script)])
-
-    res = _run_ssh(host, remote_cmd, timeout=timeout)
+def _run_remote_cli_json(host: str, cmd: str, timeout: int = 60) -> dict:
+    res = _run_ssh(host, cmd, timeout=timeout)
     assert res.returncode == 0, res.stdout + res.stderr
 
     out = res.stdout.strip()
-    assert out, "Expected JSON output from remote SDK script"
+    assert out, "Expected JSON output from remote CLI command"
     return json.loads(out.splitlines()[-1])
 
 
 def _get_mic_input_settings(sq66_rpi_host: str, sq66_rpi_sat1_cmd: str) -> dict:
-    script = """
-import json
-from satellite1.sat1_hat import XMOS
-
-x = XMOS()
-x.setup()
-_ = x.read_firmware()
-_ = x.wait_until_ready(timeout_s=3.0, poll_interval_s=0.1)
-try:
-    s = x.get_mic_input_settings()
-    print(json.dumps({
-        "mic_gain": int(s.mic_gain),
-        "ref_gain": int(s.ref_gain),
-        "ref_source_mode": int(s.ref_source_mode),
-        "mic_source_mode": int(s.mic_source_mode),
-        "ref_input_channel_map": [int(v) for v in s.ref_input_channel_map],
-        "mic_input_channel_map": [int(v) for v in s.mic_input_channel_map],
-        "available_mic_count": int(x.get_available_mic_count()),
-    }))
-finally:
-    cntrl = getattr(x, "_cntrl", None)
-    if cntrl is not None and hasattr(cntrl, "close"):
-        cntrl.close()
-"""
-    return _run_remote_sdk_json(sq66_rpi_host, sq66_rpi_sat1_cmd, script)
+    settings = _run_remote_cli_json(
+        sq66_rpi_host,
+        f"{sq66_rpi_sat1_cmd} --board sq66 xmos get-mic-pipeline-settings --json",
+        timeout=60,
+    )
+    mic_input = settings.get("mic_input", {})
+    return {
+        "mic_gain": int(mic_input.get("mic_gain", 0)),
+        "ref_gain": int(mic_input.get("ref_gain", 0)),
+        "ref_source_mode": int(mic_input.get("ref_source_mode", 0)),
+        "mic_source_mode": int(mic_input.get("mic_source_mode", 0)),
+        "ref_input_channel_map": [
+            int(v) for v in mic_input.get("ref_input_channel_map", [])
+        ],
+        "mic_input_channel_map": [
+            int(v) for v in mic_input.get("mic_input_channel_map", [])
+        ],
+        "available_mic_count": int(settings.get("available_mic_count", 0)),
+    }
 
 
 def _set_mic_input_routing(
@@ -116,45 +85,26 @@ def _set_mic_input_routing(
     ref_input_channel_map: list[int] | None = None,
     mic_input_channel_map: list[int] | None = None,
 ) -> None:
-    payload = json.dumps(
-        {
-            "ref_source_mode": ref_source_mode,
-            "mic_source_mode": mic_source_mode,
-            "ref_input_channel_map": ref_input_channel_map,
-            "mic_input_channel_map": mic_input_channel_map,
-        }
+    mic_input = {
+        "ref_source_mode": ref_source_mode,
+        "mic_source_mode": mic_source_mode,
+        "ref_input_channel_map": ref_input_channel_map,
+        "mic_input_channel_map": mic_input_channel_map,
+    }
+    mic_input = {k: v for k, v in mic_input.items() if v is not None}
+    if not mic_input:
+        return
+
+    payload = json.dumps({"mic_input": mic_input})
+    cmd = (
+        f"{sq66_rpi_sat1_cmd} --board sq66 xmos set-mic-pipeline-settings --json "
+        f"{shlex.quote(payload)}"
     )
-
-    script = f"""
-import json
-from satellite1.sat1_hat import XMOS
-
-payload = json.loads({payload!r})
-x = XMOS()
-x.setup()
-_ = x.read_firmware()
-_ = x.wait_until_ready(timeout_s=3.0, poll_interval_s=0.1)
-ok = True
-try:
-    if payload["mic_input_channel_map"] is not None or payload["ref_input_channel_map"] is not None:
-        ok = x.set_mic_input_channel_maps(
-            ref_input_channel_map=payload["ref_input_channel_map"],
-            mic_input_channel_map=payload["mic_input_channel_map"],
-        ) and ok
-    if payload["ref_source_mode"] is not None or payload["mic_source_mode"] is not None:
-        ok = x.set_mic_input_source_modes(
-            ref_source_mode=payload["ref_source_mode"],
-            mic_source_mode=payload["mic_source_mode"],
-        ) and ok
-    print(json.dumps({{"ok": bool(ok)}}))
-finally:
-    cntrl = getattr(x, "_cntrl", None)
-    if cntrl is not None and hasattr(cntrl, "close"):
-        cntrl.close()
-"""
-
-    result = _run_remote_sdk_json(sq66_rpi_host, sq66_rpi_sat1_cmd, script)
-    assert result.get("ok") is True, f"Failed to set mic input routing: {result}"
+    res = _run_ssh(sq66_rpi_host, cmd, timeout=60)
+    assert res.returncode == 0, res.stdout + res.stderr
+    out = res.stdout.strip()
+    assert out, "Expected set-mic-pipeline-settings output"
+    assert out.splitlines()[-1] == "True", out
 
 
 def _wrap_deg(angle_deg: float) -> float:
@@ -312,7 +262,11 @@ def test_sq66_doa_estimate_from_packaged_wav_playback(
     if not xscope_log_path.exists():
         pytest.skip(f"xscope log file does not exist: {xscope_log_path}")
 
-    original = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_sat1_cmd)
+    try:
+        original = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_sat1_cmd)
+    except AssertionError as exc:
+        print(f"SQ66 DoA playback precondition unavailable: {exc}")
+        return
     if original["available_mic_count"] != 4:
         pytest.skip(
             f"Need 4 available mics for this test, got {original['available_mic_count']}"

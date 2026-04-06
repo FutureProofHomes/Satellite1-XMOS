@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
@@ -38,8 +39,40 @@ def sq66_rpi_host(require_sq66_hil: None) -> str:
 
 
 @pytest.fixture(scope="session")
-def sq66_rpi_sat1_cmd() -> str:
-    return os.getenv("SQ66_RPI_CLI_CMD", "sat1").strip() or "sat1"
+def sq66_rpi_sat1_cmd(sq66_rpi_host: str) -> str:
+    requested = os.getenv("SQ66_RPI_CLI_CMD", "sat1").strip() or "sat1"
+    candidates = [requested]
+    if requested == "sat1":
+        candidates.extend(
+            [
+                "/home/pi/.cache/venvs/satellite1-rpi-e2e/bin/sat1",
+                "/opt/satellite1/venv/bin/sat1",
+            ]
+        )
+
+    for cmd in candidates:
+        proc = subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                sq66_rpi_host,
+                f"{cmd} --board sq66 xmos get-mic-pipeline-settings -h",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if proc.returncode == 0:
+            return cmd
+
+    pytest.skip(
+        "No SQ66 CLI with mic-pipeline commands found. Set SQ66_RPI_CLI_CMD "
+        "to a deployed CLI path on the Pi host."
+    )
 
 
 @pytest.fixture(scope="session")
@@ -58,26 +91,60 @@ def sq66_runner_proc(
         yield None
         return
 
-    cmd = [str(RUNNER), "--run", "--skip-build"]
+    run_mode = os.getenv("SQ66_HIL_RUN_MODE", "run").strip().lower() or "run"
+    if run_mode not in {"run", "debug"}:
+        pytest.fail("SQ66_HIL_RUN_MODE must be 'run' or 'debug'")
+
+    cmd = [str(RUNNER), f"--{run_mode}", "--skip-build"]
     if sq66_adapter_id:
         cmd += ["--adapter-id", sq66_adapter_id]
 
-    proc = subprocess.Popen(
-        cmd,
-        cwd=PROJ_ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
+    xscope_log_path = os.getenv("SQ66_HIL_XSCOPE_LOG", "").strip()
+    if not xscope_log_path:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        xscope_log_path = str(PROJ_ROOT / "build_sq66_dev" / f"sq66_xscope_{ts}.log")
+        os.environ["SQ66_HIL_XSCOPE_LOG"] = xscope_log_path
+    log_path = Path(xscope_log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_file = log_path.open("a", encoding="utf-8")
 
     boot_wait_s = float(os.getenv("SQ66_HIL_BOOT_WAIT_S", "8"))
-    time.sleep(boot_wait_s)
+    runner_start_retries = int(os.getenv("SQ66_HIL_RUNNER_START_RETRIES", "3"))
+    proc: subprocess.Popen[str] | None = None
 
-    if proc.poll() is not None:
+    for attempt in range(runner_start_retries):
+        proc = subprocess.Popen(
+            cmd,
+            cwd=PROJ_ROOT,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        time.sleep(boot_wait_s)
+        if proc.poll() is None:
+            break
+
+        try:
+            proc.terminate()
+            proc.wait(timeout=2)
+        except Exception:
+            pass
+        subprocess.run(["pkill", "-f", "xgdbserver"], check=False)
+        subprocess.run(["pkill", "-f", "xgdb --batch"], check=False)
+        subprocess.run(["pkill", "-f", "xrun --adapter-id"], check=False)
+        time.sleep(1.0)
+    else:
+        log_file.flush()
         out = ""
-        if proc.stdout:
-            out = proc.stdout.read()
-        pytest.fail(f"SQ66 firmware runner exited early (rc={proc.returncode}):\n{out}")
+        try:
+            out = log_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+        log_file.close()
+        rc = proc.returncode if proc is not None else "unknown"
+        pytest.fail(f"SQ66 firmware runner exited early (rc={rc}):\n{out}")
+
+    assert proc is not None
 
     yield proc
 
@@ -87,6 +154,7 @@ def sq66_runner_proc(
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=5)
+    log_file.close()
 
 
 @pytest.fixture(scope="session")

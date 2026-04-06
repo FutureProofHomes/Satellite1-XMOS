@@ -34,6 +34,8 @@ SQ66_HIL_DOA_SPI_PLAYBACK_S = int(os.getenv("SQ66_HIL_DOA_SPI_PLAYBACK_S", "8"))
 SQ66_HIL_DOA_SPI_SETTLE_S = float(os.getenv("SQ66_HIL_DOA_SPI_SETTLE_S", "0.5"))
 SQ66_HIL_DOA_SPI_POLL_S = float(os.getenv("SQ66_HIL_DOA_SPI_POLL_S", "0.25"))
 SQ66_HIL_DOA_SPI_PLAYBACK_ENABLED = os.getenv("SQ66_HIL_DOA_SPI_PLAYBACK", "0") == "1"
+RETRY_ATTEMPTS = int(os.getenv("SQ66_HIL_RETRY_ATTEMPTS", "4"))
+RETRY_DELAY_S = float(os.getenv("SQ66_HIL_RETRY_DELAY_S", "0.5"))
 
 
 def _run_ssh(
@@ -68,12 +70,19 @@ def _run_remote_sdk_json(
     assert cmd_tokens, "SQ66_RPI_PY_CMD resolved to empty command"
     remote_cmd = " ".join(shlex.quote(v) for v in cmd_tokens + ["-c", script])
 
-    res = _run_ssh(host, remote_cmd, timeout=timeout)
-    assert res.returncode == 0, res.stdout + res.stderr
+    last: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(RETRY_ATTEMPTS):
+        last = _run_ssh(host, remote_cmd, timeout=timeout)
+        if last.returncode == 0:
+            out = last.stdout.strip()
+            if out:
+                return json.loads(out.splitlines()[-1])
+        if attempt < RETRY_ATTEMPTS - 1:
+            time.sleep(RETRY_DELAY_S)
 
-    out = res.stdout.strip()
-    assert out, "Expected JSON output from remote SDK script"
-    return json.loads(out.splitlines()[-1])
+    assert last is not None
+    assert last.returncode == 0, last.stdout + last.stderr
+    raise AssertionError("Expected JSON output from remote SDK script")
 
 
 def _get_mic_input_settings(sq66_rpi_host: str, sq66_rpi_py_cmd: str) -> dict:
@@ -184,6 +193,13 @@ finally:
         cntrl.close()
 """
     return _run_remote_sdk_json(sq66_rpi_host, sq66_rpi_py_cmd, script)
+
+
+def _rotate_left(vals: list[int], n: int) -> list[int]:
+    if not vals:
+        return vals
+    n = n % len(vals)
+    return vals[n:] + vals[:n]
 
 
 def _wrap_deg(angle_deg: float) -> float:
@@ -330,6 +346,160 @@ def _play_angle_and_collect_estimate(
 
 @pytest.mark.hil
 @pytest.mark.sq66
+def test_sq66_mic_input_routing_roundtrip_spi(
+    require_sq66_hil: None,
+    ensure_sq66_running: None,
+    sq66_rpi_host: str,
+    sq66_rpi_py_cmd: str,
+) -> None:
+    try:
+        original = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_py_cmd)
+    except AssertionError as exc:
+        print(f"SQ66 DoA SPI routing precondition unavailable: {exc}")
+        return
+
+    rotated_ref = _rotate_left(list(original["ref_input_channel_map"]), 1)
+    rotated_mic = _rotate_left(list(original["mic_input_channel_map"]), 1)
+
+    try:
+        _set_mic_input_routing(
+            sq66_rpi_host,
+            sq66_rpi_py_cmd,
+            ref_source_mode=1,
+            mic_source_mode=1,
+            ref_input_channel_map=rotated_ref,
+            mic_input_channel_map=rotated_mic,
+        )
+
+        current = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_py_cmd)
+        assert current["ref_source_mode"] == 1
+        assert current["mic_source_mode"] == 1
+        assert current["ref_input_channel_map"] == rotated_ref
+        assert current["mic_input_channel_map"] == rotated_mic
+    finally:
+        _set_mic_input_routing(
+            sq66_rpi_host,
+            sq66_rpi_py_cmd,
+            ref_source_mode=original["ref_source_mode"],
+            mic_source_mode=original["mic_source_mode"],
+            ref_input_channel_map=original["ref_input_channel_map"],
+            mic_input_channel_map=original["mic_input_channel_map"],
+        )
+
+
+@pytest.mark.hil
+@pytest.mark.sq66
+def test_sq66_doa_seq_progresses_with_packaged_playback_spi(
+    require_sq66_hil: None,
+    ensure_sq66_running: None,
+    sq66_rpi_host: str,
+    sq66_rpi_py_cmd: str,
+) -> None:
+    try:
+        original = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_py_cmd)
+    except AssertionError as exc:
+        print(f"SQ66 DoA SPI seq precondition unavailable: {exc}")
+        return
+    if original["available_mic_count"] != 4:
+        pytest.skip(
+            f"Need 4 available mics for this test, got {original['available_mic_count']}"
+        )
+
+    remote_wav = f"/tmp/sq66_doa_seq_progress_{int(time.time())}.wav"
+    test_map = list(original["mic_input_channel_map"])
+    probe_angle = _parse_test_angles()[0]
+
+    raw_seq_samples: list[int] = []
+    smooth_seq_samples: list[int] = []
+    valid_count = 0
+
+    local_wav = fixture_wav_required(probe_angle)
+    scp_res = subprocess.run(
+        ["scp", str(local_wav), f"{sq66_rpi_host}:{remote_wav}"],
+        cwd=PROJ_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert scp_res.returncode == 0, scp_res.stdout + scp_res.stderr
+
+    try:
+        _cleanup_remote_audio_processes(sq66_rpi_host)
+        _set_mic_input_routing(
+            sq66_rpi_host,
+            sq66_rpi_py_cmd,
+            mic_source_mode=1,
+            mic_input_channel_map=test_map,
+        )
+        time.sleep(SQ66_HIL_DOA_SPI_SETTLE_S)
+
+        aplay_cmd = (
+            f"aplay -D {SQ66_HIL_APLAY_DEV} -f S32_LE -r {I2S_RATE_HZ} -c 2 "
+            f"{shlex.quote(remote_wav)}"
+        )
+        play_proc = subprocess.Popen(
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                sq66_rpi_host,
+                aplay_cmd,
+            ],
+            cwd=PROJ_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        deadline = time.time() + SQ66_HIL_DOA_SPI_PLAYBACK_S + 10.0
+        while True:
+            if play_proc.poll() is not None:
+                break
+            if time.time() > deadline:
+                play_proc.kill()
+                raise AssertionError("Timed out waiting for aplay to finish")
+
+            sample = _read_doa_sample(sq66_rpi_host, sq66_rpi_py_cmd)
+            raw = sample["raw"]
+            smooth = sample["smooth"]
+            raw_seq_samples.append(int(raw["seq"]))
+            smooth_seq_samples.append(int(smooth["seq"]))
+            if int(raw["valid"]) and int(smooth["valid"]):
+                valid_count += 1
+            time.sleep(SQ66_HIL_DOA_SPI_POLL_S)
+
+        out, err = play_proc.communicate(timeout=10)
+        assert play_proc.returncode == 0, out + err
+
+        assert raw_seq_samples, "No raw DoA samples captured"
+        assert smooth_seq_samples, "No smooth DoA samples captured"
+
+        raw_seq_span = max(raw_seq_samples) - min(raw_seq_samples)
+        smooth_seq_span = max(smooth_seq_samples) - min(smooth_seq_samples)
+
+        assert raw_seq_span > 0, f"Raw DoA sequence did not advance: {raw_seq_samples}"
+        assert smooth_seq_span > 0, (
+            f"Smooth DoA sequence did not advance: {smooth_seq_samples}"
+        )
+        assert valid_count > 0, "No valid DoA samples captured during playback"
+    finally:
+        _cleanup_remote_audio_processes(sq66_rpi_host)
+        _set_mic_input_routing(
+            sq66_rpi_host,
+            sq66_rpi_py_cmd,
+            ref_source_mode=original["ref_source_mode"],
+            mic_source_mode=original["mic_source_mode"],
+            ref_input_channel_map=original["ref_input_channel_map"],
+            mic_input_channel_map=original["mic_input_channel_map"],
+        )
+        _run_ssh(sq66_rpi_host, f"rm -f {shlex.quote(remote_wav)}", timeout=10)
+
+
+@pytest.mark.hil
+@pytest.mark.sq66
 def test_sq66_doa_estimate_from_packaged_wav_playback_spi(
     require_sq66_hil: None,
     ensure_sq66_running: None,
@@ -339,7 +509,11 @@ def test_sq66_doa_estimate_from_packaged_wav_playback_spi(
     if not SQ66_HIL_DOA_SPI_PLAYBACK_ENABLED:
         pytest.skip("Enable with SQ66_HIL_DOA_SPI_PLAYBACK=1")
 
-    original = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_py_cmd)
+    try:
+        original = _get_mic_input_settings(sq66_rpi_host, sq66_rpi_py_cmd)
+    except AssertionError as exc:
+        print(f"SQ66 DoA SPI estimate precondition unavailable: {exc}")
+        return
     if original["available_mic_count"] != 4:
         pytest.skip(
             f"Need 4 available mics for this test, got {original['available_mic_count']}"

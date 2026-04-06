@@ -15,7 +15,7 @@ AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX = 7
 AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT = 6
 SSH_CONNECT_TIMEOUT_S = int(os.getenv("SAT1_HIL_SSH_CONNECT_TIMEOUT_S", "5"))
 SSH_CMD_TIMEOUT_S = int(os.getenv("SAT1_HIL_SSH_TIMEOUT_S", "30"))
-REMOTE_SDK_TIMEOUT_S = int(os.getenv("SAT1_HIL_REMOTE_SDK_TIMEOUT_S", "40"))
+REMOTE_CLI_TIMEOUT_S = int(os.getenv("SAT1_HIL_REMOTE_SDK_TIMEOUT_S", "40"))
 RETRY_ATTEMPTS = int(os.getenv("SAT1_HIL_RETRY_ATTEMPTS", "4"))
 RETRY_DELAY_S = float(os.getenv("SAT1_HIL_RETRY_DELAY_S", "0.5"))
 
@@ -41,115 +41,54 @@ def _run_ssh(
     )
 
 
-def _run_remote_sdk_python(
-    host: str, sat1_rpi_py_cmd: str, script: str, timeout: int = REMOTE_SDK_TIMEOUT_S
-) -> subprocess.CompletedProcess[str]:
-    cmd_tokens = shlex.split(sat1_rpi_py_cmd)
-    assert cmd_tokens, "SAT1_RPI_PY_CMD resolved to empty command"
-    remote_cmd = " ".join(shlex.quote(v) for v in cmd_tokens + ["-c", script])
-    return _run_ssh(host, remote_cmd, timeout=timeout)
-
-
-def _get_mic_output_settings(sat1_rpi_host: str, sat1_rpi_py_cmd: str) -> dict:
-    script = """
-import json
-from satellite1.sat1_hat import XMOS
-
-x = XMOS()
-x.setup()
-_ = x.read_firmware()
-_ = x.wait_until_ready(timeout_s=3.0, poll_interval_s=0.1)
-try:
-    settings = x.get_mic_output_settings()
-    data = {
-        "pack_extra_upsample_channels": int(settings.pack_extra_upsample_channels),
-        "i2s_channel_map": [int(v) for v in settings.i2s_channel_map],
-        "upsample_channel_map": [int(v) for v in settings.upsample_channel_map],
-    }
-    print(json.dumps(data))
-finally:
-    cntrl = getattr(x, "_cntrl", None)
-    if cntrl is not None and hasattr(cntrl, "close"):
-        cntrl.close()
-"""
+def _get_mic_output_settings(sat1_rpi_host: str, sat1_rpi_sat1_cmd: str) -> dict:
     last: subprocess.CompletedProcess[str] | None = None
     for attempt in range(RETRY_ATTEMPTS):
-        last = _run_remote_sdk_python(
+        last = _run_ssh(
             sat1_rpi_host,
-            sat1_rpi_py_cmd,
-            script,
-            timeout=REMOTE_SDK_TIMEOUT_S,
-        )
-        if last.returncode == 0:
-            out = last.stdout.strip()
-            if out:
-                return json.loads(out.splitlines()[-1])
-        if attempt < (RETRY_ATTEMPTS - 1):
-            time.sleep(RETRY_DELAY_S)
-
-    assert last is not None
-    assert last.returncode == 0, last.stdout + last.stderr
-    raise AssertionError("Expected mic output settings JSON from remote SDK")
-
-
-def _set_mic_output_settings_partial(
-    sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
-    *,
-    i2s_channel_map: list[int] | None = None,
-    pack_extra_upsample_channels: int | None = None,
-    upsample_channel_map: list[int] | None = None,
-) -> None:
-    payload = {
-        "i2s_channel_map": i2s_channel_map,
-        "pack_extra_upsample_channels": pack_extra_upsample_channels,
-        "upsample_channel_map": upsample_channel_map,
-    }
-    payload_json = json.dumps(payload)
-
-    script = f"""
-import json
-from satellite1.sat1_hat import XMOS
-
-payload = json.loads({payload_json!r})
-x = XMOS()
-x.setup()
-_ = x.read_firmware()
-_ = x.wait_until_ready(timeout_s=3.0, poll_interval_s=0.1)
-try:
-    ok = True
-
-    i2s = payload["i2s_channel_map"]
-    if i2s is not None:
-        ok = x.set_mic_output_channels(int(i2s[0]), int(i2s[1])) and ok
-
-    pack = payload["pack_extra_upsample_channels"]
-    upsample = payload["upsample_channel_map"]
-    if pack is not None or upsample is not None:
-        if pack is None:
-            pack = int(x.get_mic_output_settings().pack_extra_upsample_channels)
-        ok = x.set_mic_output_packing(bool(pack), upsample) and ok
-
-    print(json.dumps({{"ok": bool(ok)}}))
-finally:
-    cntrl = getattr(x, "_cntrl", None)
-    if cntrl is not None and hasattr(cntrl, "close"):
-        cntrl.close()
-"""
-    last: subprocess.CompletedProcess[str] | None = None
-    for attempt in range(RETRY_ATTEMPTS):
-        last = _run_remote_sdk_python(
-            sat1_rpi_host,
-            sat1_rpi_py_cmd,
-            script,
-            timeout=REMOTE_SDK_TIMEOUT_S,
+            f"{sat1_rpi_sat1_cmd} xmos get-mic-pipeline-settings --json",
+            timeout=REMOTE_CLI_TIMEOUT_S,
         )
         if last.returncode == 0:
             out = last.stdout.strip()
             if out:
                 body = json.loads(out.splitlines()[-1])
-                if body.get("ok") is True:
-                    return
+                return dict(body["mic_output"])
+        if attempt < (RETRY_ATTEMPTS - 1):
+            time.sleep(RETRY_DELAY_S)
+
+    assert last is not None
+    assert last.returncode == 0, last.stdout + last.stderr
+    raise AssertionError("Expected mic output settings JSON from remote CLI")
+
+
+def _set_mic_output_settings_partial(
+    sat1_rpi_host: str,
+    sat1_rpi_sat1_cmd: str,
+    *,
+    i2s_channel_map: list[int] | None = None,
+    pack_extra_upsample_channels: int | None = None,
+    upsample_channel_map: list[int] | None = None,
+) -> None:
+    mic_output: dict[str, object] = {}
+    if i2s_channel_map is not None:
+        mic_output["i2s_channel_map"] = [int(v) for v in i2s_channel_map]
+    if pack_extra_upsample_channels is not None:
+        mic_output["pack_extra_upsample_channels"] = int(pack_extra_upsample_channels)
+    if upsample_channel_map is not None:
+        mic_output["upsample_channel_map"] = [int(v) for v in upsample_channel_map]
+    payload_json = json.dumps({"mic_output": mic_output}, separators=(",", ":"))
+
+    last: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(RETRY_ATTEMPTS):
+        last = _run_ssh(
+            sat1_rpi_host,
+            f"{sat1_rpi_sat1_cmd} xmos set-mic-pipeline-settings --json {shlex.quote(payload_json)}",
+            timeout=REMOTE_CLI_TIMEOUT_S,
+        )
+        if last.returncode == 0:
+            if "True" in last.stdout:
+                return
         if attempt < (RETRY_ATTEMPTS - 1):
             time.sleep(RETRY_DELAY_S)
 
@@ -182,13 +121,13 @@ def _alternate_upsample_map(original: list[int]) -> list[int]:
 def mic_output_settings_guard(
     require_sat1_hil: None,
     sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
+    sat1_rpi_sat1_cmd: str,
 ):
-    original = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_py_cmd)
+    original = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_sat1_cmd)
     yield original
     _set_mic_output_settings_partial(
         sat1_rpi_host,
-        sat1_rpi_py_cmd,
+        sat1_rpi_sat1_cmd,
         i2s_channel_map=original["i2s_channel_map"],
         pack_extra_upsample_channels=original["pack_extra_upsample_channels"],
         upsample_channel_map=original["upsample_channel_map"],
@@ -234,18 +173,18 @@ def test_mic_output_get_settings_shape_sat1(
 def test_mic_output_set_i2s_channel_map_roundtrip_sat1(
     mic_output_settings_guard,
     sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
+    sat1_rpi_sat1_cmd: str,
 ):
     original = mic_output_settings_guard
     target_pair = _alternate_pair(original["i2s_channel_map"])
 
     _set_mic_output_settings_partial(
         sat1_rpi_host,
-        sat1_rpi_py_cmd,
+        sat1_rpi_sat1_cmd,
         i2s_channel_map=target_pair,
     )
 
-    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_py_cmd)
+    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_sat1_cmd)
     assert actual["i2s_channel_map"] == target_pair
 
 
@@ -254,18 +193,18 @@ def test_mic_output_set_i2s_channel_map_roundtrip_sat1(
 def test_mic_output_set_pack_extra_roundtrip_sat1(
     mic_output_settings_guard,
     sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
+    sat1_rpi_sat1_cmd: str,
 ):
     original = mic_output_settings_guard
     target = 0 if original["pack_extra_upsample_channels"] else 1
 
     _set_mic_output_settings_partial(
         sat1_rpi_host,
-        sat1_rpi_py_cmd,
+        sat1_rpi_sat1_cmd,
         pack_extra_upsample_channels=target,
     )
 
-    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_py_cmd)
+    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_sat1_cmd)
     assert actual["pack_extra_upsample_channels"] == target
 
 
@@ -274,18 +213,18 @@ def test_mic_output_set_pack_extra_roundtrip_sat1(
 def test_mic_output_set_upsample_channel_map_roundtrip_sat1(
     mic_output_settings_guard,
     sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
+    sat1_rpi_sat1_cmd: str,
 ):
     original = mic_output_settings_guard
     target_map = _alternate_upsample_map(original["upsample_channel_map"])
 
     _set_mic_output_settings_partial(
         sat1_rpi_host,
-        sat1_rpi_py_cmd,
+        sat1_rpi_sat1_cmd,
         upsample_channel_map=target_map,
     )
 
-    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_py_cmd)
+    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_sat1_cmd)
     assert actual["upsample_channel_map"] == target_map
 
 
@@ -294,18 +233,18 @@ def test_mic_output_set_upsample_channel_map_roundtrip_sat1(
 def test_mic_output_partial_update_preserves_untouched_fields_sat1(
     mic_output_settings_guard,
     sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
+    sat1_rpi_sat1_cmd: str,
 ):
     original = mic_output_settings_guard
     target_pair = _alternate_pair(original["i2s_channel_map"])
 
     _set_mic_output_settings_partial(
         sat1_rpi_host,
-        sat1_rpi_py_cmd,
+        sat1_rpi_sat1_cmd,
         i2s_channel_map=target_pair,
     )
 
-    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_py_cmd)
+    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_sat1_cmd)
     assert actual["i2s_channel_map"] == target_pair
     assert (
         actual["pack_extra_upsample_channels"]
