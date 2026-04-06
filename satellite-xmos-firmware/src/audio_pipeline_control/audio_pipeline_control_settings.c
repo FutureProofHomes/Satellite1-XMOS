@@ -20,10 +20,16 @@ static bool audio_pipeline_packaged_payload_channel_index_is_valid(
            channel_index <= AUDIO_PIPELINE_PACKAGED_PAYLOAD_INDEX_MAX;
 }
 
+static bool audio_pipeline_bool_setting_is_valid(uint8_t value)
+{
+    return value <= 1;
+}
+
 void mic_output_pipeline_settings_default(
     mic_output_pipeline_settings_t *settings)
 {
     settings->pack_extra_upsample_channels = 1;
+    settings->overwrite_ref_with_ic_ns_output = 1;
 
     settings->i2s_channel_map[0] = 0;
     settings->i2s_channel_map[1] = 3;
@@ -73,6 +79,11 @@ bool mic_output_pipeline_settings_channel_maps_are_valid(
 {
     size_t index;
 
+    if (!audio_pipeline_bool_setting_is_valid(
+            settings->overwrite_ref_with_ic_ns_output)) {
+        return false;
+    }
+
     for (index = 0; index < AUDIO_PIPELINE_OUTPUT_CHANNEL_COUNT; index++) {
         if (!audio_pipeline_output_channel_index_is_valid(
                 settings->i2s_channel_map[index])) {
@@ -97,8 +108,16 @@ bool mic_output_pipeline_settings_update_is_valid(
 
     if ((field_mask &
             ~(AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD |
+              AUDIO_PIPELINE_SETTINGS_OVERWRITE_REF_WITH_IC_NS_OUTPUT_FIELD |
               AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD |
               AUDIO_PIPELINE_SETTINGS_UPSAMPLE_CHANNEL_MAP_FIELD)) != 0) {
+        return false;
+    }
+
+    if ((field_mask &
+            AUDIO_PIPELINE_SETTINGS_OVERWRITE_REF_WITH_IC_NS_OUTPUT_FIELD) != 0 &&
+        !audio_pipeline_bool_setting_is_valid(
+            settings_update->settings.overwrite_ref_with_ic_ns_output)) {
         return false;
     }
 

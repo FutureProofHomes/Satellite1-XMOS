@@ -54,6 +54,7 @@ typedef enum
 typedef struct
 {
     uint8_t pack_extra_upsample_channels;
+    uint8_t overwrite_ref_with_ic_ns_output;
     uint8_t i2s_channel_map[AUDIO_PIPELINE_OUTPUT_CHANNEL_COUNT];
     uint8_t upsample_channel_map[AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT];
 } mic_output_pipeline_settings_t;
@@ -147,6 +148,8 @@ bool mic_output_pipeline_settings_channel_maps_are_valid(
 
 bool mic_output_pipeline_settings_update_is_valid(
     const mic_output_pipeline_settings_update_t *settings_update);
+
+bool mic_output_pipeline_ref_overwrite_enabled(void);
 
 bool mic_input_pipeline_settings_are_valid(
     const mic_input_pipeline_settings_t *settings);

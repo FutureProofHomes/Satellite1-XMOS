@@ -58,6 +58,20 @@ Source references:
     - `uint32_t frame_counter`
     - `uint32_t mic_mean_abs[4]`
 
+- `Mic output settings` (`230`) field summary
+
+- `pack_extra_upsample_channels` (`uint8`, `0` or `1`)
+- `overwrite_ref_with_ic_ns_output` (`uint8`, `0` or `1`)
+- `i2s_channel_map[2]` (`uint8[2]`, valid indices `0..7`)
+- `upsample_channel_map[6]` (`uint8[6]`, valid indices `0..7`)
+
+### Mic output partial-update mask bits (`230`, command `1`)
+
+- bit `2`: `AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD`
+- bit `3`: `AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD`
+- bit `4`: `AUDIO_PIPELINE_SETTINGS_UPSAMPLE_CHANNEL_MAP_FIELD`
+- bit `9`: `AUDIO_PIPELINE_SETTINGS_OVERWRITE_REF_WITH_IC_NS_OUTPUT_FIELD`
+
 ### Mic input settings (`232`) field summary
 
 - `mic_gain` (`int32`, Q2.30)

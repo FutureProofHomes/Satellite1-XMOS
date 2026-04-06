@@ -26,6 +26,7 @@
 #include "app_conf.h"
 #include "audio_pipeline.h"
 #include "audio_pipeline_dsp.h"
+#include "audio_pipeline_control/audio_pipeline_control_settings.h"
 
 #if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
 #error This pipeline is only configured for 240 frame advance
@@ -92,8 +93,12 @@ static void stage_vnr_and_ic(frame_data_t *frame_data)
 
     /* Intentionally ignoring comms ch from here on out */
     memcpy(frame_data->samples[0], ic_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
-#if appconfAUDIO_PIPELINE_STORE_IC_AUDIO    
-    memcpy(frame_data->aec_reference_audio_samples[0], ic_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));   // Store the interference cancelled audio in the first reference channel
+#if appconfAUDIO_PIPELINE_STORE_IC_AUDIO
+    if (mic_output_pipeline_ref_overwrite_enabled()) {
+        memcpy(frame_data->aec_reference_audio_samples[0],
+               ic_output,
+               appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
+    }
 #endif
 #endif
 }
@@ -110,7 +115,11 @@ static void stage_ns(frame_data_t *frame_data)
                 frame_data->samples[0]);
     memcpy(frame_data->samples[0], ns_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
 #if appconfAUDIO_PIPELINE_STORE_NS_AUDIO
-    memcpy(frame_data->aec_reference_audio_samples[1], ns_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));   // Store NS audio in the second reference channel
+    if (mic_output_pipeline_ref_overwrite_enabled()) {
+        memcpy(frame_data->aec_reference_audio_samples[1],
+               ns_output,
+               appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
+    }
 #endif
 #endif
 }

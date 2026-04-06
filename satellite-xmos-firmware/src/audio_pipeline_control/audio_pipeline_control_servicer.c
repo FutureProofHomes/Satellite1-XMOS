@@ -55,6 +55,12 @@ static void mic_output_pipeline_settings_apply_update(
             settings_update->settings.pack_extra_upsample_channels;
     }
 
+    if ((settings_update->field_mask &
+            AUDIO_PIPELINE_SETTINGS_OVERWRITE_REF_WITH_IC_NS_OUTPUT_FIELD) != 0) {
+        settings->overwrite_ref_with_ic_ns_output =
+            settings_update->settings.overwrite_ref_with_ic_ns_output;
+    }
+
     if ((settings_update->field_mask & AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD) != 0) {
         memcpy(settings->i2s_channel_map,
                settings_update->settings.i2s_channel_map,

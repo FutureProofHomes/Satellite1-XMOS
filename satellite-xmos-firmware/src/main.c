@@ -768,6 +768,16 @@ void audio_pipeline_input(void *input_app_data,
 
 }
 
+bool mic_output_pipeline_ref_overwrite_enabled(void)
+{
+#if appconfDEVICE_CTRL_SPI
+    return mic_output_pipeline_settings_runtime.active
+        .overwrite_ref_with_ic_ns_output;
+#else
+    return true;
+#endif
+}
+
 int audio_pipeline_output(void *output_app_data,
                         int32_t *output_audio_frames,
                         size_t ch_count,

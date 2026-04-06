@@ -68,6 +68,7 @@ def _set_mic_output_settings_partial(
     *,
     i2s_channel_map: list[int] | None = None,
     pack_extra_upsample_channels: int | None = None,
+    overwrite_ref_with_ic_ns_output: int | None = None,
     upsample_channel_map: list[int] | None = None,
 ) -> None:
     mic_output: dict[str, object] = {}
@@ -75,6 +76,10 @@ def _set_mic_output_settings_partial(
         mic_output["i2s_channel_map"] = [int(v) for v in i2s_channel_map]
     if pack_extra_upsample_channels is not None:
         mic_output["pack_extra_upsample_channels"] = int(pack_extra_upsample_channels)
+    if overwrite_ref_with_ic_ns_output is not None:
+        mic_output["overwrite_ref_with_ic_ns_output"] = int(
+            overwrite_ref_with_ic_ns_output
+        )
     if upsample_channel_map is not None:
         mic_output["upsample_channel_map"] = [int(v) for v in upsample_channel_map]
     payload_json = json.dumps({"mic_output": mic_output}, separators=(",", ":"))
@@ -130,6 +135,7 @@ def mic_output_settings_guard(
         sat1_rpi_sat1_cmd,
         i2s_channel_map=original["i2s_channel_map"],
         pack_extra_upsample_channels=original["pack_extra_upsample_channels"],
+        overwrite_ref_with_ic_ns_output=original["overwrite_ref_with_ic_ns_output"],
         upsample_channel_map=original["upsample_channel_map"],
     )
 
@@ -143,11 +149,13 @@ def test_mic_output_get_settings_shape_sat1(
 
     assert set(settings.keys()) == {
         "pack_extra_upsample_channels",
+        "overwrite_ref_with_ic_ns_output",
         "i2s_channel_map",
         "upsample_channel_map",
     }
 
     assert settings["pack_extra_upsample_channels"] in (0, 1)
+    assert settings["overwrite_ref_with_ic_ns_output"] in (0, 1)
 
     i2s = settings["i2s_channel_map"]
     assert len(i2s) == AUDIO_PIPELINE_OUTPUT_CHANNEL_COUNT
@@ -210,6 +218,26 @@ def test_mic_output_set_pack_extra_roundtrip_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
+def test_mic_output_set_ref_overwrite_roundtrip_sat1(
+    mic_output_settings_guard,
+    sat1_rpi_host: str,
+    sat1_rpi_sat1_cmd: str,
+):
+    original = mic_output_settings_guard
+    target = 0 if original["overwrite_ref_with_ic_ns_output"] else 1
+
+    _set_mic_output_settings_partial(
+        sat1_rpi_host,
+        sat1_rpi_sat1_cmd,
+        overwrite_ref_with_ic_ns_output=target,
+    )
+
+    actual = _get_mic_output_settings(sat1_rpi_host, sat1_rpi_sat1_cmd)
+    assert actual["overwrite_ref_with_ic_ns_output"] == target
+
+
+@pytest.mark.hil
+@pytest.mark.sat1
 def test_mic_output_set_upsample_channel_map_roundtrip_sat1(
     mic_output_settings_guard,
     sat1_rpi_host: str,
@@ -249,5 +277,9 @@ def test_mic_output_partial_update_preserves_untouched_fields_sat1(
     assert (
         actual["pack_extra_upsample_channels"]
         == original["pack_extra_upsample_channels"]
+    )
+    assert (
+        actual["overwrite_ref_with_ic_ns_output"]
+        == original["overwrite_ref_with_ic_ns_output"]
     )
     assert actual["upsample_channel_map"] == original["upsample_channel_map"]
