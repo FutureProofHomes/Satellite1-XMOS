@@ -1,5 +1,5 @@
 """
-Async SAT1 HIL mic input gain tests using persistent SSH connections.
+Async HIL mic input gain tests using persistent SSH connections.
 
 This module provides async versions of the mic gain tests that use
 hil_utils.RemoteAudioSession for efficient audio playback/recording
@@ -24,10 +24,7 @@ import pytest
 
 from hil_utils import RemoteAudioSession, CmdResult
 from tests.conftest import PROJ_ROOT
-from tests.test_hw_sat1_firmware.conftest import (
-    I2S_INPUT_MODE_DOWNSAMPLED,
-    I2S_INPUT_MODE_PACKAGED,
-)
+from tests.test_hil.conftest import I2S_INPUT_MODE_DOWNSAMPLED, I2S_INPUT_MODE_PACKAGED
 from tests.test_doa.conftest import fixture_wav_required
 
 
@@ -639,26 +636,26 @@ async def _wait_for_signal(
 
 @pytest.fixture
 async def audio_settings_guard(
-    require_sat1_hil: None,
-    sat1_rpi_host: str,
-    sat1_rpi_sat1_cmd: str,
+    require_hil: None,
+    hil_rpi_host: str,
+    hil_cli_cmd: str,
 ):
     """Async fixture that saves and restores audio settings."""
-    sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(sat1_rpi_host))
-    original = await _get_audio_settings(sess, sat1_rpi_sat1_cmd)
+    sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(hil_rpi_host))
+    original = await _get_audio_settings(sess, hil_cli_cmd)
     try:
         yield (sess, original)
     finally:
         if original.get("mic_gain") is not None or original.get("ref_gain") is not None:
             await _set_mic_input_gains(
                 sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 mic_gain=original.get("mic_gain"),
                 ref_gain=original.get("ref_gain"),
             )
         await _set_mic_input_routing(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             ref_source_mode=original.get("ref_source_mode"),
             mic_source_mode=original.get("mic_source_mode"),
             ref_input_channel_map=list(original.get("ref_input_channel_map", ()))
@@ -672,8 +669,7 @@ async def audio_settings_guard(
 
 
 @pytest.mark.hil
-@pytest.mark.sat1
-async def test_mic_input_settings_shape_sat1(
+async def test_hil_mic_input_settings_shape(
     audio_settings_guard: tuple,
 ) -> None:
     """Test that audio settings have expected shape."""
@@ -685,38 +681,36 @@ async def test_mic_input_settings_shape_sat1(
 
 
 @pytest.mark.hil
-@pytest.mark.sat1
-async def test_mic_input_gain_roundtrip_sat1(
+async def test_hil_mic_input_gain_roundtrip(
     audio_settings_guard: tuple,
-    sat1_rpi_host: str,
-    sat1_rpi_sat1_cmd: str,
+    hil_rpi_host: str,
+    hil_cli_cmd: str,
 ) -> None:
     """Test that mic gain settings round-trip correctly."""
     sess, _ = audio_settings_guard
 
     await _set_mic_input_gains(
         sess,
-        sat1_rpi_sat1_cmd,
+        hil_cli_cmd,
         mic_gain=0x18000000,
         ref_gain=0x10000000,
     )
 
-    current = await _get_audio_settings(sess, sat1_rpi_sat1_cmd)
+    current = await _get_audio_settings(sess, hil_cli_cmd)
     assert current["mic_gain"] == 0x18000000
     assert current["ref_gain"] == 0x10000000
 
 
 @pytest.mark.hil
-@pytest.mark.sat1
 @pytest.mark.parametrize(
     ("mic_left", "mic_right", "mic_gain"),
     [(0, 1, Q30_LOW), (2, 3, MIC_GAIN_TEST_HIGH)],
     ids=("mic_0_1_low", "mic_2_3_high"),
 )
-async def test_mic_gain_changes_captured_level_sat1(
+async def test_hil_mic_gain_changes_captured_level(
     audio_settings_guard: tuple,
-    sat1_rpi_host: str,
-    sat1_rpi_sat1_cmd: str,
+    hil_rpi_host: str,
+    hil_cli_cmd: str,
     mic_left: int,
     mic_right: int,
     mic_gain: int,
@@ -746,7 +740,7 @@ async def test_mic_gain_changes_captured_level_sat1(
             print(f"[TIMING] start_play(restart) -> {elapsed:.3f}s")
 
     sess, _ = audio_settings_guard
-    rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(sat1_rpi_host))
+    rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(hil_rpi_host))
     left_output_ch = MIC_OUTPUT_BASE_CH + mic_left
     right_output_ch = MIC_OUTPUT_BASE_CH + mic_right
     mic_map = list(PACKAGED_INPUT_SKIP_SYNC_MAP)
@@ -771,13 +765,13 @@ async def test_mic_gain_changes_captured_level_sat1(
 
     await _set_mic_output_packing(
         sess,
-        sat1_rpi_sat1_cmd,
+        hil_cli_cmd,
         enabled=False,
     )
     _step_timing("set_output_packing")
     await _set_mic_output_channels(
         sess,
-        sat1_rpi_sat1_cmd,
+        hil_cli_cmd,
         left_output_ch,
         right_output_ch,
     )
@@ -785,7 +779,7 @@ async def test_mic_gain_changes_captured_level_sat1(
 
     await _set_mic_input_routing(
         sess,
-        sat1_rpi_sat1_cmd,
+        hil_cli_cmd,
         ref_source_mode=REF_SOURCE_DOWNSAMPLED,
         mic_source_mode=MIC_SOURCE_PACKAGED_INPUT,
     )
@@ -823,14 +817,14 @@ async def test_mic_gain_changes_captured_level_sat1(
 
         await _set_mic_input_gains(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             mic_gain=mic_gain,
             ref_gain=Q30_UNITY,
         )
         _step_timing("set_gains")
         await _set_mic_input_routing(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             mic_input_channel_map=mic_map,
         )
         _step_timing("set_input_map")
@@ -896,11 +890,10 @@ async def test_mic_gain_changes_captured_level_sat1(
 
 
 @pytest.mark.hil
-@pytest.mark.sat1
-async def test_ref_gain_changes_captured_level_sat1(
+async def test_hil_ref_gain_changes_captured_level(
     audio_settings_guard: tuple,
-    sat1_rpi_host: str,
-    sat1_rpi_sat1_cmd: str,
+    hil_rpi_host: str,
+    hil_cli_cmd: str,
 ) -> None:
     local_wav = (
         PROJ_ROOT
@@ -919,7 +912,7 @@ async def test_ref_gain_changes_captured_level_sat1(
     local_wav = Path(local_wav)
 
     sess, _ = audio_settings_guard
-    rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(sat1_rpi_host))
+    rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(hil_rpi_host))
     remote_wav = f"/tmp/sat1_ref_gain_fixture_{int(time.time())}.wav"
 
     await sess.upload(local_wav, remote_path=remote_wav)
@@ -927,29 +920,29 @@ async def test_ref_gain_changes_captured_level_sat1(
     try:
         await _set_mic_output_ref_overwrite(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             enabled=False,
         )
         await _set_mic_output_packing(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             enabled=False,
         )
         await _set_mic_output_channels(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             REF_OUTPUT_CH_MAP[0],
             REF_OUTPUT_CH_MAP[1],
         )
         await _set_mic_input_gains(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             mic_gain=Q30_UNITY,
             ref_gain=Q30_LOW,
         )
         await _set_mic_input_routing(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             ref_source_mode=REF_SOURCE_DOWNSAMPLED,
             mic_source_mode=MIC_SOURCE_PACKAGED_INPUT,
             mic_input_channel_map=PACKAGED_INPUT_SKIP_SYNC_MAP,
@@ -974,7 +967,7 @@ async def test_ref_gain_changes_captured_level_sat1(
 
         await _set_mic_input_gains(
             sess,
-            sat1_rpi_sat1_cmd,
+            hil_cli_cmd,
             mic_gain=Q30_UNITY,
             ref_gain=Q30_UNITY,
         )

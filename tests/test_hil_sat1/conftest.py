@@ -5,11 +5,6 @@ import pytest
 
 from tests.conftest import SAT1_HIL_ENABLED
 
-I2S_INPUT_MODE_DOWNSAMPLED = 0
-I2S_INPUT_MODE_PACKAGED = 1
-PIPELINE_TARGET_REF = "ref"
-PIPELINE_TARGET_MIC = "mic"
-
 
 @pytest.fixture(scope="session")
 def require_sat1_hil() -> None:

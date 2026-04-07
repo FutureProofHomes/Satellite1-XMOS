@@ -1,7 +1,6 @@
 import asyncio
 import json
 import math
-import os
 import shlex
 import struct
 import tempfile
@@ -10,13 +9,18 @@ import wave
 from collections import Counter
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, cast
+from typing import AsyncIterator, TypedDict, cast
 
 import pytest
 
 from hil_utils.ssh_helpers import RemoteAudioSession
-from tests.conftest import PROJ_ROOT
-from tests.test_hw_sat1_firmware.conftest import I2S_INPUT_MODE_PACKAGED
+from tests.test_hil.conftest import (
+    I2S_INPUT_MODE_PACKAGED,
+    hil_env_bool,
+    hil_env_float,
+    hil_env_int,
+    hil_env_str,
+)
 
 
 I2S_RATE_HZ = 48000
@@ -27,22 +31,38 @@ UPSAMPLE_FACTOR = I2S_RATE_HZ // PIPELINE_RATE_HZ
 MIC_PASSTHROUGH_OUTPUT_BASE_CH = 4
 PACKAGED_SYNC_WORD = 0x7E57A55A
 
-SAT1_HIL_APLAY_DEV = os.getenv("SAT1_HIL_APLAY_DEV", "hw:0,0")
-SAT1_HIL_ARECORD_DEV = os.getenv("SAT1_HIL_ARECORD_DEV", "hw:0,1")
-SAT1_HIL_PLAYBACK_S = int(os.getenv("SAT1_HIL_PLAYBACK_S", "2"))
-SAT1_HIL_CAPTURE_S = int(os.getenv("SAT1_HIL_CAPTURE_S", "1"))
-SAT1_HIL_MIN_RATIO = float(os.getenv("SAT1_HIL_MIN_RATIO", "1.0"))
-SAT1_HIL_SETTLE_S = float(os.getenv("SAT1_HIL_SETTLE_S", "0.1"))
-SAT1_HIL_WAV_PATTERN_MIN_MATCH_RATIO = float(
-    os.getenv("SAT1_HIL_WAV_PATTERN_MIN_MATCH_RATIO", "0.95")
-)
-SAT1_HIL_APLAY_STRICT_FLAGS = os.getenv("SAT1_HIL_APLAY_STRICT_FLAGS", "1") == "1"
-SAT1_HIL_PACKED_DROP_SAMPLES = int(os.getenv("SAT1_HIL_PACKED_DROP_SAMPLES", "1600"))
+
+class HilAudioSettings(TypedDict):
+    aplay_dev: str
+    arecord_dev: str
+    playback_s: int
+    capture_s: int
+    min_ratio: float
+    settle_s: float
+    wav_pattern_min_match_ratio: float
+    aplay_strict_flags: bool
+    packed_drop_samples: int
 
 
-def _aplay_args() -> list[str]:
-    args = [f"-D{SAT1_HIL_APLAY_DEV}"]
-    if SAT1_HIL_APLAY_STRICT_FLAGS:
+def _hil_audio_settings(hil_board: str) -> HilAudioSettings:
+    return {
+        "aplay_dev": hil_env_str(hil_board, "APLAY_DEV", "hw:0,0"),
+        "arecord_dev": hil_env_str(hil_board, "ARECORD_DEV", "hw:0,1"),
+        "playback_s": hil_env_int(hil_board, "PLAYBACK_S", 2),
+        "capture_s": hil_env_int(hil_board, "CAPTURE_S", 1),
+        "min_ratio": hil_env_float(hil_board, "MIN_RATIO", 1.0),
+        "settle_s": hil_env_float(hil_board, "SETTLE_S", 0.1),
+        "wav_pattern_min_match_ratio": hil_env_float(
+            hil_board, "WAV_PATTERN_MIN_MATCH_RATIO", 0.95
+        ),
+        "aplay_strict_flags": hil_env_bool(hil_board, "APLAY_STRICT_FLAGS", True),
+        "packed_drop_samples": hil_env_int(hil_board, "PACKED_DROP_SAMPLES", 1600),
+    }
+
+
+def _aplay_args(aplay_dev: str, strict_flags: bool) -> list[str]:
+    args = [f"-D{aplay_dev}"]
+    if strict_flags:
         args.extend(
             [
                 "--disable-resample",
@@ -81,10 +101,10 @@ async def _run_cmd(
     return str(result.stdout).strip()
 
 
-async def _get_audio_settings(sess: RemoteAudioSession, sat1_rpi_sat1_cmd: str) -> dict:
+async def _get_audio_settings(sess: RemoteAudioSession, hil_cli_cmd: str) -> dict:
     last_err = ""
     for _ in range(5):
-        cmd = f"{sat1_rpi_sat1_cmd} xmos get-mic-pipeline-settings --json"
+        cmd = f"{hil_cli_cmd} xmos get-mic-pipeline-settings --json"
         out = await _run_cmd(sess, cmd)
         if out:
             return json.loads(out.splitlines()[-1])
@@ -95,7 +115,7 @@ async def _get_audio_settings(sess: RemoteAudioSession, sat1_rpi_sat1_cmd: str) 
 
 async def _set_mic_input_routing(
     sess: RemoteAudioSession,
-    sat1_rpi_sat1_cmd: str,
+    hil_cli_cmd: str,
     *,
     mic_source_mode: int | None = None,
     ref_source_mode: int | None = None,
@@ -112,32 +132,26 @@ async def _set_mic_input_routing(
     if ref_input_channel_map is not None:
         mic_input["ref_input_channel_map"] = [int(v) for v in ref_input_channel_map]
     payload = json.dumps({"mic_input": mic_input}, separators=(",", ":"))
-    cmd = (
-        f"{sat1_rpi_sat1_cmd} xmos set-mic-pipeline-settings --json "
-        f"{shlex.quote(payload)}"
-    )
+    cmd = f"{hil_cli_cmd} xmos set-mic-pipeline-settings --json {shlex.quote(payload)}"
     out = await _run_cmd(sess, cmd)
     assert "True" in out
 
 
 async def _set_mic_output_channels(
-    sess: RemoteAudioSession, sat1_rpi_sat1_cmd: str, left: int, right: int
+    sess: RemoteAudioSession, hil_cli_cmd: str, left: int, right: int
 ) -> None:
     payload = json.dumps(
         {"mic_output": {"i2s_channel_map": [int(left), int(right)]}},
         separators=(",", ":"),
     )
-    cmd = (
-        f"{sat1_rpi_sat1_cmd} xmos set-mic-pipeline-settings --json "
-        f"{shlex.quote(payload)}"
-    )
+    cmd = f"{hil_cli_cmd} xmos set-mic-pipeline-settings --json {shlex.quote(payload)}"
     out = await _run_cmd(sess, cmd)
     assert "True" in out
 
 
 async def _set_mic_output_packing(
     sess: RemoteAudioSession,
-    sat1_rpi_sat1_cmd: str,
+    hil_cli_cmd: str,
     *,
     enabled: bool,
     upsample_channel_map: list[int],
@@ -151,10 +165,7 @@ async def _set_mic_output_packing(
         },
         separators=(",", ":"),
     )
-    cmd = (
-        f"{sat1_rpi_sat1_cmd} xmos set-mic-pipeline-settings --json "
-        f"{shlex.quote(payload)}"
-    )
+    cmd = f"{hil_cli_cmd} xmos set-mic-pipeline-settings --json {shlex.quote(payload)}"
     out = await _run_cmd(sess, cmd)
     assert "True" in out
 
@@ -195,6 +206,8 @@ async def _record_play_and_read(
     *,
     remote_wav: str,
     duration_s: float,
+    arecord_dev: str,
+    aplay_args: list[str],
 ) -> tuple[list[int], list[int]]:
     if play_sess.is_running:
         await play_sess.stop()
@@ -209,12 +222,12 @@ async def _record_play_and_read(
         num_channels=2,
         rate_hz=I2S_RATE_HZ,
         fmt="S32_LE",
-        arecord_args=[f"-D{SAT1_HIL_ARECORD_DEV}", f"-d{duration_int}"],
+        arecord_args=[f"-D{arecord_dev}", f"-d{duration_int}"],
     )
     await play_sess.start_play(
         remote_path=remote_wav,
         num_channels=2,
-        aplay_args=_aplay_args(),
+        aplay_args=aplay_args,
     )
     await asyncio.sleep(duration_s)
 
@@ -355,14 +368,18 @@ def _rms_for_pipeline_channel(samples_48k: list[int]) -> float:
 
 
 @pytest.mark.hil
-@pytest.mark.sat1
-async def test_sat1_input_packaging_lane_identity(
-    require_sat1_hil: None,
-    sat1_rpi_host: str,
-    sat1_rpi_sat1_cmd: str,
+async def test_hil_input_packaging_lane_identity(
+    require_hil: None,
+    hil_board: str,
+    hil_rpi_host: str,
+    hil_cli_cmd: str,
 ) -> None:
-    async with _audio_sessions(sat1_rpi_host) as (ctrl_sess, play_sess, rec_sess):
-        original = await _get_audio_settings(ctrl_sess, sat1_rpi_sat1_cmd)
+    settings = _hil_audio_settings(hil_board)
+    aplay_args = _aplay_args(
+        str(settings["aplay_dev"]), bool(settings["aplay_strict_flags"])
+    )
+    async with _audio_sessions(hil_rpi_host) as (ctrl_sess, play_sess, rec_sess):
+        original = await _get_audio_settings(ctrl_sess, hil_cli_cmd)
         if int(original["available_mic_count"]) != 4:
             pytest.skip(
                 f"Need 4 available mics for this test, got {original['available_mic_count']}"
@@ -375,17 +392,17 @@ async def test_sat1_input_packaging_lane_identity(
         try:
             await _set_mic_input_routing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 mic_source_mode=I2S_INPUT_MODE_PACKAGED,
                 mic_input_channel_map=mic_map,
             )
             await _set_mic_output_packing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 enabled=True,
                 upsample_channel_map=[0, 3, 4, 5, 6, 7],
             )
-            configured = await _get_audio_settings(ctrl_sess, sat1_rpi_sat1_cmd)
+            configured = await _get_audio_settings(ctrl_sess, hil_cli_cmd)
             assert (
                 int(configured["mic_input"]["mic_source_mode"])
                 == I2S_INPUT_MODE_PACKAGED
@@ -406,9 +423,9 @@ async def test_sat1_input_packaging_lane_identity(
                 6,
                 7,
             ], configured
-            await asyncio.sleep(SAT1_HIL_SETTLE_S)
+            await asyncio.sleep(float(settings["settle_s"]))
 
-            frame_count_16k = SAT1_HIL_PLAYBACK_S * PIPELINE_RATE_HZ
+            frame_count_16k = int(settings["playback_s"]) * PIPELINE_RATE_HZ
             ratios: list[float] = []
             low_signal_cases: list[str] = []
             for active_mic in range(4):
@@ -429,14 +446,16 @@ async def test_sat1_input_packaging_lane_identity(
                 rms_by_output_ch: dict[int, float] = {}
                 for left_ch, right_ch in ((4, 5), (6, 7)):
                     await _set_mic_output_channels(
-                        ctrl_sess, sat1_rpi_sat1_cmd, left_ch, right_ch
+                        ctrl_sess, hil_cli_cmd, left_ch, right_ch
                     )
-                    await asyncio.sleep(SAT1_HIL_SETTLE_S)
+                    await asyncio.sleep(float(settings["settle_s"]))
                     left_samples, right_samples = await _record_play_and_read(
                         play_sess,
                         rec_sess,
                         remote_wav=remote_wav,
-                        duration_s=float(SAT1_HIL_CAPTURE_S),
+                        duration_s=float(settings["capture_s"]),
+                        arecord_dev=str(settings["arecord_dev"]),
+                        aplay_args=aplay_args,
                     )
                     rms_by_output_ch[left_ch] = _rms_for_pipeline_channel(left_samples)
                     rms_by_output_ch[right_ch] = _rms_for_pipeline_channel(
@@ -467,7 +486,7 @@ async def test_sat1_input_packaging_lane_identity(
 
                 ratio = on_rms / off_rms
                 ratios.append(ratio)
-                if ratio < SAT1_HIL_MIN_RATIO:
+                if ratio < float(settings["min_ratio"]):
                     low_signal_cases.append(
                         "active_mic={} expected_ch={} on_rms={:.2f} max_other_rms={:.2f} "
                         "ratio={:.2f} min_ratio={:.2f}".format(
@@ -476,7 +495,7 @@ async def test_sat1_input_packaging_lane_identity(
                             on_rms,
                             off_rms,
                             ratio,
-                            SAT1_HIL_MIN_RATIO,
+                            float(settings["min_ratio"]),
                         )
                     )
 
@@ -487,7 +506,7 @@ async def test_sat1_input_packaging_lane_identity(
         finally:
             await _set_mic_input_routing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 mic_source_mode=int(original["mic_input"]["mic_source_mode"]),
                 ref_source_mode=int(original["mic_input"]["ref_source_mode"]),
                 mic_input_channel_map=list(
@@ -499,13 +518,13 @@ async def test_sat1_input_packaging_lane_identity(
             )
             await _set_mic_output_channels(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 int(original["mic_output"]["i2s_channel_map"][0]),
                 int(original["mic_output"]["i2s_channel_map"][1]),
             )
             await _set_mic_output_packing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 enabled=bool(original["mic_output"]["pack_extra_upsample_channels"]),
                 upsample_channel_map=list(
                     original["mic_output"]["upsample_channel_map"]
@@ -516,14 +535,16 @@ async def test_sat1_input_packaging_lane_identity(
 
 
 @pytest.mark.hil
-@pytest.mark.sat1
-async def test_sat1_input_packaging_wav_lane_mapping(
-    require_sat1_hil: None,
-    sat1_rpi_host: str,
-    sat1_rpi_py_cmd: str,
-    sat1_rpi_sat1_cmd: str,
+async def test_hil_input_packaging_wav_lane_mapping(
+    require_hil: None,
+    hil_board: str,
+    hil_rpi_host: str,
+    hil_py_cmd: str,
+    hil_cli_cmd: str,
 ) -> None:
-    async with _audio_sessions(sat1_rpi_host) as (ctrl_sess, play_sess, rec_sess):
+    settings = _hil_audio_settings(hil_board)
+    aplay_args = _aplay_args(settings["aplay_dev"], settings["aplay_strict_flags"])
+    async with _audio_sessions(hil_rpi_host) as (ctrl_sess, play_sess, rec_sess):
         lane_pattern = {
             0: PACKAGED_SYNC_WORD,
             1: 0x22222222,
@@ -532,7 +553,7 @@ async def test_sat1_input_packaging_wav_lane_mapping(
             4: 0x55555555,
             5: 0x66666666,
         }
-        original = await _get_audio_settings(ctrl_sess, sat1_rpi_sat1_cmd)
+        original = await _get_audio_settings(ctrl_sess, hil_cli_cmd)
         mic_map = list(original["mic_input"]["mic_input_channel_map"])
         assert len(mic_map) == 4, f"Unexpected mic_input_channel_map shape: {mic_map}"
         expected_by_output_channel = {
@@ -543,14 +564,14 @@ async def test_sat1_input_packaging_wav_lane_mapping(
         try:
             await _set_mic_input_routing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 mic_source_mode=I2S_INPUT_MODE_PACKAGED,
                 mic_input_channel_map=mic_map,
             )
-            await _set_mic_output_channels(ctrl_sess, sat1_rpi_sat1_cmd, 0, 3)
+            await _set_mic_output_channels(ctrl_sess, hil_cli_cmd, 0, 3)
             await _set_mic_output_packing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 enabled=True,
                 upsample_channel_map=[0, 3, 4, 5, 6, 7],
             )
@@ -559,7 +580,7 @@ async def test_sat1_input_packaging_wav_lane_mapping(
                 local_wav = Path(tmpdir) / "wav_lane_pattern.wav"
                 _write_lane_pattern_wav(
                     local_wav,
-                    sample_count_16k=SAT1_HIL_PLAYBACK_S * PIPELINE_RATE_HZ,
+                    sample_count_16k=settings["playback_s"] * PIPELINE_RATE_HZ,
                     lane_pattern=lane_pattern,
                 )
                 await play_sess.upload(local_wav, remote_path=remote_wav)
@@ -568,7 +589,9 @@ async def test_sat1_input_packaging_wav_lane_mapping(
                 play_sess,
                 rec_sess,
                 remote_wav=remote_wav,
-                duration_s=float(SAT1_HIL_CAPTURE_S),
+                duration_s=float(settings["capture_s"]),
+                arecord_dev=settings["arecord_dev"],
+                aplay_args=aplay_args,
             )
             values_by_output_channel, left_phase_offset, right_phase_offset, _ = (
                 _extract_packed_mic_outputs_phase_aligned(
@@ -582,13 +605,13 @@ async def test_sat1_input_packaging_wav_lane_mapping(
             for channel, expected in expected_by_output_channel.items():
                 values = values_by_output_channel[channel]
                 assert values, f"No captured values for output channel {channel}"
-                values = values[SAT1_HIL_PACKED_DROP_SAMPLES:]
+                values = values[settings["packed_drop_samples"] :]
                 matches = sum(1 for value in values if value == expected)
                 match_ratio = matches / len(values)
-                if match_ratio < SAT1_HIL_WAV_PATTERN_MIN_MATCH_RATIO:
+                if match_ratio < settings["wav_pattern_min_match_ratio"]:
                     failures.append(
                         f"ch={channel} expected=0x{expected:08x} "
-                        f"match_ratio={match_ratio:.3f} min_ratio={SAT1_HIL_WAV_PATTERN_MIN_MATCH_RATIO:.3f} "
+                        f"match_ratio={match_ratio:.3f} min_ratio={settings['wav_pattern_min_match_ratio']:.3f} "
                         f"phase_offset_l={left_phase_offset} phase_offset_r={right_phase_offset} preview={values[:12]}"
                     )
 
@@ -600,7 +623,7 @@ async def test_sat1_input_packaging_wav_lane_mapping(
         finally:
             await _set_mic_input_routing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 mic_source_mode=int(original["mic_input"]["mic_source_mode"]),
                 ref_source_mode=int(original["mic_input"]["ref_source_mode"]),
                 mic_input_channel_map=list(
@@ -612,13 +635,13 @@ async def test_sat1_input_packaging_wav_lane_mapping(
             )
             await _set_mic_output_channels(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 int(original["mic_output"]["i2s_channel_map"][0]),
                 int(original["mic_output"]["i2s_channel_map"][1]),
             )
             await _set_mic_output_packing(
                 ctrl_sess,
-                sat1_rpi_sat1_cmd,
+                hil_cli_cmd,
                 enabled=bool(original["mic_output"]["pack_extra_upsample_channels"]),
                 upsample_channel_map=list(
                     original["mic_output"]["upsample_channel_map"]

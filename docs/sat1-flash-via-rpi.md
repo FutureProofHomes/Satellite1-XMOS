@@ -95,5 +95,5 @@ with a `flashrom ... not found` warning, retry with `SAT1_FLASH_REMOTE_SUDO=1`.
 After successful flash + verify, run Satellite1 HIL tests:
 
 ```bash
-SAT1_HIL=1 SAT1_RPI_HOST=<ssh-host> .venv/bin/python -m pytest -m "hil and sat1" tests/test_hw_sat1_firmware -q
+SAT1_HIL=1 SAT1_RPI_HOST=<ssh-host> .venv/bin/python -m pytest -m "hil and sat1" tests/test_hil_sat1 -q
 ```

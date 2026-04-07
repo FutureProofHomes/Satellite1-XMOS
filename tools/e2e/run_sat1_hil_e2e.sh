@@ -24,7 +24,7 @@ Usage: tools/e2e/run_sat1_hil_e2e.sh [options] [-- <extra pytest args>]
 Run Satellite1 HIL pytest suites with fail-fast and skip policy controls.
 
 Modes (default: --full):
-  --full                Run full SAT1 HIL suite in tests/test_hw_sat1_firmware.
+  --full                Run full SAT1 HIL suite in tests/test_hil and tests/test_hil_sat1.
   --smoke               Run only SAT1 smoke test file.
 
 Behavior options:
@@ -166,17 +166,17 @@ fi
 
 case "$MODE" in
     full)
-        TEST_PATH="tests/test_hw_sat1_firmware"
+        TEST_PATHS=("tests/test_hil" "tests/test_hil_sat1")
         ;;
     smoke)
-        TEST_PATH="tests/test_hw_sat1_firmware/test_sat1_hil_smoke.py"
+        TEST_PATHS=("tests/test_hil_sat1/test_sat1_hil_smoke.py")
         ;;
     *)
         die "unexpected mode: $MODE"
         ;;
 esac
 
-PYTEST_ARGS=(-m pytest "$TEST_PATH" -q -rs)
+PYTEST_ARGS=(-m pytest "${TEST_PATHS[@]}" -q -rs)
 if [[ "$FAIL_FAST" -eq 1 ]]; then
     PYTEST_ARGS+=(-x)
 fi

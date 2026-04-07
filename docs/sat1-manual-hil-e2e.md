@@ -1,7 +1,7 @@
 # Satellite1 Manual HIL/E2E Test Runbook
 
 This document describes how to run the Satellite1 hardware-in-the-loop tests in
-`tests/test_hw_sat1_firmware`.
+`tests/test_hil_sat1`, along with shared HIL tests in `tests/test_hil`.
 
 ## What this covers
 
@@ -57,18 +57,18 @@ ssh "$SAT1_RPI_HOST" "${SAT1_RPI_PY_CMD:-/opt/satellite1/venv/bin/python} -c 'im
 4) Run Satellite1 HIL suite
 
 ```bash
-SAT1_HIL=1 .venv/bin/python -m pytest -m "hil and sat1" tests/test_hw_sat1_firmware -q
+SAT1_HIL=1 .venv/bin/python -m pytest -m "hil and sat1" tests/test_hil_sat1 -q
 ```
 
 ## Current test inventory
 
-- `tests/test_hw_sat1_firmware/test_sat1_hil_smoke.py`
+- `tests/test_hil_sat1/test_sat1_hil_smoke.py`
   - CLI smoke checks for firmware/status read, repeated SPI read consistency, and DAC setup + volume flow.
-- `tests/test_hw_sat1_firmware/test_sat1_hil_mic_input_gain.py`
+- `tests/test_hil/test_mic_input_gain.py`
   - Mic/ref gain round-trip and captured-level checks.
-- `tests/test_hw_sat1_firmware/test_sat1_hil_mic_output_routing.py`
+- `tests/test_hil/test_device_control_api.py`
   - Mic output settings shape and partial/round-trip update checks.
-- `tests/test_hw_sat1_firmware/test_sat1_hil_doa_spi.py`
+- `tests/test_hil_sat1/test_sat1_hil_doa_spi.py`
   - Packaged WAV playback DoA validation via SPI `get-doa` reads.
 
 For deterministic DoA fixture generation and shared unit+HIL workflow, see

@@ -36,14 +36,14 @@ At minimum validate:
 ## Repo entrypoints
 
 Hardware-oriented tests live in:
-- `tests/test_hw_sat1_firmware/`
+- `tests/test_hil_sat1/`
 
 Current baseline references:
-- `tests/test_hw_sat1_firmware/conftest.py`
-- `tests/test_hw_sat1_firmware/test_usb_dfu.py`
+- `tests/test_hil_sat1/conftest.py`
+- `tests/test_hil_sat1/test_usb_dfu.py`
 
 When adding SPI tests, prefer creating:
-- `tests/test_hw_sat1_firmware/test_spi_device_control_*.py`
+- `tests/test_hil_sat1/test_spi_device_control_*.py`
 
 ## Execution guidance
 

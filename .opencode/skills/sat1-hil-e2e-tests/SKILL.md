@@ -13,7 +13,7 @@ Use this skill when validating Satellite1 behavior with real hardware.
 
 This workflow covers:
 - Pi-side CLI smoke checks (`sat1 xmos ...` / `sat1 dac ...`)
-- mic input gain and output routing tests in `tests/test_hw_sat1_firmware`
+- mic input gain and output routing tests in `tests/test_hil` and `tests/test_hil_sat1`
 - optional flash-first flow via Pi-side CLI when xTAG is unavailable
 
 For test suite layout and local pytest usage, see `docs/sat1-test-suite.md`.
