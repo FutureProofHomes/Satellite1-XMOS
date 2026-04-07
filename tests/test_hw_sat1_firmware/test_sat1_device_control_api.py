@@ -142,7 +142,7 @@ def mic_output_settings_guard(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-def test_mic_output_get_settings_shape_sat1(
+def test_sat1_device_control_mic_output_get_settings_shape(
     mic_output_settings_guard,
 ):
     settings = mic_output_settings_guard
@@ -178,7 +178,7 @@ def test_mic_output_get_settings_shape_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-def test_mic_output_set_i2s_channel_map_roundtrip_sat1(
+def test_sat1_device_control_mic_output_set_i2s_channel_map_roundtrip(
     mic_output_settings_guard,
     sat1_rpi_host: str,
     sat1_rpi_sat1_cmd: str,
@@ -198,7 +198,7 @@ def test_mic_output_set_i2s_channel_map_roundtrip_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-def test_mic_output_set_pack_extra_roundtrip_sat1(
+def test_sat1_device_control_mic_output_set_pack_extra_roundtrip(
     mic_output_settings_guard,
     sat1_rpi_host: str,
     sat1_rpi_sat1_cmd: str,
@@ -218,7 +218,7 @@ def test_mic_output_set_pack_extra_roundtrip_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-def test_mic_output_set_ref_overwrite_roundtrip_sat1(
+def test_sat1_device_control_mic_output_set_ref_overwrite_roundtrip(
     mic_output_settings_guard,
     sat1_rpi_host: str,
     sat1_rpi_sat1_cmd: str,
@@ -238,7 +238,7 @@ def test_mic_output_set_ref_overwrite_roundtrip_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-def test_mic_output_set_upsample_channel_map_roundtrip_sat1(
+def test_sat1_device_control_mic_output_set_upsample_channel_map_roundtrip(
     mic_output_settings_guard,
     sat1_rpi_host: str,
     sat1_rpi_sat1_cmd: str,
@@ -258,7 +258,7 @@ def test_mic_output_set_upsample_channel_map_roundtrip_sat1(
 
 @pytest.mark.hil
 @pytest.mark.sat1
-def test_mic_output_partial_update_preserves_untouched_fields_sat1(
+def test_sat1_device_control_mic_output_partial_update_preserves_untouched_fields(
     mic_output_settings_guard,
     sat1_rpi_host: str,
     sat1_rpi_sat1_cmd: str,

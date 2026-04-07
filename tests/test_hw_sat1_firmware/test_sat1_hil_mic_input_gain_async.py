@@ -24,14 +24,18 @@ import pytest
 
 from hil_utils import RemoteAudioSession, CmdResult
 from tests.conftest import PROJ_ROOT
+from tests.test_hw_sat1_firmware.conftest import (
+    I2S_INPUT_MODE_DOWNSAMPLED,
+    I2S_INPUT_MODE_PACKAGED,
+)
 from tests.test_doa.conftest import fixture_wav_required
 
 
 # Constants
 Q30_UNITY = 0x40000000
 Q30_LOW = 0x08000000
-REF_SOURCE_LEGACY_DOWNSAMPLED = 0
-MIC_SOURCE_PACKAGED_INPUT = 1
+REF_SOURCE_DOWNSAMPLED = I2S_INPUT_MODE_DOWNSAMPLED
+MIC_SOURCE_PACKAGED_INPUT = I2S_INPUT_MODE_PACKAGED
 MIC_OUTPUT_BASE_CH = 4
 REF_OUTPUT_CH_MAP = (2, 3)
 PACKAGED_INPUT_SKIP_SYNC_MAP = [1, 2, 3, 4]
@@ -782,7 +786,7 @@ async def test_mic_gain_changes_captured_level_sat1(
     await _set_mic_input_routing(
         sess,
         sat1_rpi_sat1_cmd,
-        ref_source_mode=REF_SOURCE_LEGACY_DOWNSAMPLED,
+        ref_source_mode=REF_SOURCE_DOWNSAMPLED,
         mic_source_mode=MIC_SOURCE_PACKAGED_INPUT,
     )
     _step_timing("set_input_routing_modes")
@@ -946,7 +950,7 @@ async def test_ref_gain_changes_captured_level_sat1(
         await _set_mic_input_routing(
             sess,
             sat1_rpi_sat1_cmd,
-            ref_source_mode=REF_SOURCE_LEGACY_DOWNSAMPLED,
+            ref_source_mode=REF_SOURCE_DOWNSAMPLED,
             mic_source_mode=MIC_SOURCE_PACKAGED_INPUT,
             mic_input_channel_map=PACKAGED_INPUT_SKIP_SYNC_MAP,
         )

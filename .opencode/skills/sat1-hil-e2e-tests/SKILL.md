@@ -16,6 +16,8 @@ This workflow covers:
 - mic input gain and output routing tests in `tests/test_hw_sat1_firmware`
 - optional flash-first flow via Pi-side CLI when xTAG is unavailable
 
+For test suite layout and local pytest usage, see `docs/sat1-test-suite.md`.
+
 ## Primary Entry Point
 
 **Always use the helper script:** `tools/e2e/run_sat1_hil_e2e.sh`
@@ -56,7 +58,7 @@ The helper script automatically:
 
 1. Sources `tools/env/xmos_env.sh` (loads `.env` with `SAT1_RPI_HOST`, etc.)
 2. Exports required env vars: `SAT1_HIL=1`, `SAT1_RPI_HOST`, `SAT1_RPI_CLI_CMD`, `SAT1_RPI_PY_CMD`
-3. Enables optional test gates by default (`SAT1_HIL_MIC_PATTERN_TEST=1`, etc.)
+3. Enables optional playback/consistency gates by default (e.g., `SAT1_HIL_DOA_PLAYBACK=1`)
 4. Runs pytest with fail-fast (`-x`) and no-skip enforcement
 5. Reports skipped tests as failures unless `--allow-skips` is used
 
@@ -68,7 +70,7 @@ The helper script automatically:
 | `--smoke` | Run only smoke test file |
 | `--allow-skips` | Don't fail when tests are skipped |
 | `--no-fail-fast` | Disable pytest `-x` |
-| `--disable-optional` | Don't auto-enable optional pattern/playback gates |
+| `--disable-optional` | Don't auto-enable optional playback/consistency gates |
 | `--rpi-host HOST` | Override `SAT1_RPI_HOST` |
 | `--sat1-cmd CMD` | Override `SAT1_RPI_CLI_CMD` |
 | `--sat1-py-cmd CMD` | Override `SAT1_RPI_PY_CMD` |
@@ -80,3 +82,4 @@ The helper script automatically:
 - Satellite1 HIL tests do not depend on xscope logs.
 - The script requires `SAT1_RPI_HOST` via `.env` or `--rpi-host` argument.
 - For exploratory runs with partial hardware, use `--allow-skips`.
+- Full SAT1 HIL runs can exceed 2 minutes; increase the runner/CLI timeout when invoking the suite.
