@@ -28,16 +28,17 @@ static void update_mic_output_channel_map(device_control_audio_cfg_ctx_t *ctx)
     xassert(ctx->mic_output_settings != NULL);
 
     settings = &ctx->mic_output_settings->pending;
-    settings->i2s_channel_map[0] = ctx->mic_out_ch_select.left;
-    settings->i2s_channel_map[1] = ctx->mic_out_ch_select.right;
-
-    settings->upsample_channel_map[0] = ctx->mic_out_ch_select.left;
-    settings->upsample_channel_map[1] = ctx->mic_out_ch_select.right;
-    settings->upsample_channel_map[2] = 4;
-    settings->upsample_channel_map[3] = 5;
-    settings->upsample_channel_map[4] = 6;
-    settings->upsample_channel_map[5] = 7;
-    settings->pack_extra_upsample_channels = 1;
+    if (settings->pack_extra_upsample_channels) {
+        settings->upsample_channel_map[0] = ctx->mic_out_ch_select.left;
+        settings->upsample_channel_map[1] = ctx->mic_out_ch_select.left;
+        settings->upsample_channel_map[2] = ctx->mic_out_ch_select.left;
+        settings->upsample_channel_map[3] = ctx->mic_out_ch_select.right;
+        settings->upsample_channel_map[4] = ctx->mic_out_ch_select.right;
+        settings->upsample_channel_map[5] = ctx->mic_out_ch_select.right;
+    } else {
+        settings->i2s_channel_map[0] = ctx->mic_out_ch_select.left;
+        settings->i2s_channel_map[1] = ctx->mic_out_ch_select.right;
+    }
 
     ctx->mic_output_settings->active = *settings;
     ctx->mic_output_settings->pending_valid = 1;
@@ -206,8 +207,8 @@ void audio_cfg_servicer_init(device_control_audio_cfg_ctx_t *ctx,
         ctx->mic_out_ch_select.right =
             mic_output_settings->active.i2s_channel_map[1];
     } else {
-        ctx->mic_out_ch_select.left = 0;
-        ctx->mic_out_ch_select.right = AUDIO_PIPELINE_OUTPUT_CHANNEL_INDEX_MAX;
+        ctx->mic_out_ch_select.left = 7;
+        ctx->mic_out_ch_select.right = 5;
     }
 }
 
@@ -224,4 +225,3 @@ void audio_cfg_servicer_start(device_control_audio_cfg_ctx_t *ctx, device_contro
         NULL
     );
 }
-

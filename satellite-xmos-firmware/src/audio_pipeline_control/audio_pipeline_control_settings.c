@@ -18,11 +18,11 @@ void mic_output_pipeline_settings_default(
 {
     settings->pack_extra_upsample_channels = 0;
 
-    settings->i2s_channel_map[0] = 0;
-    settings->i2s_channel_map[1] = 3;
+    settings->i2s_channel_map[0] = 7;
+    settings->i2s_channel_map[1] = 5;
 
-    settings->upsample_channel_map[0] = 0;
-    settings->upsample_channel_map[1] = 3;
+    settings->upsample_channel_map[0] = 7;
+    settings->upsample_channel_map[1] = 5;
     settings->upsample_channel_map[2] = 4;
     settings->upsample_channel_map[3] = 5;
     settings->upsample_channel_map[4] = 6;
