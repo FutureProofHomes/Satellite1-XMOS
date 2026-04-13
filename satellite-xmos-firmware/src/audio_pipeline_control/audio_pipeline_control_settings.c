@@ -16,7 +16,7 @@ static bool audio_pipeline_packaged_input_channel_index_is_valid(
 void mic_output_pipeline_settings_default(
     mic_output_pipeline_settings_t *settings)
 {
-    settings->pack_extra_upsample_channels = 1;
+    settings->pack_extra_upsample_channels = 0;
 
     settings->i2s_channel_map[0] = 0;
     settings->i2s_channel_map[1] = 3;
