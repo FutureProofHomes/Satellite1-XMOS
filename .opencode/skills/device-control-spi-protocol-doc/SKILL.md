@@ -40,6 +40,12 @@ Document all of the following:
 - inventory of firmware servicers reachable through this protocol
 - function/purpose of each servicer and each resource it exposes
 
+## Versioning policy
+
+- Bump `CONTROL_VERSION` for any device-control protocol change.
+- Add or update a protocol changelog entry for the new version.
+- Ensure the protocol doc references the changelog for compatibility checks.
+
 ## Servicer inventory requirements
 
 When producing protocol documentation, include a dedicated section that lists all

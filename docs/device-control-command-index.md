@@ -16,24 +16,29 @@ Source references:
 
 ## Audio Pipeline Commands
 
+Version provenance notes:
+
+- Dates and hashes reference protocol changes since `origin/main`.
+- Entries that predate `origin/main` are marked `pre-origin/main`.
+
 ### Resource IDs
 
-| Resource ID | Symbol | Scope |
-| --- | --- | --- |
-| `230` | `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` | Mic output settings |
-| `231` | `AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID` | Speaker settings |
-| `232` | `AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID` | Mic input settings |
+| Resource ID | Symbol | Scope | Since version |
+| --- | --- | --- | --- |
+| `230` | `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` | Mic output settings | 2026-03-28 (1541459) |
+| `231` | `AUDIO_PIPELINE_SPEAKER_SETTINGS_RESID` | Speaker settings | 2026-03-28 (1541459) |
+| `232` | `AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID` | Mic input settings | 2026-03-28 (1541459) |
 
 ### Commands (shared across all three audio-pipeline resources)
 
-| Command ID | Symbol | Direction | Purpose |
-| --- | --- | --- | --- |
-| `0` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` | Read | Return current active settings for the selected resource |
-| `1` | `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` | Write | Apply partial update via field mask and update struct |
-| `2` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT` | Read | Return number of mic input channels compiled into firmware (resource `232` only) |
-| `3` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_RAW` | Read | Return latest raw DoA estimate in mrad (resource `232` only) |
-| `4` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_SMOOTH` | Read | Return latest smoothed DoA estimate in mrad (resource `232` only) |
-| `5` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS` | Read | Return frame counter and per-channel mean-abs at DoA input (resource `232` only) |
+| Command ID | Symbol | Direction | Purpose | Since version |
+| --- | --- | --- | --- | --- |
+| `0` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_SETTINGS` | Read | Return current active settings for the selected resource | 2026-03-19 (950a903) |
+| `1` | `AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL` | Write | Apply partial update via field mask and update struct | 2026-03-19 (950a903) |
+| `2` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_AVAILABLE_MIC_COUNT` | Read | Return number of mic input channels compiled into firmware (resource `232` only) | 2026-03-28 (c837de7) |
+| `3` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_RAW` | Read | Return latest raw DoA estimate in mrad (resource `232` only) | 2026-03-30 (3d42f15) |
+| `4` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_DOA_SMOOTH` | Read | Return latest smoothed DoA estimate in mrad (resource `232` only) | 2026-03-30 (3d42f15) |
+| `5` | `AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS` | Read | Return frame counter and per-channel mean-abs at DoA input (resource `232` only) | 2026-04-06 (92794ba) |
 
 ### Payload shape summary
 
@@ -98,16 +103,16 @@ Source references:
 
 ### GPIO
 
-- Resources: `211`, `212`, `221`
-- Commands:
+- Resources: `211`, `212`, `221` (since version: pre-origin/main)
+- Commands (since version: pre-origin/main):
   - `0` `GPIO_CONTROLLER_SERVICER_CMD_READ_PORT`
   - `1` `GPIO_CONTROLLER_SERVICER_CMD_WRITE_PORT`
   - `2` `GPIO_CONTROLLER_SERVICER_CMD_SET_PIN`
 
 ### DFU
 
-- Resource: `240`
-- Commands:
+- Resource: `240` (since version: pre-origin/main)
+- Commands (since version: pre-origin/main):
   - `0` DETACH
   - `1` DNLOAD
   - `2` UPLOAD
@@ -122,6 +127,6 @@ Source references:
 
 ### LED ring
 
-- Resource: `200`
-- Commands:
+- Resource: `200` (since version: pre-origin/main)
+- Commands (since version: pre-origin/main):
   - `0` `LED_RING_SERVICER_CMD_WRITE_RAW`

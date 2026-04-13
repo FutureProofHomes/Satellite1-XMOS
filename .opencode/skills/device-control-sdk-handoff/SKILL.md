@@ -42,6 +42,7 @@ The handoff file must include:
 - backward compatibility status
 - expected behavior on old firmware vs new firmware
 - SDK fallback requirements (if any)
+- protocol version bump (`CONTROL_VERSION`) and changelog entry reference
 
 4. SDK implementation requirements
 - exact Python modules expected to change in `Satellite1-RPi`

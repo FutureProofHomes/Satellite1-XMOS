@@ -53,3 +53,5 @@ If these files fully answer the question, stop there.
 
 - If command docs and code disagree, report code as source of truth.
 - If uncertain, state exactly which file/line needs confirmation.
+- If any command/resource/payload change is identified, note that it requires a
+  `CONTROL_VERSION` bump and a protocol changelog entry.

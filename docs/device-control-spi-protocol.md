@@ -3,6 +3,12 @@
 This document describes the SPI transport protocol currently implemented by the
 device-control stack in this repository.
 
+Protocol change tracking:
+
+- `docs/device-control-protocol-changelog.md` records host-visible changes.
+- `CONTROL_VERSION` must be bumped for any new protocol/command change going
+  forward.
+
 Primary implementation references:
 
 - `modules/fph/rtos_device_control/transport/spi/device_control_spi.c`
