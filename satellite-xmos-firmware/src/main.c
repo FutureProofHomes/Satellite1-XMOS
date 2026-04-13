@@ -375,6 +375,7 @@ void audio_pipeline_input(void *input_app_data,
 #endif
 
 #if ON_TILE(1)
+#if appconfDOA_TESTING
     float ang = doa4_process_frame(&doa, mic_ptr, -31);
 
 #if appconfLED_RING
@@ -405,6 +406,7 @@ void audio_pipeline_input(void *input_app_data,
     }
 #else
     (void) ang;
+#endif
 #endif
 #endif
 #endif
