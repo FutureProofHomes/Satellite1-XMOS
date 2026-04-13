@@ -215,49 +215,67 @@ function(create_flash_image_target)
   else()
     set(TRACK_POSTBUILD_COMMAND "")
   endif()
+  set(FLASH_IMAGE_OUTPUTS ${ARGV0}.factory.bin ${ARGV0}.factory.md5)
+  set(FLASH_IMAGE_XE ${ARGV0}.xe)
   if(${ARGC} EQUAL 1)
-    add_custom_target(create_flash_img_${ARGV0}
-        COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe -o ${ARGV0}.factory.bin
+    add_custom_command(
+        OUTPUT ${FLASH_IMAGE_OUTPUTS}
+        COMMAND xflash --quad-spi-clock 50MHz --factory ${FLASH_IMAGE_XE} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         ${TRACK_POSTBUILD_COMMAND}
-        DEPENDS ${ARGV0}
+        DEPENDS ${ARGV0} ${FLASH_IMAGE_XE}
         COMMENT
           "Create factory flash image."
         USES_TERMINAL
         VERBATIM
+      )
+    add_custom_target(create_flash_img_${ARGV0}
+        DEPENDS ${FLASH_IMAGE_OUTPUTS}
       )
   elseif(${ARGC} EQUAL 2)
-    add_custom_target(create_flash_img_${ARGV0}
-        COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} -o ${ARGV0}.factory.bin
+    add_custom_command(
+        OUTPUT ${FLASH_IMAGE_OUTPUTS}
+        COMMAND xflash --quad-spi-clock 50MHz --factory ${FLASH_IMAGE_XE} --boot-partition-size ${ARGV1} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         ${TRACK_POSTBUILD_COMMAND}
-        DEPENDS ${ARGV0}
+        DEPENDS ${ARGV0} ${FLASH_IMAGE_XE}
         COMMENT
           "Create factory flash image."
         USES_TERMINAL
         VERBATIM
+      )
+    add_custom_target(create_flash_img_${ARGV0}
+        DEPENDS ${FLASH_IMAGE_OUTPUTS}
       )
   elseif(${ARGC} EQUAL 3)
-    add_custom_target(create_flash_img_${ARGV0}
-        COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
+    add_custom_command(
+        OUTPUT ${FLASH_IMAGE_OUTPUTS}
+        COMMAND xflash --quad-spi-clock 50MHz --factory ${FLASH_IMAGE_XE} --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         ${TRACK_POSTBUILD_COMMAND}
-        DEPENDS ${ARGV0}
+        DEPENDS ${ARGV0} ${FLASH_IMAGE_XE}
         COMMENT
           "Create factory flash image."
         USES_TERMINAL
         VERBATIM
       )
+    add_custom_target(create_flash_img_${ARGV0}
+        DEPENDS ${FLASH_IMAGE_OUTPUTS}
+      )
   elseif(${ARGC} EQUAL 4)
-  add_custom_target(create_flash_img_${ARGV0}
-        COMMAND xflash --quad-spi-clock 50MHz --factory ${ARGV0}.xe --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
+  add_custom_command(
+        OUTPUT ${FLASH_IMAGE_OUTPUTS}
+        COMMAND xflash --quad-spi-clock 50MHz --factory ${FLASH_IMAGE_XE} --boot-partition-size ${ARGV1} --data ${ARGV2} -o ${ARGV0}.factory.bin
         COMMAND ${Python3_EXECUTABLE} -c "import hashlib; print(hashlib.md5(open('${ARGV0}.factory.bin', 'rb').read()).hexdigest())" > ${ARGV0}.factory.md5
         ${TRACK_POSTBUILD_COMMAND}
-        DEPENDS ${ARGV0} ${ARGV3}
+        DEPENDS ${ARGV0} ${FLASH_IMAGE_XE} ${ARGV3}
         COMMENT
           "Create factory flash image."
         USES_TERMINAL
         VERBATIM
+    )
+  add_custom_target(create_flash_img_${ARGV0}
+        DEPENDS ${FLASH_IMAGE_OUTPUTS}
     )
   else()
     message(FATAL_ERROR "Invalid number of arguments passed to create_flash_image_target")
@@ -342,4 +360,3 @@ function(query_tools_version)
     set(XTC_VERSION_MINOR ${XCC_VERSION_MINOR} PARENT_SCOPE)
     set(XTC_VERSION_PATCH ${XCC_VERSION_PATCH} PARENT_SCOPE)
 endfunction()
-
