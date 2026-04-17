@@ -1,12 +1,12 @@
 # SQ66 Manual Dev-Mode Build and HIL/E2E Test Runbook
 
 This document is for users who want to run the SQ66 dev-mode firmware build and
-the full hardware-in-the-loop (HIL) SQ66 pytest suite manually.
+the full hardware-in-the-loop (HIL) SQ66 pytest suite.
 
 ## What this covers
 
 - Build SQ66 firmware in dev mode (`sq66_firmware_fixed_delay.xe`)
-- Run the full SQ66 HIL/e2e pytest selection in `tests/test_hw_sq66_firmware`
+- Run the full SQ66 HIL/e2e pytest selection (`tests/test_hil` + `tests/test_hw_sq66_firmware`)
 - Explain what each test validates
 
 ## Prerequisites
@@ -88,17 +88,32 @@ Expected firmware artifact:
 
 - `build_sq66_dev/sq66_firmware_fixed_delay.xe`
 
-5) Run the full SQ66 HIL/e2e suite
+5) Run the full SQ66 HIL/e2e suite (recommended wrapper)
 
 ```bash
-SQ66_HIL=1 SQ66_HIL_RUN_FIRMWARE=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q
+tools/e2e/run_sq66_hil_e2e.sh --full
 ```
 
 If firmware is already running and should not be started by pytest:
 
 ```bash
-SQ66_HIL=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q
+tools/e2e/run_sq66_hil_e2e.sh --full --no-run-firmware
 ```
+
+If using `--no-run-firmware` without a live xscope log path, the wrapper
+automatically disables the xscope-based DoA playback test to avoid skip/fail
+noise under strict no-skip mode. To force that test in this mode, set
+`SQ66_HIL_XSCOPE_LOG` and keep optional tests enabled.
+
+To run only smoke checks:
+
+```bash
+tools/e2e/run_sq66_hil_e2e.sh --smoke
+```
+
+`run_sq66_hil_e2e.sh` defaults to fail on skipped tests. Use `--allow-skips`
+for exploratory runs, or `--disable-optional` to turn off optional DoA playback
+gates explicitly.
 
 ## Full test inventory and purpose
 
@@ -115,31 +130,21 @@ SQ66_HIL=1 .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q
 - `test_sq66_cli_plugged_in_reports_unsupported`
   - Verifies line-out jack detect command is rejected as unsupported on SQ66.
 
-### `tests/test_hw_sq66_firmware/test_sq66_hil_mic_input_gain.py`
+### `tests/test_hil/*`
 
-- `test_mic_input_settings_shape_sq66`
-  - Verifies mic-input settings schema and expected channel-map lengths.
-- `test_mic_input_gain_roundtrip_sq66`
-  - Writes mic/ref gains and verifies values round-trip via readback.
-- `test_mic_gain_changes_captured_level_sq66`
-  - Verifies increasing mic gain raises captured RMS level.
-  - May skip if captured signal is too small for reliable comparison.
-- `test_ref_gain_changes_captured_level_sq66`
-  - Verifies increasing reference gain raises captured RMS level.
-  - May skip if reference-linked signal is not observable on this setup.
+- Shared SAT1/SQ66 HIL coverage for:
+  - mic input gain behavior
+  - mic input/output packaging and routing
+  - mic output device-control API round-trips
 
-### `tests/test_hw_sq66_firmware/test_sq66_hil_mic_output_routing.py`
+### `tests/test_hw_sq66_firmware/test_sq66_hil_doa_spi.py`
 
-- `test_mic_output_get_settings_shape_sq66`
-  - Verifies mic-output settings fields, types, and valid ranges.
-- `test_mic_output_set_i2s_channel_map_roundtrip_sq66`
-  - Verifies updating I2S output channel map round-trips correctly.
-- `test_mic_output_set_pack_extra_roundtrip_sq66`
-  - Verifies toggling pack-extra-upsample-channels round-trips correctly.
-- `test_mic_output_set_upsample_channel_map_roundtrip_sq66`
-  - Verifies updating upsample channel map round-trips correctly.
-- `test_mic_output_partial_update_preserves_untouched_fields_sq66`
-  - Verifies partial update changes only targeted fields.
+- `test_sq66_mic_input_routing_roundtrip_spi`
+  - Verifies SQ66 mic-input routing/source-mode roundtrip over SDK/SPI.
+- `test_sq66_doa_seq_progresses_with_packaged_playback_spi`
+  - Verifies DoA raw/smooth sequence counters advance during packaged playback.
+- `test_sq66_doa_estimate_from_packaged_wav_playback_spi`
+  - Verifies DoA estimate behavior from packaged playback using SPI reads.
 
 ### `tests/test_hw_sq66_firmware/test_sq66_hil_doa_playback.py`
 

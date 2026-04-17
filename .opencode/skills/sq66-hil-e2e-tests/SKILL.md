@@ -11,6 +11,18 @@ metadata:
 
 Use this skill when validating SQ66 end-to-end behavior with real hardware.
 
+Default policy:
+- Run the full SQ66 HIL selection via `tools/e2e/run_sq66_hil_e2e.sh --full`.
+- Only narrow to smoke/single-test/marker-scoped commands when the user explicitly asks.
+
+This single skill covers both:
+- test-only SQ66 HIL runs
+- build + full SQ66 end-to-end runs
+
+If the user asks for build + full end-to-end, run this sequence:
+1) `tools/e2e/run_sq66_dev.sh --build`
+2) `tools/e2e/run_sq66_hil_e2e.sh --full`
+
 This workflow covers:
 - adapter detect-only checks
 - optional firmware run orchestration via `tools/e2e/run_sq66_dev.sh`
@@ -19,7 +31,12 @@ This workflow covers:
 
 ## Test suite
 
-- `tests/test_hw_sq66_firmware/test_sq66_hil_smoke.py`
+- `tests/test_hil` (shared SAT1/SQ66 HIL coverage)
+- `tests/test_hw_sq66_firmware` (SQ66-specific smoke and DoA checks)
+
+Primary wrapper script:
+
+- `tools/e2e/run_sq66_hil_e2e.sh`
 
 ## Required environment
 
@@ -68,11 +85,23 @@ Recommended wrapper command:
 
 Primary:
 
-- `source tools/env/xmos_env.sh && .venv/bin/python -m pytest tests/test_hw_sq66_firmware -q`
+- `tools/e2e/run_sq66_hil_e2e.sh --full`
+
+Build + full end-to-end:
+
+- `source tools/env/xmos_env.sh && tools/e2e/run_sq66_dev.sh --build && tools/e2e/run_sq66_hil_e2e.sh --full`
+
+Wrapper smoke mode:
+
+- `tools/e2e/run_sq66_hil_e2e.sh --smoke`
+
+Wrapper allow-skips mode:
+
+- `tools/e2e/run_sq66_hil_e2e.sh --full --allow-skips`
 
 Marker scoped:
 
-- `source tools/env/xmos_env.sh && .venv/bin/python -m pytest -m "hil and sq66" tests/test_hw_sq66_firmware -q`
+- `source tools/env/xmos_env.sh && SAT1_HIL=0 SQ66_HIL=1 .venv/bin/python -m pytest -m "hil" tests/test_hil tests/test_hw_sq66_firmware -q`
 
 Single test examples:
 
@@ -88,7 +117,11 @@ Single test examples:
    - `ssh "$SQ66_RPI_HOST" "${SQ66_RPI_CLI_CMD:-sat1} -c 'import satellite1; print(1)'"`
 2. Confirm adapter visibility with detect-only test.
 3. Run firmware (`SQ66_HIL_RUN_FIRMWARE=1`) or ensure firmware is already running.
-4. Run full SQ66 HIL smoke suite.
+4. Run full SQ66 HIL suite via `tools/e2e/run_sq66_hil_e2e.sh --full`.
+
+When using `--no-run-firmware`, provide `SQ66_HIL_XSCOPE_LOG` if you want to
+keep xscope-based DoA playback enabled; otherwise the wrapper disables that
+optional gate automatically.
 
 ## Expected behavior
 
@@ -113,6 +146,9 @@ Single test examples:
     the SDK-matching config file and `SQ66_RPI_CLI_CMD` uses remote `$HOME`
 - Runner exited early:
   - run `tools/e2e/run_sq66_dev.sh --run` manually and inspect xscope output
+- Wrapper reports skipped tests as failure:
+  - rerun with `--allow-skips` for exploratory runs
+  - or ensure optional DoA/xscope prerequisites are set
 
 ## Notes
 

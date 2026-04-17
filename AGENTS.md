@@ -23,7 +23,6 @@ Check for matching skills for:
   - sq66 devmode run / test
   - sat1 xTAG dev run / debug
   - sq66 hil / e2e tests
-  - sq66 full end-to-end run
   - sat1 hil / e2e tests
   - sat1 flash via rpi cli
   - device-control SPI protocol docs
@@ -41,7 +40,7 @@ Check for matching skills for:
 - Use `device-control-owner` for device-control protocol or command inventory changes, including SPI transport behavior and servicer command definitions.
 - For SQ66 fixed workflows, always load `sq66-devmode-run` and prefer the `run_sq66_dev` tool.
 - For SQ66 HIL/e2e validation, load `sq66-hil-e2e-tests` before running pytest hardware checks.
-- For prompts like "build sq66 in dev mode and run full end-to-end test", load `sq66-full-e2e` and follow it exactly.
+- For prompts like "build sq66 in dev mode and run full end-to-end test", use `sq66-hil-e2e-tests` and follow its build+full sequence.
 - For Satellite1 HIL/e2e validation, load `sat1-hil-e2e-tests` before running pytest hardware checks.
 - For Satellite1 flash without xTAG, load `sat1-flash-via-rpi` and use `tools/e2e/run_sat1_flash_via_rpi.sh`.
 - For Satellite1 xTAG bring-up/run/debug without xscope, load `sat1-dev-xtag-run` and use `tools/e2e/run_sat1_dev_xtag.sh`.
