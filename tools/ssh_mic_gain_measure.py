@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import os
 import sys
+import tempfile
 import time
 import wave
 import ast
@@ -68,6 +69,7 @@ async def _run(
     snapshot_delay: float,
     snapshot_count: int,
     snapshot_period: float,
+    run_dir: Path | None,
     quiet: bool,
 ) -> int:
     if not wav_path.exists():
@@ -248,30 +250,43 @@ async def _run(
                 _log(quiet, info_text.strip())
 
         if analyze:
-            local_rec = wav_path.with_name(f"{wav_path.stem}_recorded.wav")
-            t0 = time.monotonic()
-            await sess.sftp_get(remote_rec, local_rec, preserve=True)
-            _log(quiet, f"timing.download: {time.monotonic() - t0:.3f}s")
-            _log(quiet, "analysis: recorded")
-            _analyze_wav(
-                local_rec,
-                mode=recording_mode,
-                lane=analyze_lane,
-                channel=analyze_channel,
-                window_ms=window_ms,
-                hop_ms=hop_ms,
-                quiet=quiet,
-            )
-            _estimate_gain(
-                injected_path=wav_path,
-                recorded_path=local_rec,
-                recording_mode=recording_mode,
-                injected_mode=injected_mode,
-                channel=analyze_channel,
-                window_ms=window_ms,
-                hop_ms=hop_ms,
-                quiet=quiet,
-            )
+            tmp_ctx = None
+            if run_dir is None:
+                tmp_ctx = tempfile.TemporaryDirectory(prefix="sat1_hil_run_")
+                local_root = Path(tmp_ctx.name)
+            else:
+                local_root = run_dir
+                local_root.mkdir(parents=True, exist_ok=True)
+
+            try:
+                local_rec = local_root / f"{wav_path.stem}_recorded.wav"
+                t0 = time.monotonic()
+                await sess.sftp_get(remote_rec, local_rec, preserve=True)
+                _log(quiet, f"timing.download: {time.monotonic() - t0:.3f}s")
+                _log(quiet, f"recorded_local: {local_rec}")
+                _log(quiet, "analysis: recorded")
+                _analyze_wav(
+                    local_rec,
+                    mode=recording_mode,
+                    lane=analyze_lane,
+                    channel=analyze_channel,
+                    window_ms=window_ms,
+                    hop_ms=hop_ms,
+                    quiet=quiet,
+                )
+                _estimate_gain(
+                    injected_path=wav_path,
+                    recorded_path=local_rec,
+                    recording_mode=recording_mode,
+                    injected_mode=injected_mode,
+                    channel=analyze_channel,
+                    window_ms=window_ms,
+                    hop_ms=hop_ms,
+                    quiet=quiet,
+                )
+            finally:
+                if tmp_ctx is not None:
+                    tmp_ctx.cleanup()
     finally:
         await sess.close()
         await play_sess.close()
@@ -348,6 +363,14 @@ def _parse_args() -> argparse.Namespace:
         "--sat1-cmd",
         default=os.getenv("SAT1_RPI_CLI_CMD", "sat1"),
         help="SAT1 CLI command on remote host (default: SAT1_RPI_CLI_CMD or 'sat1')",
+    )
+    parser.add_argument(
+        "--run-dir",
+        default=os.getenv("SAT1_HIL_RUN_DIR", ""),
+        help=(
+            "Local directory for downloaded recording artifacts during analysis "
+            "(default: temporary run dir)"
+        ),
     )
     parser.add_argument(
         "--mic-index",
@@ -479,6 +502,7 @@ def main() -> int:
     last_rc = 0
     for idx in range(iterations):
         mic_gain = gains[idx]
+        run_dir = Path(args.run_dir).expanduser().resolve() if args.run_dir else None
         rc = asyncio.run(
             _run(
                 args.host,
@@ -509,6 +533,7 @@ def main() -> int:
                 snapshot_delay=args.snapshot_delay,
                 snapshot_count=args.snapshot_count,
                 snapshot_period=args.snapshot_period,
+                run_dir=run_dir,
                 quiet=quiet,
             )
         )
