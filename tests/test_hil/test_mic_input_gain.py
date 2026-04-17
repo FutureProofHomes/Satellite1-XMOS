@@ -10,11 +10,9 @@ import asyncio
 import json
 import math
 import os
-import re
 import shlex
 import statistics
 import struct
-import tempfile
 import time
 import wave
 from pathlib import Path
@@ -73,6 +71,8 @@ I2S_RATE_HZ = 48000
 PIPELINE_RATE_HZ = 16000
 UPSAMPLE_FACTOR = I2S_RATE_HZ // PIPELINE_RATE_HZ
 REMOTE_CLI_TIMEOUT_S = int(os.getenv("SAT1_HIL_REMOTE_SDK_TIMEOUT_S", "40"))
+HIL_FIXTURE_DIR = PROJ_ROOT / "tests" / "test_hil" / "fixtures"
+MIC_GAIN_FIXTURE_WAV = HIL_FIXTURE_DIR / "mic_gain_test_fixture.wav"
 
 
 def _timing_enabled() -> bool:
@@ -121,17 +121,21 @@ def _load_packed_wav_lane(path: Path, lane: int) -> tuple[list[int], int]:
         assert rate_hz == I2S_RATE_HZ, f"expected 48kHz WAV, got {rate_hz}"
         raw = wf.readframes(num_frames)
 
-    if lane < 1 or lane > 4:
-        raise ValueError("lane must be in range 1-4")
+    if lane < 0 or lane > 5:
+        raise ValueError("lane must be in range 0-5")
 
     samples = _decode_pcm(raw, sample_width)
     left = samples[0::2]
     right = samples[1::2]
-    if lane in (1, 2):
+    if lane < UPSAMPLE_FACTOR:
         signal = left[lane::UPSAMPLE_FACTOR]
     else:
-        signal = right[lane - 3 :: UPSAMPLE_FACTOR]
+        signal = right[lane - UPSAMPLE_FACTOR :: UPSAMPLE_FACTOR]
     return signal, PIPELINE_RATE_HZ
+
+
+def _packaged_input_map_for_board(_: str | None = None) -> list[int]:
+    return list(PACKAGED_INPUT_SKIP_SYNC_MAP)
 
 
 def _rms_window_stats(
@@ -280,79 +284,23 @@ def _extract_samples_from_wav(wav_data: bytes, channel_index: int = 0) -> list[i
     return selected
 
 
-def _parse_cli_repr(out: str) -> dict:
-    match = re.match(r"(\w+)\((.*)\)$", out)
-    if not match:
-        raise ValueError(f"Unexpected CLI output format: {out}")
-
-    fields_str = match.group(2)
-    result_dict: dict[str, object] = {}
-
-    def _parse_value(val_str: str) -> object:
-        val_str = val_str.strip()
-        if val_str.startswith("(") and val_str.endswith(")"):
-            inner = val_str[1:-1]
-            return tuple(int(x.strip()) for x in inner.split(",") if x.strip())
-        try:
-            return int(val_str)
-        except ValueError:
-            return val_str
-
-    depth = 0
-    current_field = ""
-    current_value = ""
-    in_value = False
-
-    for ch in fields_str:
-        if not in_value:
-            if ch == "=":
-                in_value = True
-            elif ch.isalnum() or ch == "_":
-                current_field += ch
-        else:
-            if ch == "(":
-                depth += 1
-                current_value += ch
-            elif ch == ")":
-                depth -= 1
-                current_value += ch
-            elif ch == "," and depth == 0:
-                result_dict[current_field] = _parse_value(current_value)
-                current_field = ""
-                current_value = ""
-                in_value = False
-            else:
-                current_value += ch
-
-    if current_field:
-        result_dict[current_field] = _parse_value(current_value)
-
-    return result_dict
-
-
-async def _run_cli_command(
-    sess: RemoteAudioSession,
-    sat1_cmd: str,
-    cmd: str,
-) -> dict:
-    """Run a CLI command and parse repr response."""
+async def _get_audio_settings(sess: RemoteAudioSession, sat1_cmd: str) -> dict:
     t0 = time.monotonic()
-    full_cmd = f"{sat1_cmd} xmos {cmd}"
-    result: CmdResult = await sess.cmd(full_cmd, timeout=REMOTE_CLI_TIMEOUT_S)
-
+    result: CmdResult = await sess.cmd(
+        f"{sat1_cmd} xmos get-mic-pipeline-settings --json",
+        timeout=REMOTE_CLI_TIMEOUT_S,
+    )
     if _timing_enabled():
         elapsed = time.monotonic() - t0
-        print(f"[TIMING] cli: {cmd[:40]:<40} -> {elapsed:.3f}s")
+        print(f"[TIMING] cli: get-mic-pipeline-settings -> {elapsed:.3f}s")
 
     assert result.exit_status == 0, f"CLI failed: {result.stderr}"
     out = result.stdout if isinstance(result.stdout, str) else result.stdout.decode()
     out = out.strip()
     assert out, "Empty CLI response"
-    return _parse_cli_repr(out)
-
-
-async def _get_audio_settings(sess: RemoteAudioSession, sat1_cmd: str) -> dict:
-    return await _run_cli_command(sess, sat1_cmd, "get-mic-input-settings")
+    payload = json.loads(out.splitlines()[-1])
+    mic_input = payload.get("mic_input", {})
+    return dict(mic_input)
 
 
 async def _set_mic_input_gains(
@@ -363,13 +311,15 @@ async def _set_mic_input_gains(
     ref_gain: int | None = None,
 ) -> None:
     t0 = time.monotonic()
-    args = []
+    mic_input: dict[str, object] = {}
     if mic_gain is not None:
-        args.extend(["--mic-gain", str(mic_gain)])
+        mic_input["mic_gain"] = int(mic_gain)
     if ref_gain is not None:
-        args.extend(["--ref-gain", str(ref_gain)])
+        mic_input["ref_gain"] = int(ref_gain)
 
-    cmd = "set-mic-input-gains" + (" " + " ".join(args) if args else "")
+    payload = {"mic_input": mic_input}
+    payload_json = shlex.quote(json.dumps(payload, separators=(",", ":")))
+    cmd = f"set-mic-pipeline-settings --json {payload_json}"
     result: CmdResult = await sess.cmd(
         f"{sat1_cmd} xmos {cmd}", timeout=REMOTE_CLI_TIMEOUT_S
     )
@@ -406,21 +356,19 @@ async def _set_mic_input_routing(
             if current.get("mic_input_channel_map")
             else None
         )
-    args = []
+    mic_input: dict[str, object] = {}
     if ref_source_mode is not None:
-        args.extend(["--ref-source-mode", str(ref_source_mode)])
+        mic_input["ref_source_mode"] = int(ref_source_mode)
     if mic_source_mode is not None:
-        args.extend(["--mic-source-mode", str(mic_source_mode)])
+        mic_input["mic_source_mode"] = int(mic_source_mode)
     if ref_input_channel_map is not None:
-        args.extend(
-            ["--ref-input-channel-map"] + [str(c) for c in ref_input_channel_map]
-        )
+        mic_input["ref_input_channel_map"] = [int(c) for c in ref_input_channel_map]
     if mic_input_channel_map is not None:
-        args.extend(
-            ["--mic-input-channel-map"] + [str(c) for c in mic_input_channel_map]
-        )
+        mic_input["mic_input_channel_map"] = [int(c) for c in mic_input_channel_map]
 
-    cmd = "set-mic-input-routing" + (" " + " ".join(args) if args else "")
+    payload = {"mic_input": mic_input}
+    payload_json = shlex.quote(json.dumps(payload, separators=(",", ":")))
+    cmd = f"set-mic-pipeline-settings --json {payload_json}"
     result: CmdResult = await sess.cmd(
         f"{sat1_cmd} xmos {cmd}", timeout=REMOTE_CLI_TIMEOUT_S
     )
@@ -440,7 +388,13 @@ async def _set_mic_output_channels(
     right: int,
 ) -> None:
     t0 = time.monotonic()
-    cmd = f"set-mic-output {left} {right}"
+    payload = {
+        "mic_output": {
+            "i2s_channel_map": [int(left), int(right)],
+        }
+    }
+    payload_json = shlex.quote(json.dumps(payload, separators=(",", ":")))
+    cmd = f"set-mic-pipeline-settings --json {payload_json}"
     result: CmdResult = await sess.cmd(
         f"{sat1_cmd} xmos {cmd}", timeout=REMOTE_CLI_TIMEOUT_S
     )
@@ -709,6 +663,7 @@ async def test_hil_mic_input_gain_roundtrip(
 )
 async def test_hil_mic_gain_changes_captured_level(
     audio_settings_guard: tuple,
+    tmp_path: Path,
     hil_rpi_host: str,
     hil_cli_cmd: str,
     mic_left: int,
@@ -743,22 +698,15 @@ async def test_hil_mic_gain_changes_captured_level(
     rec_sess = cast(RemoteAudioSession, await RemoteAudioSession.connect(hil_rpi_host))
     left_output_ch = MIC_OUTPUT_BASE_CH + mic_left
     right_output_ch = MIC_OUTPUT_BASE_CH + mic_right
-    mic_map = list(PACKAGED_INPUT_SKIP_SYNC_MAP)
+    mic_map = _packaged_input_map_for_board()
 
     if MIC_GAIN_FIXTURE_USE_DEDICATED:
-        local_wav = (
-            PROJ_ROOT
-            / "tests"
-            / "test_doa"
-            / "fixtures"
-            / "lag_synth"
-            / "mic_gain_test_fixture.wav"
-        )
+        local_wav = MIC_GAIN_FIXTURE_WAV
         if not local_wav.exists():
             raise FileNotFoundError(
                 f"Dedicated mic-gain fixture not found: {local_wav}. "
-                "Generate it with: python3 tools/doa/generate_mic_gain_fixture.py "
-                "--output tests/test_doa/fixtures/lag_synth/mic_gain_test_fixture.wav"
+                "Generate it with: python3 tools/e2e/generate_mic_gain_fixture.py "
+                "--output tests/test_hil/fixtures/mic_gain_test_fixture.wav"
             )
     else:
         local_wav = fixture_wav_required(MIC_GAIN_FIXTURE_ANGLE_DEG)
@@ -835,27 +783,28 @@ async def test_hil_mic_gain_changes_captured_level(
         await _wait_for_signal(rec_sess)
         _step_timing("wait_for_signal")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            local_recorded_path = await _record_play_and_download(
-                sess,
-                rec_sess,
-                remote_wav=remote_wav,
-                duration_s=float(MIC_GAIN_RECORD_SECONDS),
-                local_dir=Path(tmpdir),
-            )
-            _step_timing("capture_recording")
-            left = _estimate_gain_from_recording(
-                injected_path=local_wav,
-                recorded_path=local_recorded_path,
-                packed_lane=mic_left + 1,
-                recorded_channel=0,
-            )
-            right = _estimate_gain_from_recording(
-                injected_path=local_wav,
-                recorded_path=local_recorded_path,
-                packed_lane=mic_right + 1,
-                recorded_channel=1,
-            )
+        run_dir = tmp_path / f"mic_gain_{mic_left}_{mic_right}_{int(time.time())}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        local_recorded_path = await _record_play_and_download(
+            sess,
+            rec_sess,
+            remote_wav=remote_wav,
+            duration_s=float(MIC_GAIN_RECORD_SECONDS),
+            local_dir=run_dir,
+        )
+        _step_timing("capture_recording")
+        left = _estimate_gain_from_recording(
+            injected_path=local_wav,
+            recorded_path=local_recorded_path,
+            packed_lane=int(mic_map[mic_left]),
+            recorded_channel=0,
+        )
+        right = _estimate_gain_from_recording(
+            injected_path=local_wav,
+            recorded_path=local_recorded_path,
+            packed_lane=int(mic_map[mic_right]),
+            recorded_channel=1,
+        )
 
     finally:
         if sess.is_running:
@@ -892,22 +841,16 @@ async def test_hil_mic_gain_changes_captured_level(
 @pytest.mark.hil
 async def test_hil_ref_gain_changes_captured_level(
     audio_settings_guard: tuple,
+    tmp_path: Path,
     hil_rpi_host: str,
     hil_cli_cmd: str,
 ) -> None:
-    local_wav = (
-        PROJ_ROOT
-        / "tests"
-        / "test_doa"
-        / "fixtures"
-        / "lag_synth"
-        / "mic_gain_test_fixture.wav"
-    )
+    local_wav = MIC_GAIN_FIXTURE_WAV
     if not local_wav.exists():
         raise FileNotFoundError(
             f"Dedicated mic-gain fixture not found: {local_wav}. "
-            "Generate it with: python3 tools/doa/generate_mic_gain_fixture.py "
-            "--output tests/test_doa/fixtures/lag_synth/mic_gain_test_fixture.wav"
+            "Generate it with: python3 tools/e2e/generate_mic_gain_fixture.py "
+            "--output tests/test_hil/fixtures/mic_gain_test_fixture.wav"
         )
     local_wav = Path(local_wav)
 
@@ -945,25 +888,26 @@ async def test_hil_ref_gain_changes_captured_level(
             hil_cli_cmd,
             ref_source_mode=REF_SOURCE_DOWNSAMPLED,
             mic_source_mode=MIC_SOURCE_PACKAGED_INPUT,
-            mic_input_channel_map=PACKAGED_INPUT_SKIP_SYNC_MAP,
+            mic_input_channel_map=_packaged_input_map_for_board(),
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            low_path = await _record_play_and_download(
-                sess,
-                rec_sess,
-                remote_wav=remote_wav,
-                duration_s=float(MIC_GAIN_RECORD_SECONDS),
-                local_dir=Path(tmpdir),
-            )
-            low_left = _estimate_recorded_level(
-                recorded_path=low_path,
-                recorded_channel=0,
-            )
-            low_right = _estimate_recorded_level(
-                recorded_path=low_path,
-                recorded_channel=1,
-            )
+        low_dir = tmp_path / f"ref_gain_low_{int(time.time())}"
+        low_dir.mkdir(parents=True, exist_ok=True)
+        low_path = await _record_play_and_download(
+            sess,
+            rec_sess,
+            remote_wav=remote_wav,
+            duration_s=float(MIC_GAIN_RECORD_SECONDS),
+            local_dir=low_dir,
+        )
+        low_left = _estimate_recorded_level(
+            recorded_path=low_path,
+            recorded_channel=0,
+        )
+        low_right = _estimate_recorded_level(
+            recorded_path=low_path,
+            recorded_channel=1,
+        )
 
         await _set_mic_input_gains(
             sess,
@@ -972,22 +916,23 @@ async def test_hil_ref_gain_changes_captured_level(
             ref_gain=Q30_UNITY,
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            high_path = await _record_play_and_download(
-                sess,
-                rec_sess,
-                remote_wav=remote_wav,
-                duration_s=float(MIC_GAIN_RECORD_SECONDS),
-                local_dir=Path(tmpdir),
-            )
-            high_left = _estimate_recorded_level(
-                recorded_path=high_path,
-                recorded_channel=0,
-            )
-            high_right = _estimate_recorded_level(
-                recorded_path=high_path,
-                recorded_channel=1,
-            )
+        high_dir = tmp_path / f"ref_gain_high_{int(time.time())}"
+        high_dir.mkdir(parents=True, exist_ok=True)
+        high_path = await _record_play_and_download(
+            sess,
+            rec_sess,
+            remote_wav=remote_wav,
+            duration_s=float(MIC_GAIN_RECORD_SECONDS),
+            local_dir=high_dir,
+        )
+        high_left = _estimate_recorded_level(
+            recorded_path=high_path,
+            recorded_channel=0,
+        )
+        high_right = _estimate_recorded_level(
+            recorded_path=high_path,
+            recorded_channel=1,
+        )
     finally:
         if sess.is_running:
             await sess.stop()

@@ -98,6 +98,18 @@ def _probe_cli(host: str, cmd: str) -> bool:
     return proc.returncode == 0
 
 
+def _normalize_cli_cmd(hil_board: str, requested: str) -> str:
+    cmd = requested.strip()
+    if hil_board != "sq66":
+        return cmd
+
+    board_flag = "--board sq66"
+    if board_flag in cmd:
+        return cmd
+
+    return f"{cmd} {board_flag}".strip()
+
+
 @pytest.fixture
 def hil_cli_cmd(hil_rpi_host: str, hil_board: str) -> str:
     if hil_board == "sat1":
@@ -111,8 +123,8 @@ def hil_cli_cmd(hil_rpi_host: str, hil_board: str) -> str:
                 ]
             )
     else:
-        requested = hil_env_str(hil_board, "RPI_CLI_CMD", "sat1 --board sq66")
-        candidates = [requested]
+        requested = hil_env_str(hil_board, "RPI_CLI_CMD", "sat1")
+        candidates = [_normalize_cli_cmd(hil_board, requested)]
 
     for cmd in candidates:
         if _probe_cli(hil_rpi_host, cmd):

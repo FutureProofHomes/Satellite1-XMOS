@@ -109,6 +109,7 @@ async def _get_audio_settings(sess: RemoteAudioSession, hil_cli_cmd: str) -> dic
         if out:
             return json.loads(out.splitlines()[-1])
         last_err = out
+
         await asyncio.sleep(0.3)
     raise AssertionError(last_err)
 
