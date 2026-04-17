@@ -179,8 +179,11 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=str,
-        default=None,
-        help="Output WAV path (required)",
+        default="tests/test_hil/fixtures/mic_gain_test_fixture.wav",
+        help=(
+            "Output WAV path "
+            "(default: tests/test_hil/fixtures/mic_gain_test_fixture.wav)"
+        ),
     )
     parser.add_argument(
         "--amplitude",
@@ -196,10 +199,6 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-
-    if not args.output:
-        print("Error: --output is required", file=sys.stderr)
-        return 1
 
     output_path = Path(args.output)
 
