@@ -8,7 +8,6 @@ set(APP_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${CMAKE_CURRENT_LIST_DIR}/src/control
     ${CMAKE_CURRENT_LIST_DIR}/src/dfu_int
-    ${CMAKE_CURRENT_LIST_DIR}/src/usb
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/bsp_config/bsp_config.cmake)
@@ -46,7 +45,6 @@ set(APP_LINK_OPTIONS
 )
 
 set(APP_COMMON_LINK_LIBRARIES
-    rtos::freertos_usb
     fph::device_control
     lib_src
     lib_sw_pll
