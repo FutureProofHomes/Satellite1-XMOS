@@ -126,6 +126,9 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
     # Create version.h
     #*********************
     SET(VERSIONING_CMD "build")
+    if(ALLOW_DIRTY_VERSIONING)
+        list(APPEND VERSIONING_CMD "--allow-dirty")
+    endif()
     if(USE_DEV_TRACKING)
         list(APPEND VERSIONING_CMD "--track")
     endif()
