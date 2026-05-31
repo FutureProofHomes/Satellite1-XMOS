@@ -16,6 +16,7 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
+option(ALLOW_DIRTY_VERSIONING "Allow versioning.py to run from a dirty workspace" OFF)
 
 #**********************
 # Flags
@@ -93,4 +94,3 @@ endif()
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1-usb.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/explorer_devboard.cmake)
-
