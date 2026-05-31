@@ -17,7 +17,6 @@ target_link_libraries(fph_ffva_board_support_satellite1
         core::general
         rtos::freertos
         rtos::drivers::general
-        rtos::drivers::usb
         rtos::drivers::dfu_image
         fph::rtos_mic_array
         fph::i2s_sync
