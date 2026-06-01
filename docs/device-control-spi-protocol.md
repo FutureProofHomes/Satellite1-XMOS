@@ -144,12 +144,12 @@ Current Satellite1 status-buffer layout in status-only frames:
 | --- | --- | --- |
 | `tx[2]` | `0` | Device-control ready flag: `1` means ready |
 | `tx[3]` | `1` | `GPIO_CONTROLLER_RESOURCE_IN_A` status |
-| `tx[4]` | `2` | `GPIO_CONTROLLER_RESOURCE_IN_B` status, when registered/updated |
 
 GPIO `status_register` values are status-buffer indexes, not direct SPI byte
 offsets. The SPI byte offset is `2 + status_register`. Because index `0` is now
 reserved for the ready flag, GPIO status bytes appear one byte later on the SPI
-wire than they did before the ready flag was introduced.
+wire than they did before the ready flag was introduced. Current Satellite1 only
+registers and updates `GPIO_CONTROLLER_RESOURCE_IN_A` status.
 
 ## Special Resource Commands
 
@@ -314,7 +314,7 @@ the DFU command-map payload length, and the wire response begins with
 - SPI seeds an initial status-only response after successful servicer
   registration so hosts can distinguish a live device from no response.
 - Satellite1 reports device-control readiness in status-buffer index `0`, which
-  moves GPIO status bytes one byte later on the SPI wire.
+  moves the GPIO IN_A status byte one byte later on the SPI wire.
 
 ### `0x10`
 
