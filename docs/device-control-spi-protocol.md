@@ -1,7 +1,7 @@
 # Device Control SPI Protocol
 
 This document describes the SPI transport protocol implemented by the
-device-control stack in this repository for `CONTROL_VERSION 0x10`.
+device-control stack in this repository for `CONTROL_VERSION 0x11`.
 
 Primary implementation references:
 
@@ -14,7 +14,7 @@ Primary implementation references:
 
 ## Protocol Version
 
-`CONTROL_VERSION` is `0x10`.
+`CONTROL_VERSION` is `0x11`.
 
 The protocol version is returned by reading `CONTROL_GET_VERSION` from
 `CONTROL_SPECIAL_RESID`.
@@ -102,22 +102,28 @@ The RPi SPI host code retries while the first returned byte equals
 1. Host sends `[resid, cmd(read), payload_len, padding...]`.
 2. Device validates the resource and stores the requested command.
 3. Device forwards the read request to the matching handler.
-4. Device prepares read response bytes in the SPI TX buffer.
-5. Host performs a follow-up zero-filled transfer to read the response.
+4. Device prepares a payload-available response in the SPI TX buffer.
+5. Host performs a follow-up zero-filled transfer to read the payload-available
+   response.
+
+Payload-available response frame:
+
+| Byte offset | Field |
+| --- | --- |
+| `0` | `CONTROL_RET_STATUS_PAYLOAD_AVAIL` (`23`) |
+| `1..` | Read payload prepared by the device-control read handler |
+
+The follow-up transfer must clock at least `payload_len + 1` bytes to read the
+payload-available marker and the complete read payload.
 
 For servicer read commands, the response payload layout is defined by the
 servicer callback. The GPIO read callback uses byte `0` as command status and
 byte `1` as returned GPIO data.
 
-The current SPI transport treats a response length of exactly one byte as the
-status-only case described below. As a result, one-byte read responses prepared
-by `device_control_payload_transfer_bidir()` are not exposed directly on the SPI
-wire; they are replaced by the status-only response frame.
-
 ## Status-Only Response Frame
 
-When the SPI transport has no read payload to return, or when the prepared read
-response length is exactly one byte, it prepares a status-only frame:
+When the SPI transport has no read payload to return, it prepares a status-only
+frame:
 
 | Byte offset | Field |
 | --- | --- |
@@ -133,15 +139,14 @@ handler can update status-buffer slots with `device_control_set_resource_status(
 `CONTROL_SPECIAL_RESID` (`0`) is reserved by the device-control core.
 Application servicers cannot register resource `0`.
 
-The device-control core prepares one-byte payloads for these reads, but the
-current SPI transport converts one-byte responses into the status-only frame.
-Therefore these reads do not expose the prepared one-byte value directly over
-the current SPI wire format.
+Special resource reads return two-byte payloads: byte `0` is command status and
+byte `1` is the requested value. On the SPI wire, the payload is returned after
+the payload-available marker.
 
 | Command | Encoded value | Direction | Payload length | Response |
 | --- | --- | --- | --- | --- |
-| `CONTROL_GET_VERSION` | `0x80` | Read | 1 byte | Status-only frame in current SPI transport |
-| `CONTROL_GET_LAST_COMMAND_STATUS` | `0x81` | Read | 1 byte | Status-only frame in current SPI transport |
+| `CONTROL_GET_VERSION` | `0x80` | Read | 2 bytes | `[23, CONTROL_SUCCESS, CONTROL_VERSION]` |
+| `CONTROL_GET_LAST_COMMAND_STATUS` | `0x81` | Read | 2 bytes | `[23, CONTROL_SUCCESS, last_status]` |
 
 Writes to `CONTROL_SPECIAL_RESID` are rejected with `CONTROL_BAD_COMMAND`.
 
@@ -160,6 +165,10 @@ Writes to `CONTROL_SPECIAL_RESID` are rejected with `CONTROL_BAD_COMMAND`.
 | `CONTROL_MALFORMED_PACKET` | 6 | Packet is too short or malformed |
 | `CONTROL_COMMAND_IGNORED_IN_DEVICE` | 7 | Device is not ready or default buffer was used |
 | `CONTROL_ERROR` | 8 | Generic error |
+
+`CONTROL_RET_STATUS_PAYLOAD_AVAIL` (`23`) is an SPI transport marker, not a
+`control_ret_t` error code. It indicates that bytes `1..` of the same SPI frame
+contain a read payload.
 
 Servicer-specific values start at `64`:
 
@@ -202,7 +211,7 @@ Defined commands:
 
 | Command | Encoded read value | Encoded write value | Direction | Payload length | Response |
 | --- | --- | --- | --- | --- | --- |
-| `GPIO_CONTROLLER_SERVICER_CMD_READ_PORT` (`0`) | `0x80` | N/A | Read | 2 bytes on SPI, containing 1 data byte plus GPIO status byte | 2 bytes: status, port value |
+| `GPIO_CONTROLLER_SERVICER_CMD_READ_PORT` (`0`) | `0x80` | N/A | Read | 2 bytes | `[23, status, port_value]` |
 | `GPIO_CONTROLLER_SERVICER_CMD_WRITE_PORT` (`1`) | N/A | `0x01` | Write | 1 byte | Status-only frame |
 | `GPIO_CONTROLLER_SERVICER_CMD_SET_PIN` (`2`) | N/A | `0x02` | Write | 2 bytes: pin, value | Status-only frame |
 
@@ -252,24 +261,44 @@ Resource:
 
 Commands:
 
-| Command | ID | Direction | Payload length |
-| --- | --- | --- | --- |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_DETACH` | `0` | Write | 1 byte |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_DNLOAD` | `1` | Write | 130 bytes |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_UPLOAD` | `2` | Read | 130 bytes |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATUS` | `3` | Read | 5 bytes |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_CLRSTATUS` | `4` | Write | 1 byte |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATE` | `5` | Read | 1 byte |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_ABORT` | `6` | Write | 1 byte |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_SETALTERNATE` | `64` | Write | 1 byte |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_TRANSFERBLOCK` | `65` | Read/write | 2 bytes |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION` | `88` | Read | 5 bytes |
-| `DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT` | `89` | Write | 1 byte |
+| Command | ID | Direction | Command-map payload length | SPI read request payload length |
+| --- | --- | --- | --- | --- |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_DETACH` | `0` | Write | 1 byte | N/A |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_DNLOAD` | `1` | Write | 130 bytes | N/A |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_UPLOAD` | `2` | Read | 130 bytes | 131 bytes |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATUS` | `3` | Read | 5 bytes | 6 bytes |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_CLRSTATUS` | `4` | Write | 1 byte | N/A |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATE` | `5` | Read | 1 byte | 2 bytes |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_ABORT` | `6` | Write | 1 byte | N/A |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_SETALTERNATE` | `64` | Write | 1 byte | N/A |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_TRANSFERBLOCK` | `65` | Read/write | 2 bytes | 3 bytes when read |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION` | `88` | Read | 5 bytes | 6 bytes |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT` | `89` | Write | 1 byte | N/A |
 
 Read command encoded values set bit 7. For example,
 `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATUS` (`3`) is sent as `0x83` for a
 read request.
 
-DFU read callbacks fill the returned payload directly. `DFU_GETSTATE` prepares a
-one-byte response, so the current SPI transport replaces it with the status-only
-frame described above.
+The shared DFU servicer wrapper reserves byte `0` of read payloads for command
+status. The SPI read request payload length is therefore one byte larger than
+the DFU command-map payload length, and the wire response begins with
+`CONTROL_RET_STATUS_PAYLOAD_AVAIL`.
+
+## Changelog
+
+### `0x11`
+
+- Added explicit SPI read-payload availability framing.
+- Read responses now begin with `CONTROL_RET_STATUS_PAYLOAD_AVAIL` (`23`), followed by
+  the payload prepared by the device-control read handler.
+- Special resource reads now use the same status-plus-data payload convention as
+  servicer reads: `[CONTROL_SUCCESS, value]`.
+- One-byte read payloads are no longer collapsed into status-only responses.
+
+### `0x10`
+
+- Previous baseline documented the existing SPI command framing and current
+  Satellite1 servicer command set.
+- Status-only responses used `tx[0] = 1`, `tx[1] = status`, and `tx[2..]` for
+  the device status buffer.
+- Servicer read response payloads were defined by individual servicer callbacks.
