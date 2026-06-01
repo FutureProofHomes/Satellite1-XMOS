@@ -41,6 +41,15 @@ void device_control_spi_start_cb(rtos_spi_slave_t *ctx,
         //rtos_printf("Device control resources registered for SPI on tile %d\n", THIS_XCORE_TILE);
     }
     xassert(dc_ret == CONTROL_SUCCESS);
+
+    spi_xfer_tx_buf[0] = 1;
+    spi_xfer_tx_buf[1] = CONTROL_SUCCESS;
+    memset(&spi_xfer_tx_buf[2], 0, SPI_XFER_TX_SIZE - 2);
+    if (device_control_ctx->status_buffer != NULL) {
+        memcpy(&spi_xfer_tx_buf[2],
+               device_control_ctx->status_buffer,
+               device_control_ctx->status_buffer_len);
+    }
     
     spi_slave_xfer_prepare(ctx, spi_xfer_rx_buf, SPI_XFER_RX_SIZE, spi_xfer_tx_buf, SPI_XFER_TX_SIZE);
 }
