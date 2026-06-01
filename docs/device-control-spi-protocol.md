@@ -134,6 +134,23 @@ frame:
 The device status buffer has `MAX_STATUS_BUFFER_LEN = 10` bytes. The GPIO
 handler can update status-buffer slots with `device_control_set_resource_status()`.
 
+After successful servicer registration, the SPI transport seeds the next TX
+buffer with a status-only frame using `CONTROL_SUCCESS`. This gives the host a
+valid "device alive" response before any command-specific response is staged.
+
+Current Satellite1 status-buffer layout in status-only frames:
+
+| SPI byte offset | Status-buffer index | Meaning |
+| --- | --- | --- |
+| `tx[2]` | `0` | Device-control ready flag: `1` means ready |
+| `tx[3]` | `1` | `GPIO_CONTROLLER_RESOURCE_IN_A` status |
+| `tx[4]` | `2` | `GPIO_CONTROLLER_RESOURCE_IN_B` status, when registered/updated |
+
+GPIO `status_register` values are status-buffer indexes, not direct SPI byte
+offsets. The SPI byte offset is `2 + status_register`. Because index `0` is now
+reserved for the ready flag, GPIO status bytes appear one byte later on the SPI
+wire than they did before the ready flag was introduced.
+
 ## Special Resource Commands
 
 `CONTROL_SPECIAL_RESID` (`0`) is reserved by the device-control core.
@@ -294,6 +311,10 @@ the DFU command-map payload length, and the wire response begins with
 - Special resource reads now use the same status-plus-data payload convention as
   servicer reads: `[CONTROL_SUCCESS, value]`.
 - One-byte read payloads are no longer collapsed into status-only responses.
+- SPI seeds an initial status-only response after successful servicer
+  registration so hosts can distinguish a live device from no response.
+- Satellite1 reports device-control readiness in status-buffer index `0`, which
+  moves GPIO status bytes one byte later on the SPI wire.
 
 ### `0x10`
 
