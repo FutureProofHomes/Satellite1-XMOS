@@ -4,6 +4,7 @@ import argparse
 
 from unittest.mock import patch, MagicMock
 from versioning import GitInfo, assert_clean_workspace, track_dev_build
+import versioning
 
 
 # ✅ Mock subprocess output for Git commands
@@ -108,3 +109,30 @@ def test_dirty_dev_build_is_not_stored(mock_from_ws, tmp_path):
     assert str(tracked_build.version) == "v1.2.3-dev"
     assert tracked_build.track_path is None
     assert not (tmp_path / "dev_tracking").exists()
+
+
+@patch("versioning.GitInfo.from_ws")
+def test_clean_dev_builds_increment_even_for_same_commit(
+    mock_from_ws,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(versioning, "DEFAULT_DEV_TRACK_PATH", tmp_path)
+    mock_from_ws.return_value = GitInfo(
+        branch="feature",
+        commit="abc123",
+        last_tag="v1.2.3",
+        status_str="",
+    )
+    args = argparse.Namespace(
+        variant="satellite1_firmware_fixed_delay",
+        build_dir=tmp_path,
+    )
+
+    first_build = track_dev_build(args)
+    second_build = track_dev_build(args)
+
+    assert str(first_build.version) == "v1.2.3-dev.100"
+    assert str(second_build.version) == "v1.2.3-dev.101"
+    assert first_build.track_path == tmp_path / "v1.2.3-dev.100"
+    assert second_build.track_path == tmp_path / "v1.2.3-dev.101"
