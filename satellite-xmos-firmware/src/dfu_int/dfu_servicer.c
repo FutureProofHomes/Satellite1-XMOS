@@ -150,6 +150,13 @@ control_ret_t dfu_servicer_read_cmd(control_resource_info_t *res_info, control_c
         break;
     }
 
+    case DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL:
+    {
+        debug_printf("DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL\n");
+        dfu_common_get_flash_serial(payload, payload_len);
+        break;
+    }
+
     default:
     {
         debug_printf("DFU_CONTROLLER_SERVICER UNHANDLED COMMAND!!!\n");
