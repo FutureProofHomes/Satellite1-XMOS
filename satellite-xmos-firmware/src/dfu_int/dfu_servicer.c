@@ -157,6 +157,13 @@ control_ret_t dfu_servicer_read_cmd(control_resource_info_t *res_info, control_c
         break;
     }
 
+    case DFU_CONTROLLER_SERVICER_RESID_DFU_GETIMAGESTATUS:
+    {
+        debug_printf("DFU_CONTROLLER_SERVICER_RESID_DFU_GETIMAGESTATUS\n");
+        payload[0] = dfu_common_get_image_status_flags();
+        break;
+    }
+
     default:
     {
         debug_printf("DFU_CONTROLLER_SERVICER UNHANDLED COMMAND!!!\n");

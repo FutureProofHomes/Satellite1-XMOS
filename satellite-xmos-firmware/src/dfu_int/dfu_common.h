@@ -74,6 +74,14 @@ uint16_t dfu_common_read_from_flash(uint8_t alt,
 void dfu_common_get_flash_serial(uint8_t *serial, size_t serial_len);
 
 /**
+ * \brief Return flags describing the current DFU image layout.
+ *
+ * Bit 0 indicates an upgrade image is present. Bit 1 indicates a data partition
+ * is available after the DFU image area.
+ */
+uint8_t dfu_common_get_image_status_flags(void);
+
+/**
  * \brief Reboot the device.
  */
 void reboot(void);

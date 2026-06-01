@@ -21,6 +21,9 @@
 #define W25Q64JV_READ_UNIQUE_ID_CMD 0x4B
 #define W25Q64JV_READ_UNIQUE_ID_DUMMY_BYTES 4
 
+#define DFU_IMAGE_STATUS_UPGRADE_PRESENT (1U << 0)
+#define DFU_IMAGE_STATUS_DATA_PARTITION_AVAILABLE (1U << 1)
+
 static size_t bytes_avail = 0;
 static uint32_t dn_base_addr = 0;
 static size_t total_len = 0;
@@ -164,6 +167,21 @@ void dfu_common_get_flash_serial(uint8_t *serial, size_t serial_len)
                                  W25Q64JV_READ_UNIQUE_ID_DUMMY_BYTES,
                                  serial,
                                  serial_len);
+}
+
+uint8_t dfu_common_get_image_status_flags(void)
+{
+    uint8_t flags = 0;
+
+    if (rtos_dfu_image_get_upgrade_size(dfu_image_ctx) > 0) {
+        flags |= DFU_IMAGE_STATUS_UPGRADE_PRESENT;
+    }
+
+    if (rtos_qspi_flash_size_get(qspi_flash_ctx) > rtos_dfu_image_get_data_partition_addr(dfu_image_ctx)) {
+        flags |= DFU_IMAGE_STATUS_DATA_PARTITION_AVAILABLE;
+    }
+
+    return flags;
 }
 
 void reboot(void)
