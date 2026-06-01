@@ -92,6 +92,10 @@ control_read_command(control_resid_t resid, control_cmd_t cmd,
 {
   uint8_t data_sent_recieved[SPI_TRANSACTION_MAX_BYTES] = {0};
   //printf("control_read_command(): resid 0x%x, cmd_id 0x%x, payload_len 0x%x\n",resid, cmd, payload_len);
+  if(payload_len + 1 > SPI_TRANSACTION_MAX_BYTES) {
+    return CONTROL_DATA_LENGTH_ERROR;
+  }
+
   do
   {
       int data_len;
@@ -116,14 +120,18 @@ control_read_command(control_resid_t resid, control_cmd_t cmd,
   do
   {
       memset(data_sent_recieved, 0, SPI_TRANSACTION_MAX_BYTES);
-      unsigned transaction_length = payload_len < 8 ? 8 : payload_len;  
+      unsigned transaction_length = (payload_len + 1) < 8 ? 8 : payload_len + 1;
 
-      bcm2835_spi_transfern((char *)data_sent_recieved, payload_len);
+      bcm2835_spi_transfern((char *)data_sent_recieved, transaction_length);
       apply_intertransaction_delay();
   }while(data_sent_recieved[0] == CONTROL_COMMAND_IGNORED_IN_DEVICE);
 
   //printf("data_sent_recieved[0] = 0x%x, 0x%x, 0x%x, 0x%x\n",data_sent_recieved[0], data_sent_recieved[1], data_sent_recieved[2], data_sent_recieved[3]);
-  memcpy(payload, data_sent_recieved, payload_len);
+  if(data_sent_recieved[0] != CONTROL_RET_STATUS_PAYLOAD_AVAIL) {
+    return CONTROL_OTHER_TRANSPORT_ERROR;
+  }
+
+  memcpy(payload, &data_sent_recieved[1], payload_len);
   // TODO - For write commands, control_write_command() is returning status from the device. For read commands payload[0] has the
   // status from the device and control_read_command() always returns CONTROL_SUCCESS. Make status returning consistent across
   // for read and write command functions.
