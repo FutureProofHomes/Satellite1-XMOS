@@ -469,6 +469,7 @@ def install_targets(args: argparse.Namespace) -> None:
 
         for file in TO_TRACK:
             shutil.copy( args.build_dir / file.format(variant=args.variant), track_path)
+        create_yaml_import(track_path, args.variant, version)
     
     
 
