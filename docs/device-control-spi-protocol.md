@@ -269,6 +269,7 @@ References:
 - `satellite-xmos-firmware/src/dfu_int/dfu_servicer.h`
 - `satellite-xmos-firmware/src/dfu_int/dfu_cmds.h`
 - `satellite-xmos-firmware/src/dfu_int/dfu_cmds_map.h`
+- `satellite-xmos-firmware/src/dfu_int/dfu_common.c`
 
 Resource:
 
@@ -291,6 +292,7 @@ Commands:
 | `DFU_CONTROLLER_SERVICER_RESID_DFU_TRANSFERBLOCK` | `65` | Read/write | 2 bytes | 3 bytes when read |
 | `DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION` | `88` | Read | 5 bytes | 6 bytes |
 | `DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT` | `89` | Write | 1 byte | N/A |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL` | `90` | Read | 8 bytes | 9 bytes |
 
 Read command encoded values set bit 7. For example,
 `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATUS` (`3`) is sent as `0x83` for a
@@ -300,6 +302,10 @@ The shared DFU servicer wrapper reserves byte `0` of read payloads for command
 status. The SPI read request payload length is therefore one byte larger than
 the DFU command-map payload length, and the wire response begins with
 `CONTROL_RET_STATUS_PAYLOAD_AVAIL`.
+
+The flash serial command reads the external SPI flash IC unique ID using command
+`0x4B` with four dummy bytes. Its successful wire response is
+`[23, CONTROL_SUCCESS, serial[0]..serial[7]]`.
 
 ## Changelog
 
@@ -315,6 +321,8 @@ the DFU command-map payload length, and the wire response begins with
   registration so hosts can distinguish a live device from no response.
 - Satellite1 reports device-control readiness in status-buffer index `0`, which
   moves the GPIO IN_A status byte one byte later on the SPI wire.
+- Added additive DFU flash serial read command
+  `DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL` (`90`).
 
 ### `0x10`
 

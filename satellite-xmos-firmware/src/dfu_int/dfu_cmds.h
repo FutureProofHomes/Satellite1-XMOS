@@ -45,7 +45,10 @@ enum e_dfu_controller_servicer_resid_cmds
 #ifndef DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT
     DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT = 89,
 #endif
-    NUM_DFU_CONTROLLER_SERVICER_RESID_CMDS = 11
+#ifndef DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL
+    DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL = 90,
+#endif
+    NUM_DFU_CONTROLLER_SERVICER_RESID_CMDS = 12
 };
 
 // DFU_CONTROLLER_SERVICER_RESID number of elements
@@ -71,6 +74,8 @@ enum e_dfu_controller_servicer_resid_cmds
 #define DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION_NUM_VALUES (5)
 // number of values of type dfu_controller_servicer_resid_dfu_reboot_t expected by DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT
 #define DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT_NUM_VALUES (1)
+// number of values of type dfu_controller_servicer_resid_dfu_getflashserial_t expected by DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL
+#define DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL_NUM_VALUES (8)
 
 // DFU_CONTROLLER_SERVICER_RESID types
 // type expected by DFU_CONTROLLER_SERVICER_RESID_DFU_DETACH
@@ -95,3 +100,5 @@ typedef uint8_t dfu_controller_servicer_resid_dfu_transferblock_t;
 typedef uint8_t dfu_controller_servicer_resid_dfu_getversion_t;
 // type expected by DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT
 typedef uint8_t dfu_controller_servicer_resid_dfu_reboot_t;
+// type expected by DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL
+typedef uint8_t dfu_controller_servicer_resid_dfu_getflashserial_t;
