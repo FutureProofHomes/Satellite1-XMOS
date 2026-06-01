@@ -293,6 +293,7 @@ Commands:
 | `DFU_CONTROLLER_SERVICER_RESID_DFU_GETVERSION` | `88` | Read | 5 bytes | 6 bytes |
 | `DFU_CONTROLLER_SERVICER_RESID_DFU_REBOOT` | `89` | Write | 1 byte | N/A |
 | `DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL` | `90` | Read | 8 bytes | 9 bytes |
+| `DFU_CONTROLLER_SERVICER_RESID_DFU_GETIMAGESTATUS` | `91` | Read | 1 byte | 2 bytes |
 
 Read command encoded values set bit 7. For example,
 `DFU_CONTROLLER_SERVICER_RESID_DFU_GETSTATUS` (`3`) is sent as `0x83` for a
@@ -306,6 +307,16 @@ the DFU command-map payload length, and the wire response begins with
 The flash serial command reads the external SPI flash IC unique ID using command
 `0x4B` with four dummy bytes. Its successful wire response is
 `[23, CONTROL_SUCCESS, serial[0]..serial[7]]`.
+
+The image status command returns one flag byte. Its successful wire response is
+`[23, CONTROL_SUCCESS, flags]`.
+
+Image status flags:
+
+| Bit | Mask | Meaning |
+| --- | --- | --- |
+| `0` | `0x01` | Upgrade image present |
+| `1` | `0x02` | Data partition available after the DFU image area |
 
 ## Changelog
 
@@ -323,6 +334,8 @@ The flash serial command reads the external SPI flash IC unique ID using command
   moves GPIO status bytes one byte later on the SPI wire.
 - Added additive DFU flash serial read command
   `DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL` (`90`).
+- Added additive DFU image status read command
+  `DFU_CONTROLLER_SERVICER_RESID_DFU_GETIMAGESTATUS` (`91`).
 
 ### `0x10`
 
