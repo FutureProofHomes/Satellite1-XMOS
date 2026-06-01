@@ -39,6 +39,8 @@
 volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
 volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
+#define DEVICE_STATUS_READY_REGISTER_IDX   0
+#define DEVICE_STATUS_READY_VALUE          1
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
@@ -297,6 +299,25 @@ static void mem_analysis(void)
 	}
 }
 
+#if ON_TILE(0) && appconfDEVICE_CTRL_SPI
+static void device_control_ready_task(void *arg)
+{
+    device_control_t *device_control_ctx = arg;
+
+    xassert(device_control_ctx != NULL);
+
+    while (device_control_ctx->status_buffer == NULL) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    device_control_set_resource_status(device_control_ctx,
+                                       DEVICE_STATUS_READY_REGISTER_IDX,
+                                       DEVICE_STATUS_READY_VALUE);
+
+    vTaskDelete(NULL);
+}
+#endif
+
 void startup_task(void *arg)
 {
     rtos_printf("Startup task running from tile %d on core %d\n", THIS_XCORE_TILE, portGET_CORE_ID());
@@ -324,6 +345,15 @@ void startup_task(void *arg)
         "dfu servicer",
         RTOS_THREAD_STACK_SIZE(dfu_servicer),
         &dfu_servicer_reg_ctx,
+        appconfDEVICE_CONTROL_SPI_PRIORITY,
+        NULL
+    );
+
+    xTaskCreate(
+        device_control_ready_task,
+        "dc ready",
+        RTOS_THREAD_STACK_SIZE(device_control_ready_task),
+        device_control_spi_ctx,
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
