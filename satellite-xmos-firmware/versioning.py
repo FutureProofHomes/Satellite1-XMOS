@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import datetime
+import filecmp
 import json
 from pathlib import Path
 import re
@@ -332,17 +333,14 @@ def track_dev_build(args: argparse.Namespace) -> TrackedDevBuild:
         last_tag_version
     )
 
-    if last_dev_build is None or last_dev_build != dev_build :
-        if not last_dev_build is None :
-            dev_build.version = last_dev_build.version
-        else:
-            dev_build.version.pre_counter = DEV_COUNTER_START - 1
-        dev_build.version.counter_inc()
-        
-        dev_build.store(dev_track_path)
-        return dev_build
-    
-    return last_dev_build
+    if last_dev_build is None:
+        dev_build.version.pre_counter = DEV_COUNTER_START - 1
+    else:
+        dev_build.version = last_dev_build.version
+
+    dev_build.version.counter_inc()
+    dev_build.store(dev_track_path)
+    return dev_build
 
 
 def assert_clean_workspace(args: argparse.Namespace) -> None:
@@ -450,13 +448,25 @@ def set_firmware_version(args: argparse.Namespace) -> None:
 
 def install_targets(args: argparse.Namespace) -> None:
     assert_clean_workspace(args)
-    version = get_version(args)
+    version = XMOSVersion.from_header_file(VERSION_HEADER_FILE)
+    if version is None:
+        print(f"Version header {VERSION_HEADER_FILE} not found. Run build first.")
+        sys.exit(1)
+
     create_yaml_import(args.build_dir, args.variant, version)
     if version.is_dev :
-        tracked_build = track_dev_build(args)
-        if tracked_build.git_info and tracked_build.git_info.dirty:
+        if version.pre_counter == 0:
+            print(
+                "WARNING: Untracked dev build will not be stored in dev_tracking. "
+                "Commit changes before building artifacts for experiments."
+            )
             return
-        track_path = tracked_build.track_path 
+
+        track_path = args.track_root / str(version)
+        if not track_path.exists():
+            print(f"Tracked dev build folder not found: {track_path}")
+            sys.exit(1)
+
         for file in TO_TRACK:
             shutil.copy( args.build_dir / file.format(variant=args.variant), track_path)
     
