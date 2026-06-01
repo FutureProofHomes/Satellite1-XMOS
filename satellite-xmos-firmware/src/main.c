@@ -283,11 +283,14 @@ static void init_watchdog(void)
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_CFG_NUM, (1 << XS1_WATCHDOG_COUNT_ENABLE_SHIFT) | (1 << XS1_WATCHDOG_TRIGGER_ENABLE_SHIFT) );
 }
 
+#if ON_TILE(0)
 static void reset_watchdog(void)
 {
     //reset watchdog to max
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
 }
+#endif
+
 static void mem_analysis(void)
 {
 	for (;;) {
