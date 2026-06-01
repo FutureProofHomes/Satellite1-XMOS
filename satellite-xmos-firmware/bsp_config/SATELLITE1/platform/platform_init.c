@@ -201,14 +201,6 @@ static void servicer_init(void)
     gpio_res_info[0].bit_shift = 4;
     gpio_res_info[0].status_register = 1;
 
-    
-    gpio_res_info[1].resource_idx = RESOURCE_IN_B;
-    gpio_res_info[1].writeable = false;
-    gpio_res_info[1].port_id = PORT_ROTARY_ENC;
-    gpio_res_info[1].bit_mask = 14;
-    gpio_res_info[1].bit_shift = 1;
-    gpio_res_info[1].status_register = 2;
-
     gpio_servicer_init( device_control_gpio_ctx,
                         gpio_ctx_t0,
                         gpio_res_info,
