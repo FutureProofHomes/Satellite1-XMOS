@@ -12,6 +12,7 @@
 #include "timers.h"
 #include "queue.h"
 #include "stream_buffer.h"
+#include "rtos_osal.h"
 
 /* Library headers */
 #include "generic_pipeline.h"
@@ -40,18 +41,39 @@ static vnr_pred_stage_ctx_t DWORD_ALIGNED vnr_pred_stage_state = {};
 static ns_stage_ctx_t DWORD_ALIGNED ns_stage_state = {};
 static agc_stage_ctx_t DWORD_ALIGNED agc_stage_state = {};
 
+#define AUDIO_PIPELINE_FRAME_POOL_DEPTH 3
+
+static frame_data_t DWORD_ALIGNED frame_pool[AUDIO_PIPELINE_FRAME_POOL_DEPTH];
+static rtos_osal_queue_t frame_free_queue_ctx;
+static rtos_osal_queue_t *frame_free_queue;
+
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+audio_pipeline_debug_counters_t audio_pipeline_tile0_debug = {
+    .magic = 0x54304442, /* T0DB */
+};
+#endif
+
 static void *audio_pipeline_input_i(void *input_app_data)
 {
     frame_data_t *frame_data;
 
-    frame_data = pvPortMalloc(sizeof(frame_data_t));
+    xassert(rtos_osal_queue_receive(frame_free_queue,
+                                    &frame_data,
+                                    RTOS_OSAL_WAIT_FOREVER) == RTOS_OSAL_SUCCESS);
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
     size_t bytes_received = 0;
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile0_debug.rx_len_before++;
+#endif
     bytes_received = rtos_intertile_rx_len(
             intertile_ctx,
             appconfAUDIOPIPELINE_PORT,
             portMAX_DELAY);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile0_debug.rx_len_after++;
+    audio_pipeline_tile0_debug.last_rx_len = bytes_received;
+#endif
 
     xassert(bytes_received == sizeof(frame_data_t));
 
@@ -59,6 +81,9 @@ static void *audio_pipeline_input_i(void *input_app_data)
             intertile_ctx,
             frame_data,
             bytes_received);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile0_debug.rx_data_after++;
+#endif
 
     return frame_data;
 }
@@ -67,10 +92,21 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
                                    void *output_app_data)
 {
 
-    return audio_pipeline_output(output_app_data,
-                               (int32_t *) frame_data->samples,
-                               appconfMIC_PIPELINE_PROC_CHANNELS + appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
-                               appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile0_debug.output_enter++;
+#endif
+    int ret = audio_pipeline_output(output_app_data,
+                                    (int32_t *) frame_data->samples,
+                                    appconfMIC_PIPELINE_PROC_CHANNELS + appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
+                                    appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile0_debug.output_after++;
+#endif
+    xassert(ret == AUDIO_PIPELINE_FREE_FRAME);
+    xassert(rtos_osal_queue_send(frame_free_queue,
+                                 &frame_data,
+                                 RTOS_OSAL_WAIT_FOREVER) == RTOS_OSAL_SUCCESS);
+    return AUDIO_PIPELINE_DONT_FREE_FRAME;
 }
 
 static void stage_vnr_and_ic(frame_data_t *frame_data)
@@ -142,6 +178,20 @@ static void stage_agc(frame_data_t *frame_data)
 
 static void initialize_pipeline_stages(void)
 {
+    void *frame_data;
+
+    xassert(rtos_osal_queue_create(&frame_free_queue_ctx,
+                                   NULL,
+                                   AUDIO_PIPELINE_FRAME_POOL_DEPTH,
+                                   sizeof(void *)) == RTOS_OSAL_SUCCESS);
+    frame_free_queue = &frame_free_queue_ctx;
+    for (size_t i = 0; i < AUDIO_PIPELINE_FRAME_POOL_DEPTH; i++) {
+        frame_data = &frame_pool[i];
+        xassert(rtos_osal_queue_send(frame_free_queue,
+                                     &frame_data,
+                                     RTOS_OSAL_NO_WAIT) == RTOS_OSAL_SUCCESS);
+    }
+
     ic_init(&ic_stage_state.state);
 
     ns_init(&ns_stage_state.state);

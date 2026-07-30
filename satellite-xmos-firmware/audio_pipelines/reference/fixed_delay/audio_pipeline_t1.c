@@ -12,6 +12,7 @@
 #include "timers.h"
 #include "queue.h"
 #include "stream_buffer.h"
+#include "rtos_osal.h"
 
 /* Library headers */
 #include "generic_pipeline.h"
@@ -20,6 +21,7 @@
 #include "app_conf.h"
 #include "audio_pipeline.h"
 #include "audio_pipeline_dsp.h"
+#include "audio_pipeline_control/audio_pipeline_control_settings.h"
 
 #if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
 #error This pipeline is only configured for 240 frame advance
@@ -30,6 +32,18 @@
 static stage_delay_ctx_t DWORD_ALIGNED delay_buf_state = {};
 #endif
 static aec_ctx_t DWORD_ALIGNED aec_state = {};
+
+#define AUDIO_PIPELINE_FRAME_POOL_DEPTH 3
+
+static frame_data_t DWORD_ALIGNED frame_pool[AUDIO_PIPELINE_FRAME_POOL_DEPTH];
+static rtos_osal_queue_t frame_free_queue_ctx;
+static rtos_osal_queue_t *frame_free_queue;
+
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+audio_pipeline_debug_counters_t audio_pipeline_tile1_debug = {
+    .magic = 0x54314442, /* T1DB */
+};
+#endif
 
 #define AUDIO_PIPELINE_DSP_SAMPLE_LIMIT ((int32_t)0x00400000)
 
@@ -62,17 +76,36 @@ static void copy_mic_passthrough_to_processing(frame_data_t *frame_data)
 static void *audio_pipeline_input_i(void *input_app_data)
 {
     frame_data_t *frame_data;
-    frame_data = pvPortMalloc(sizeof(frame_data_t));
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.input_enter++;
+    audio_pipeline_tile1_debug.rx_len_before++; /* before pool acquire */
+#endif
+    xassert(rtos_osal_queue_receive(frame_free_queue,
+                                    &frame_data,
+                                    RTOS_OSAL_WAIT_FOREVER) == RTOS_OSAL_SUCCESS);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.rx_len_after++; /* after pool acquire */
+    audio_pipeline_tile1_debug.last_rx_len = (uint32_t) sizeof(frame_data_t);
+#endif
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.rx_data_after++; /* before audio_pipeline_input */
+#endif
     audio_pipeline_input(input_app_data,
                        (int32_t *) frame_data->aec_reference_audio_samples,
                        appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
                        appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.input_return++;
+#endif
 
     frame_data->vnr_pred_flag = 0;
 
     copy_mic_passthrough_to_processing(frame_data);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.output_after++; /* input wrapper completed */
+#endif
 
     return frame_data;
 }
@@ -81,12 +114,22 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
                                    void *output_app_data)
 {
 
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.output_enter++;
+    audio_pipeline_tile1_debug.tx_before++;
+#endif
     rtos_intertile_tx(intertile_ctx,
                       appconfAUDIOPIPELINE_PORT,
                       frame_data,
                       sizeof(frame_data_t));
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    audio_pipeline_tile1_debug.tx_after++;
+#endif
+    xassert(rtos_osal_queue_send(frame_free_queue,
+                                 &frame_data,
+                                 RTOS_OSAL_WAIT_FOREVER) == RTOS_OSAL_SUCCESS);
 
-    return AUDIO_PIPELINE_FREE_FRAME;
+    return AUDIO_PIPELINE_DONT_FREE_FRAME;
 }
 
 static void stage_delay(frame_data_t *frame_data)
@@ -158,6 +201,20 @@ static void stage_aec(frame_data_t *frame_data)
 
 static void initialize_pipeline_stages(void)
 {
+    void *frame_data;
+
+    xassert(rtos_osal_queue_create(&frame_free_queue_ctx,
+                                   NULL,
+                                   AUDIO_PIPELINE_FRAME_POOL_DEPTH,
+                                   sizeof(void *)) == RTOS_OSAL_SUCCESS);
+    frame_free_queue = &frame_free_queue_ctx;
+    for (size_t i = 0; i < AUDIO_PIPELINE_FRAME_POOL_DEPTH; i++) {
+        frame_data = &frame_pool[i];
+        xassert(rtos_osal_queue_send(frame_free_queue,
+                                     &frame_data,
+                                     RTOS_OSAL_NO_WAIT) == RTOS_OSAL_SUCCESS);
+    }
+
 #if (appconfINPUT_SAMPLES_MIC_DELAY_MS != 0)
     configASSERT(AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES > 0);
     delay_buf_state.delay_buf = xStreamBufferCreate((size_t)AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES + AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES, 0);

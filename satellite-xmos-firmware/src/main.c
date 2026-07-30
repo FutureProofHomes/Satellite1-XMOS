@@ -763,6 +763,14 @@ int audio_pipeline_output(void *output_app_data,
     snapshot->guard_a = 0x10293847;
     snapshot->guard_b = 0x56473829;
     snapshot->frame_counter++;
+    snapshot->pack_extra_upsample_channels = pack_extra_upsample_channels;
+    memcpy(snapshot->i2s_channel_map,
+           i2s_channel_map,
+           sizeof(snapshot->i2s_channel_map));
+    memcpy(snapshot->upsample_channel_map,
+           upsample_channel_map,
+           sizeof(snapshot->upsample_channel_map));
+    snapshot->reserved = 0;
     snapshot->sample_count = AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES;
     for (size_t i = 0; i < AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES; i++) {
         size_t out = i * 3;

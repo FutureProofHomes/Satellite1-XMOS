@@ -8,6 +8,14 @@
 #include "audio_pipeline_control_servicer.h"
 #include "platform/platform_conf.h"
 
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS && ON_TILE(0)
+extern audio_pipeline_debug_counters_t audio_pipeline_tile0_debug;
+#endif
+
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS && ON_TILE(1)
+extern audio_pipeline_debug_counters_t audio_pipeline_tile1_debug;
+#endif
+
 #define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
 
 static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
@@ -18,6 +26,8 @@ static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
 #if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_OUTPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(mic_output_packaged_snapshot_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_PIPELINE_DEBUG_COUNTERS, 1,
+      sizeof(audio_pipeline_debug_counters_t), CMD_READ_ONLY },
 #endif
 };
 
@@ -39,6 +49,8 @@ static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
       sizeof(mic_input_packaged_snapshot_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_SPK_INPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(spk_input_packaged_snapshot_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_PIPELINE_DEBUG_COUNTERS, 1,
+      sizeof(audio_pipeline_debug_counters_t), CMD_READ_ONLY },
 #endif
 };
 
@@ -286,6 +298,32 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         memcpy(payload,
                &ctx->mic_output_settings->packaged_snapshot,
                sizeof(ctx->mic_output_settings->packaged_snapshot));
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_PIPELINE_DEBUG_COUNTERS) {
+#if ON_TILE(0)
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        memcpy(payload,
+               &audio_pipeline_tile0_debug,
+               sizeof(audio_pipeline_tile0_debug));
+#elif ON_TILE(1)
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        memcpy(payload,
+               &audio_pipeline_tile1_debug,
+               sizeof(audio_pipeline_tile1_debug));
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
         payload[-1] = ret;
         return ret;
     }
