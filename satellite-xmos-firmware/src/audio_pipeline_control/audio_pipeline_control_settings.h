@@ -126,10 +126,29 @@ typedef struct
     uint32_t guard_a;
     uint32_t guard_b;
     uint32_t frame_counter;
+    uint8_t pack_extra_upsample_channels;
+    uint8_t i2s_channel_map[AUDIO_PIPELINE_OUTPUT_CHANNEL_COUNT];
+    uint8_t upsample_channel_map[AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT];
+    uint8_t reserved;
     uint32_t sample_count;
     int32_t packaged_lane_samples[AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT]
                                 [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
 } mic_output_packaged_snapshot_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t input_enter;
+    uint32_t input_return;
+    uint32_t output_enter;
+    uint32_t tx_before;
+    uint32_t tx_after;
+    uint32_t rx_len_before;
+    uint32_t rx_len_after;
+    uint32_t rx_data_after;
+    uint32_t output_after;
+    uint32_t last_rx_len;
+} audio_pipeline_debug_counters_t;
 #endif
 
 typedef struct
