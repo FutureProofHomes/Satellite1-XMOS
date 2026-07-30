@@ -39,8 +39,8 @@ static void *audio_pipeline_input_i(void *input_app_data)
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
     audio_pipeline_input(input_app_data,
-                       (int32_t **)frame_data->aec_reference_audio_samples,
-                       4,
+                       (int32_t *) frame_data->aec_reference_audio_samples,
+                       appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
                        appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 
     frame_data->vnr_pred_flag = 0;
