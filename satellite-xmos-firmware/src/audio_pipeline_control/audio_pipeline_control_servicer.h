@@ -11,6 +11,9 @@ typedef struct {
     mic_output_pipeline_settings_t active;
     mic_output_pipeline_settings_t pending;
     uint8_t pending_valid;
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    mic_output_packaged_snapshot_t packaged_snapshot;
+#endif
 } mic_output_pipeline_settings_runtime_t;
 
 typedef struct {
@@ -29,8 +32,10 @@ typedef struct {
     doa_reading_t raw;
     doa_reading_t smooth;
     mic_input_debug_stats_t mic_input_debug;
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
     mic_input_packaged_snapshot_t mic_input_packaged_snapshot;
     spk_input_packaged_snapshot_t spk_input_packaged_snapshot;
+#endif
 } doa_runtime_t;
 
 typedef struct {

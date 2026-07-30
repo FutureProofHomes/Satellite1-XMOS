@@ -31,6 +31,33 @@ static stage_delay_ctx_t DWORD_ALIGNED delay_buf_state = {};
 #endif
 static aec_ctx_t DWORD_ALIGNED aec_state = {};
 
+#define AUDIO_PIPELINE_DSP_SAMPLE_LIMIT ((int32_t)0x00400000)
+
+static int32_t clamp_dsp_input_sample(int32_t sample)
+{
+    if (sample > AUDIO_PIPELINE_DSP_SAMPLE_LIMIT) {
+        return AUDIO_PIPELINE_DSP_SAMPLE_LIMIT;
+    }
+    if (sample < -AUDIO_PIPELINE_DSP_SAMPLE_LIMIT) {
+        return -AUDIO_PIPELINE_DSP_SAMPLE_LIMIT;
+    }
+    return sample;
+}
+
+static void copy_mic_passthrough_to_processing(frame_data_t *frame_data)
+{
+    memcpy(frame_data->samples,
+           frame_data->mic_samples_passthrough,
+           sizeof(frame_data->samples));
+
+    for (size_t ch = 0; ch < appconfMIC_PIPELINE_PROC_CHANNELS; ch++) {
+        for (size_t frame = 0; frame < appconfAUDIO_PIPELINE_FRAME_ADVANCE; frame++) {
+            frame_data->samples[ch][frame] =
+                clamp_dsp_input_sample(frame_data->samples[ch][frame]);
+        }
+    }
+}
+
 
 static void *audio_pipeline_input_i(void *input_app_data)
 {
@@ -45,7 +72,7 @@ static void *audio_pipeline_input_i(void *input_app_data)
 
     frame_data->vnr_pred_flag = 0;
 
-    memcpy(frame_data->samples, frame_data->mic_samples_passthrough, sizeof(frame_data->samples));
+    copy_mic_passthrough_to_processing(frame_data);
 
     return frame_data;
 }

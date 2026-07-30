@@ -1,5 +1,9 @@
 query_tools_version()
 
+option(SATELLITE1_AUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    "Enable SPI-readable audio pipeline debug snapshots for HIL/dev builds"
+    OFF)
+
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(FFVA_INT_COMPILE_DEFINITIONS
@@ -15,6 +19,10 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfI2S_AUDIO_SAMPLE_RATE=48000
         appconfDEVICE_CTRL_SPI=1
     )
+
+    if(SATELLITE1_AUDIO_PIPELINE_DEBUG_SNAPSHOTS)
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS=1)
+    endif()
 
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)

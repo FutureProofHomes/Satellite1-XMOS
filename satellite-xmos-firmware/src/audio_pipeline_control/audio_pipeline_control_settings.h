@@ -25,6 +25,10 @@
 #define AUDIO_PIPELINE_PACKAGED_SYNC_WORD              ((int32_t)0x7E57A55A)
 #define AUDIO_PIPELINE_OUTPUT_VIRTUAL_SYNC_CHANNEL     ((uint8_t)255)
 
+#ifndef appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#define appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS 0
+#endif
+
 typedef int32_t audio_pipeline_gain_t;
 
 typedef enum
@@ -90,6 +94,7 @@ typedef struct
     uint32_t mic_mean_abs[AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT];
 } mic_input_debug_stats_t;
 
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
 typedef struct
 {
     uint32_t magic;
@@ -112,8 +117,20 @@ typedef struct
     uint32_t frame_counter;
     uint32_t sample_count;
     int32_t packaged_lane_samples[AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT]
-                               [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
+                                [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
 } spk_input_packaged_snapshot_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t guard_a;
+    uint32_t guard_b;
+    uint32_t frame_counter;
+    uint32_t sample_count;
+    int32_t packaged_lane_samples[AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT]
+                                [AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES];
+} mic_output_packaged_snapshot_t;
+#endif
 
 typedef struct
 {

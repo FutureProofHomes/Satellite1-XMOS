@@ -15,6 +15,10 @@ static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
       sizeof(mic_output_pipeline_settings_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL, 1,
       sizeof(mic_output_pipeline_settings_update_t), CMD_WRITE_ONLY },
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_OUTPUT_PACKAGED_SNAPSHOT, 1,
+      sizeof(mic_output_packaged_snapshot_t), CMD_READ_ONLY },
+#endif
 };
 
 static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
@@ -30,10 +34,12 @@ static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
       sizeof(doa_reading_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS, 1,
       sizeof(mic_input_debug_stats_t), CMD_READ_ONLY },
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(mic_input_packaged_snapshot_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_SPK_INPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(spk_input_packaged_snapshot_t), CMD_READ_ONLY },
+#endif
 };
 
 static control_cmd_info_t audio_pipeline_speaker_settings_cmd_map[] = {
@@ -145,6 +151,11 @@ void mic_output_pipeline_settings_runtime_init(
     mic_output_pipeline_settings_default(&settings_runtime->active);
     settings_runtime->pending = settings_runtime->active;
     settings_runtime->pending_valid = 0;
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    memset(&settings_runtime->packaged_snapshot,
+           0,
+           sizeof(settings_runtime->packaged_snapshot));
+#endif
 }
 
 void mic_input_pipeline_settings_runtime_init(
@@ -233,6 +244,7 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         return ret;
     }
 
+#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
     if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_PACKAGED_SNAPSHOT) {
         if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID ||
             ctx->doa == NULL) {
@@ -262,6 +274,22 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         payload[-1] = ret;
         return ret;
     }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_OUTPUT_PACKAGED_SNAPSHOT) {
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID ||
+            ctx->mic_output_settings == NULL) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+
+        memcpy(payload,
+               &ctx->mic_output_settings->packaged_snapshot,
+               sizeof(ctx->mic_output_settings->packaged_snapshot));
+        payload[-1] = ret;
+        return ret;
+    }
+#endif
 
     switch (resid) {
     case AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID:

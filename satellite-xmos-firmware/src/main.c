@@ -5,6 +5,7 @@
 #include <xs1.h>
 #include <xcore/channel.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 
 /* FreeRTOS headers */
@@ -44,6 +45,7 @@ volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
 #define DEVICE_STATUS_READY_REGISTER_IDX   0
 #define DEVICE_STATUS_READY_VALUE          1
+#define AUDIO_PIPELINE_QUEUE_WAIT_TICKS pdMS_TO_TICKS(50)
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
@@ -68,11 +70,13 @@ static int32_t mic_input_sim_frame_pool[AUDIO_FRAME_POOL_DEPTH]
 static servicer_t speaker_audio_pipeline_servicer_state;
 static speaker_pipeline_settings_runtime_t speaker_pipeline_settings_runtime;
 static mic_input_pipeline_settings_runtime_t mic_input_pipeline_settings_runtime;
+static doa_runtime_t audio_pipeline_runtime;
+static uint32_t ref_input_pool_miss_count;
+static uint32_t ref_input_send_drop_count;
+static uint32_t ref_input_recv_timeout_count;
 static audio_pipeline_servicer_ctx_t speaker_audio_pipeline_servicer_context;
 static servicer_register_ctx_t speaker_audio_pipeline_servicer_reg_ctx;
 #endif
-
-#define AUDIO_PIPELINE_QUEUE_WAIT_TICKS pdMS_TO_TICKS(50)
 
 static int frame_pool_try_acquire(rtos_osal_queue_t *free_queue,
                                   void **frame_data)
@@ -163,6 +167,30 @@ static uint8_t detect_packaged_sync_phase(const int32_t *samples,
 }
 #endif
 
+#if ON_TILE(SPEAKER_PIPELINE_TILE_NO) && appconfDEVICE_CTRL_SPI
+static void mic_input_runtime_update_debug(doa_runtime_t *runtime,
+                                           const int32_t *mic_data,
+                                           size_t frame_count)
+{
+    xassert(runtime != NULL);
+    xassert(mic_data != NULL);
+
+    runtime->mic_input_debug.frame_counter++;
+    for (size_t ch = 0; ch < appconfMIC_PIPELINE_INPUT_CHANNELS; ch++) {
+        uint64_t sum_abs = 0;
+        for (size_t i = 0; i < frame_count; i++) {
+            int64_t sample = mic_data[(ch * frame_count) + i];
+            if (sample < 0) {
+                sample = -sample;
+            }
+            sum_abs += (uint64_t)sample;
+        }
+        runtime->mic_input_debug.mic_mean_abs[ch] =
+            (uint32_t)(sum_abs / frame_count);
+    }
+}
+#endif
+
 #if ON_TILE(0)
 static int32_t get_mic_output_sample(const int32_t *samples,
                                      size_t frame_count,
@@ -206,6 +234,24 @@ void speaker_pipeline_input(void *input_app_data,
             *(tmpptr + i) = tmp[i][0][0];
             *(tmpptr + i + frame_count) = tmp[i][0][1];
         }
+
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+        spk_input_packaged_snapshot_t *snapshot =
+            &audio_pipeline_runtime.spk_input_packaged_snapshot;
+        snapshot->magic = 0x53504B49; /* SPKI */
+        snapshot->guard_a = 0x0BADF00D;
+        snapshot->guard_b = 0x1234CDEF;
+        snapshot->frame_counter++;
+        snapshot->sample_count = AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES;
+        for (size_t lane = 0;
+             lane < AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT;
+             lane++) {
+            for (size_t i = 0; i < AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES; i++) {
+                snapshot->packaged_lane_samples[lane][i] =
+                    get_packaged_lane_sample(tmpptr, frame_count, lane, i);
+            }
+        }
+#endif
     }
 
 #if appconfUSB_AUDIO_ENABLED
@@ -325,12 +371,19 @@ int speaker_pipeline_output(void *output_app_data,
     rtos_i2s_tx_1(i2s_ctx,
                 (int32_t*) tmp,
                 frame_count,
-                portMAX_DELAY);
+                AUDIO_PIPELINE_QUEUE_WAIT_TICKS);
     
     void *frame_data = NULL;
-    xassert(rtos_osal_queue_receive(ref_input_free_queue,
-                                    &frame_data,
-                                    RTOS_OSAL_WAIT_FOREVER) == RTOS_OSAL_SUCCESS);
+    if (frame_pool_try_acquire(ref_input_free_queue,
+                               &frame_data) != RTOS_OSAL_SUCCESS) {
+#if appconfDEVICE_CTRL_SPI
+        ref_input_pool_miss_count++;
+#endif
+    }
+
+    if (frame_data == NULL) {
+        goto skip_ref_enqueue;
+    }
     
     // down sample reference signal to 16kHz if needed
     if (packaged_ref_mode) {
@@ -360,9 +413,17 @@ int speaker_pipeline_output(void *output_app_data,
     }
     
     // send to microphone pipeline as reference
-    (void) rtos_osal_queue_send(ref_input_queue,
-                                &frame_data,
-                                RTOS_OSAL_WAIT_FOREVER);
+    if (rtos_osal_queue_send(ref_input_queue,
+                             &frame_data,
+                             AUDIO_PIPELINE_QUEUE_WAIT_TICKS) != RTOS_OSAL_SUCCESS) {
+#if appconfDEVICE_CTRL_SPI
+        ref_input_send_drop_count++;
+#endif
+        frame_pool_release(ref_input_free_queue, frame_data);
+    }
+
+skip_ref_enqueue:
+    ;
 
     if (packaged_sync_missing) {
         void *stale_mic_frame_data;
@@ -376,6 +437,10 @@ int speaker_pipeline_output(void *output_app_data,
 
     if (packaged_mic_mode) {
         void *mic_frame_data = NULL;
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+        mic_input_packaged_snapshot_t *snapshot =
+            &audio_pipeline_runtime.mic_input_packaged_snapshot;
+#endif
         if (frame_pool_try_acquire(mic_input_sim_free_queue,
                                    &mic_frame_data) != RTOS_OSAL_SUCCESS) {
             goto skip_mic_enqueue;
@@ -384,6 +449,24 @@ int speaker_pipeline_output(void *output_app_data,
         int32_t *mic_dst = (int32_t *) mic_frame_data;
         xassert(appconfMIC_PIPELINE_INPUT_CHANNELS ==
                 AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+        snapshot->frame_counter++;
+        snapshot->magic = 0x534E4150; /* SNAP */
+        snapshot->guard_a = 0x13579BDF;
+        snapshot->guard_b = 0x2468ACE0;
+        snapshot->sample_count = AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES;
+        memcpy(snapshot->mic_input_channel_map,
+               mic_input_settings->mic_input_channel_map,
+               sizeof(snapshot->mic_input_channel_map));
+        for (size_t lane = 0;
+             lane < AUDIO_PIPELINE_PACKAGED_INPUT_CHANNEL_COUNT;
+             lane++) {
+            for (size_t i = 0; i < AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES; i++) {
+                snapshot->packaged_lane_samples[lane][i] =
+                    get_packaged_lane_sample(tmpptr, frame_count, lane, i);
+            }
+        }
+#endif
         for (size_t mic_ch = 0; mic_ch < appconfMIC_PIPELINE_INPUT_CHANNELS; mic_ch++) {
             for (size_t frame = 0; frame < appconfAUDIO_PIPELINE_FRAME_ADVANCE; frame++) {
                 int32_t sample =
@@ -394,6 +477,11 @@ int speaker_pipeline_output(void *output_app_data,
                                                  packaged_sync_phase),
                                              frame);
                 *(mic_dst + (mic_ch * appconfAUDIO_PIPELINE_FRAME_ADVANCE) + frame) = sample;
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+                if (frame < AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES) {
+                    snapshot->mapped_mic_samples[mic_ch][frame] = sample;
+                }
+#endif
             }
         }
 
@@ -461,7 +549,7 @@ void audio_pipeline_input(void *input_app_data,
     void *frame_data;
     if (rtos_osal_queue_receive(ref_input_queue,
                                 &frame_data,
-                                RTOS_OSAL_WAIT_FOREVER) == RTOS_OSAL_SUCCESS) {
+                                AUDIO_PIPELINE_QUEUE_WAIT_TICKS) == RTOS_OSAL_SUCCESS) {
         int32_t *tmpptr = (int32_t *)input_audio_frames;
         int32_t *refptr = (int32_t *)frame_data;
 
@@ -472,6 +560,10 @@ void audio_pipeline_input(void *input_app_data,
         }
 
         frame_pool_release(ref_input_free_queue, frame_data);
+    } else {
+#if appconfDEVICE_CTRL_SPI
+        ref_input_recv_timeout_count++;
+#endif
     }
 #endif
 
@@ -516,6 +608,10 @@ void audio_pipeline_input(void *input_app_data,
     if (mic_input_settings == NULL) {
         mic_input_settings = &mic_input_pipeline_settings_runtime.active;
     }
+
+    mic_input_runtime_update_debug(&audio_pipeline_runtime,
+                                   mic_data,
+                                   frame_count);
 
     audio_runtime_apply_input_gains_q24(input_audio_frames,
                                         frame_count,
@@ -659,12 +755,31 @@ int audio_pipeline_output(void *output_app_data,
         tmp[j][0][1] = (int32_t)((2U << 24) | low);
     }
 #endif
+
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+    mic_output_packaged_snapshot_t *snapshot =
+        &mic_output_pipeline_settings_runtime.packaged_snapshot;
+    snapshot->magic = 0x4D4F5554; /* MOUT */
+    snapshot->guard_a = 0x10293847;
+    snapshot->guard_b = 0x56473829;
+    snapshot->frame_counter++;
+    snapshot->sample_count = AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES;
+    for (size_t i = 0; i < AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES; i++) {
+        size_t out = i * 3;
+        snapshot->packaged_lane_samples[0][i] = tmp[out][0][0];
+        snapshot->packaged_lane_samples[1][i] = tmp[out][0][1];
+        snapshot->packaged_lane_samples[2][i] = tmp[out + 1][0][0];
+        snapshot->packaged_lane_samples[3][i] = tmp[out + 1][0][1];
+        snapshot->packaged_lane_samples[4][i] = tmp[out + 2][0][0];
+        snapshot->packaged_lane_samples[5][i] = tmp[out + 2][0][1];
+    }
+#endif
     
     
     rtos_i2s_tx(i2s_ctx,
                 (int32_t*) tmp,
                 appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE,
-                portMAX_DELAY);
+                AUDIO_PIPELINE_QUEUE_WAIT_TICKS);
 #endif
 
 #if appconfUSB_AUDIO_ENABLED
@@ -810,7 +925,7 @@ void startup_task(void *arg)
         &speaker_pipeline_settings_runtime;
     speaker_audio_pipeline_servicer_context.mic_input_settings =
         &mic_input_pipeline_settings_runtime;
-    speaker_audio_pipeline_servicer_context.doa = NULL;
+    speaker_audio_pipeline_servicer_context.doa = &audio_pipeline_runtime;
 
     speaker_audio_pipeline_servicer_reg_ctx.servicer =
         &speaker_audio_pipeline_servicer_state;
