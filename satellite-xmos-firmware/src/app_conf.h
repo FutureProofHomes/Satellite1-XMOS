@@ -57,6 +57,10 @@
 #define appconfSPEAKER_OUTPUT_TEST_PATTERN 0
 #endif
 
+#ifndef appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#define appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS 0
+#endif
+
 #ifndef appconfPIPELINE_BYPASS
 #define appconfPIPELINE_BYPASS 0
 #endif
