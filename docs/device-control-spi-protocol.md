@@ -371,6 +371,43 @@ startup. In debug-snapshot builds, packaged mic/ref routing is the reset default
 packaged mic timeout is deterministic silence, and packaged sync-missing frames
 must not enqueue legacy/downsampled reference data.
 
+### Audio Pipeline Debug IC/VNR Capture
+
+When `appconfDEVICE_CTRL_SPI` and `appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG` are
+enabled, the tile 0 `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` (`230`) resource
+also exposes a fixed-delay IC/VNR capture path. It is debug-only and captures the
+independent IC/VNR stage boundary: IC input `y`, IC input `x`, IC output, and
+per-frame VNR/adaptation metadata.
+
+Added debug command IDs on resource `230`:
+
+| Command | ID | Encoded value | Direction | Command-map payload length | SPI frame payload length |
+| --- | --- | --- | --- | --- | --- |
+| `AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_IC_VNR_CAPTURE` | `18` | `0x12` | Write | 8 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_IC_VNR_CAPTURE_STATUS` | `19` | `0x93` | Read | 24 bytes | 25 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_IC_VNR_CAPTURE_CHUNK` | `20` | `0x14` | Write | 4 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_IC_VNR_CAPTURE_CHUNK` | `21` | `0x95` | Read | 240 bytes | 241 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_IC_VNR_CAPTURE_PROBE` | `22` | `0x96` | Read | 32 bytes | 33 bytes |
+
+The chunked payload starts with flattened sample data as
+`int32_le data[frame][stream][sample]`, with 10 frames, 3 streams, and 240
+samples per frame/stream. Stream `0` is IC input `y`, stream `1` is IC input
+`x`, and stream `2` is IC output. The sample section is 28,800 bytes.
+
+The sample section is followed by 10 fixed-size 32-byte metadata records:
+`uint32 frame_counter`, `int32 input_vnr_pred_mant`, `int32 input_vnr_pred_exp`,
+`int32 output_vnr_pred_mant`, `int32 output_vnr_pred_exp`, `int32 vnr_pred_flag`,
+`int32 control_flag`, and `uint32 adapt_counter`. Total capture size is 29,120
+bytes split into 130 chunks. Each chunk carries 224 data bytes plus 14 bytes of
+metadata so the read fits in a 256-byte SPI transaction including the
+device-control status byte.
+
+Host flow matches the AEC capture: write arm, poll status until state is done,
+write select chunk, then read chunk. Repeat select/read for chunks
+`0..chunk_count-1`. The probe reports `base_frame_counter`, `stream_count`,
+`sample_bytes`, and `meta_bytes`; host validation should replay any pre-capture
+zero-history frames before comparing IC/VNR output.
+
 ## Changelog
 
 ### `0x11`
