@@ -48,6 +48,16 @@ typedef struct {
     float_s32_t max_ref_energy;
     float_s32_t aec_corr_factor;
     int32_t ref_active_flag;
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+    uint32_t debug_frame_counter;
+    uint32_t debug_aec_x_energy_recalc_bin;
+    int32_t debug_mic_input[2][4];
+    int32_t debug_ref_input[2][4];
+    int32_t debug_aec_output[2][4];
+    int32_t debug_ic_output[4];
+    int32_t debug_ns_output[4];
+    int32_t debug_agc_output[4];
+#endif
 } frame_data_t;
 
 typedef struct stage_delay_ctx {

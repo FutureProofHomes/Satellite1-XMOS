@@ -1,8 +1,16 @@
 query_tools_version()
 
-option(SATELLITE1_AUDIO_PIPELINE_DEBUG_SNAPSHOTS
-    "Enable SPI-readable audio pipeline debug snapshots for HIL/dev builds"
+option(SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT
+    "Enable Satellite1 audio-pipeline development-only packaged controls"
     OFF)
+option(SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT_DEBUG
+    "Enable Satellite1 audio-pipeline development debug capture/snapshot/probe/counter controls"
+    OFF)
+
+if(SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT_DEBUG AND NOT SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT)
+    message(FATAL_ERROR
+        "SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT_DEBUG requires SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT")
+endif()
 
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
@@ -18,11 +26,9 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfI2S_MODE=appconfI2S_MODE_MASTER
         appconfI2S_AUDIO_SAMPLE_RATE=48000
         appconfDEVICE_CTRL_SPI=1
+        appconfAUDIO_PIPELINE_DEVELOPMENT=$<BOOL:${SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT}>
+        appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG=$<BOOL:${SATELLITE1_AUDIO_PIPELINE_DEVELOPMENT_DEBUG}>
     )
-
-    if(SATELLITE1_AUDIO_PIPELINE_DEBUG_SNAPSHOTS)
-        list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS=1)
-    endif()
 
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)

@@ -318,6 +318,59 @@ Image status flags:
 | `0` | `0x01` | Upgrade image present |
 | `1` | `0x02` | Data partition available after the DFU image area |
 
+### Audio Pipeline Debug AEC Capture
+
+When both `appconfDEVICE_CTRL_SPI` and
+`appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS` are enabled, the tile 1
+`AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID` (`232`) resource exposes a
+fixed-delay AEC output capture path. It is debug-only and captures the 10
+contiguous frames immediately after `aec_process_frame_1thread()` produces
+`stage1_output` in the fixed-delay tile 1 pipeline.
+
+Added debug command IDs on resource `232`:
+
+| Command | ID | Encoded value | Direction | Command-map payload length | SPI frame payload length |
+| --- | --- | --- | --- | --- | --- |
+| `AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_AEC_CAPTURE` | `12` | `0x0C` | Write | 8 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_STATUS` | `13` | `0x8D` | Read | 24 bytes | 25 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_AEC_CAPTURE_CHUNK` | `14` | `0x0E` | Write | 4 bytes | N/A |
+| reserved debug slot | `15` | N/A | N/A | N/A | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_CHUNK` | `16` | `0x90` | Read | 240 bytes | 241 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_PROBE` | `17` | `0x91` | Read | 156 bytes | 157 bytes |
+
+The captured data is flattened as
+`int32_le data[frame][channel][sample]`, with 10 frames, 2 channels, and 240
+samples per frame/channel. Total capture size is 19,200 bytes split into 86
+chunks. Each chunk carries 224 data bytes plus 14 bytes of metadata so the read
+fits in a 256-byte SPI transaction including the device-control status byte.
+
+Struct layouts are defined in
+`satellite-xmos-firmware/src/audio_pipeline_control/audio_pipeline_control_settings.h`:
+
+- `fixed_delay_aec_capture_arm_t`: `uint32 magic` (`0x41454343`, `AECC`),
+  `uint32 request_id`.
+- `fixed_delay_aec_capture_status_t`: `uint32 magic`, `uint32 capture_id`,
+  `uint32 base_frame_counter`, `uint32 total_bytes`, `uint16 frames_captured`,
+  `uint16 chunk_count`, `uint16 selected_chunk`, `uint8 state`, `uint8 reserved`.
+- `fixed_delay_aec_capture_chunk_select_t`: `uint16 chunk_index`,
+  `uint16 reserved`.
+- `fixed_delay_aec_capture_chunk_t`: `uint32 magic`, `uint32 capture_id`,
+  `uint16 chunk_index`, `uint16 chunk_count`, `uint8 valid_bytes`,
+  `uint8 reserved`, `uint8 data[224]`.
+- `fixed_delay_aec_capture_probe_t`: metadata captured from the same run for
+  reconstructing xsim input alignment: `base_frame_counter`, chunk/status
+  fields, `prefix_frame_index`, `prefix_sample_index`, and 8-sample mic/ref
+  prefixes for both AEC channels.
+
+State values: `0` idle, `1` armed, `2` capturing, `3` done. Host flow is:
+write arm, poll status until state is done, write select chunk, then read chunk.
+Repeat select/read for chunks `0..chunk_count-1`.
+
+The debug full-AEC parity test also relies on deterministic packaged-mode
+startup. In debug-snapshot builds, packaged mic/ref routing is the reset default,
+packaged mic timeout is deterministic silence, and packaged sync-missing frames
+must not enqueue legacy/downsampled reference data.
+
 ## Changelog
 
 ### `0x11`

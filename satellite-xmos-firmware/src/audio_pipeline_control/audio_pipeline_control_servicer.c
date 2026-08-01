@@ -8,12 +8,19 @@
 #include "audio_pipeline_control_servicer.h"
 #include "platform/platform_conf.h"
 
-#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS && ON_TILE(0)
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG && ON_TILE(0)
 extern audio_pipeline_debug_counters_t audio_pipeline_tile0_debug;
+extern fixed_delay_stage_snapshot_t fixed_delay_stage_snapshot;
 #endif
 
-#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS && ON_TILE(1)
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG && ON_TILE(1)
 extern audio_pipeline_debug_counters_t audio_pipeline_tile1_debug;
+extern void fixed_delay_aec_capture_arm(const fixed_delay_aec_capture_arm_t *arm);
+extern void fixed_delay_aec_capture_get_status(fixed_delay_aec_capture_status_t *status);
+extern void fixed_delay_aec_capture_get_probe(fixed_delay_aec_capture_probe_t *probe);
+extern int fixed_delay_aec_capture_select_chunk(uint16_t chunk_index);
+extern void fixed_delay_aec_capture_get_selected_chunk(
+    fixed_delay_aec_capture_chunk_t *chunk);
 #endif
 
 #define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
@@ -23,11 +30,13 @@ static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
       sizeof(mic_output_pipeline_settings_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_SET_SETTINGS_PARTIAL, 1,
       sizeof(mic_output_pipeline_settings_update_t), CMD_WRITE_ONLY },
-#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_OUTPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(mic_output_packaged_snapshot_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_PIPELINE_DEBUG_COUNTERS, 1,
       sizeof(audio_pipeline_debug_counters_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_STAGE_SNAPSHOT, 1,
+      sizeof(fixed_delay_stage_snapshot_t), CMD_READ_ONLY },
 #endif
 };
 
@@ -44,13 +53,23 @@ static control_cmd_info_t audio_pipeline_mic_input_settings_cmd_map[] = {
       sizeof(doa_reading_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_DEBUG_STATS, 1,
       sizeof(mic_input_debug_stats_t), CMD_READ_ONLY },
-#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(mic_input_packaged_snapshot_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_SPK_INPUT_PACKAGED_SNAPSHOT, 1,
       sizeof(spk_input_packaged_snapshot_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_PIPELINE_DEBUG_COUNTERS, 1,
       sizeof(audio_pipeline_debug_counters_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_AEC_CAPTURE, 1,
+      sizeof(fixed_delay_aec_capture_arm_t), CMD_WRITE_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_STATUS, 1,
+      sizeof(fixed_delay_aec_capture_status_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_AEC_CAPTURE_CHUNK, 1,
+      sizeof(fixed_delay_aec_capture_chunk_select_t), CMD_WRITE_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_CHUNK, 1,
+      sizeof(fixed_delay_aec_capture_chunk_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_PROBE, 1,
+      sizeof(fixed_delay_aec_capture_probe_t), CMD_READ_ONLY },
 #endif
 };
 
@@ -163,7 +182,7 @@ void mic_output_pipeline_settings_runtime_init(
     mic_output_pipeline_settings_default(&settings_runtime->active);
     settings_runtime->pending = settings_runtime->active;
     settings_runtime->pending_valid = 0;
-#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
     memset(&settings_runtime->packaged_snapshot,
            0,
            sizeof(settings_runtime->packaged_snapshot));
@@ -256,7 +275,7 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         return ret;
     }
 
-#if appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
     if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_MIC_INPUT_PACKAGED_SNAPSHOT) {
         if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID ||
             ctx->doa == NULL) {
@@ -327,6 +346,73 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         payload[-1] = ret;
         return ret;
     }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_STAGE_SNAPSHOT) {
+#if ON_TILE(0)
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        memcpy(payload,
+               &fixed_delay_stage_snapshot,
+               sizeof(fixed_delay_stage_snapshot));
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_STATUS) {
+#if ON_TILE(1)
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        fixed_delay_aec_capture_get_status(
+            (fixed_delay_aec_capture_status_t *)payload);
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_CHUNK) {
+#if ON_TILE(1)
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        fixed_delay_aec_capture_chunk_t chunk;
+        fixed_delay_aec_capture_get_selected_chunk(&chunk);
+        memcpy(payload, &chunk, sizeof(chunk));
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AEC_CAPTURE_PROBE) {
+#if ON_TILE(1)
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        fixed_delay_aec_capture_probe_t probe;
+        fixed_delay_aec_capture_get_probe(&probe);
+        memcpy(payload, &probe, sizeof(probe));
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
 #endif
 
     switch (resid) {
@@ -373,6 +459,39 @@ static control_ret_t audio_pipeline_servicer_write_cmd(
     if (ret != CONTROL_SUCCESS) {
         return ret;
     }
+
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+    if (CONTROL_CMD_CLEAR_READ(cmd) ==
+        AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_AEC_CAPTURE) {
+#if ON_TILE(1)
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            return CONTROL_BAD_RESOURCE;
+        }
+        fixed_delay_aec_capture_arm((const fixed_delay_aec_capture_arm_t *)payload);
+        return ret;
+#else
+        return CONTROL_BAD_COMMAND;
+#endif
+    }
+
+    if (CONTROL_CMD_CLEAR_READ(cmd) ==
+        AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_AEC_CAPTURE_CHUNK) {
+#if ON_TILE(1)
+        fixed_delay_aec_capture_chunk_select_t select;
+
+        if (resid != AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID) {
+            return CONTROL_BAD_RESOURCE;
+        }
+        memcpy(&select, payload, sizeof(select));
+        if (fixed_delay_aec_capture_select_chunk(select.chunk_index) != 0) {
+            return SERVICER_WRONG_PAYLOAD;
+        }
+        return ret;
+#else
+        return CONTROL_BAD_COMMAND;
+#endif
+    }
+#endif
 
     switch (resid) {
     case AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID:

@@ -45,7 +45,11 @@ volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
 #define DEVICE_STATUS_READY_REGISTER_IDX   0
 #define DEVICE_STATUS_READY_VALUE          1
+#if appconfAUDIO_PIPELINE_DEVELOPMENT
 #define AUDIO_PIPELINE_QUEUE_WAIT_TICKS pdMS_TO_TICKS(50)
+#else
+#define AUDIO_PIPELINE_QUEUE_WAIT_TICKS portMAX_DELAY
+#endif
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
@@ -235,7 +239,7 @@ void speaker_pipeline_input(void *input_app_data,
             *(tmpptr + i + frame_count) = tmp[i][0][1];
         }
 
-#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
         spk_input_packaged_snapshot_t *snapshot =
             &audio_pipeline_runtime.spk_input_packaged_snapshot;
         snapshot->magic = 0x53504B49; /* SPKI */
@@ -280,6 +284,7 @@ int speaker_pipeline_output(void *output_app_data,
     (void) output_app_data;
     bool packaged_ref_mode = false;
     bool packaged_mic_mode = false;
+    bool requested_packaged_ref_mode = false;
     bool packaged_sync_missing = false;
     uint8_t packaged_sync_phase = 0;
     mic_input_pipeline_settings_t default_mic_input_settings;
@@ -295,11 +300,13 @@ int speaker_pipeline_output(void *output_app_data,
         mic_input_settings = &default_mic_input_settings;
     }
 
-    if (appconfI2S_AUDIO_SAMPLE_RATE == 3 * appconfAUDIO_PIPELINE_SAMPLE_RATE) {
+    if (appconfAUDIO_PIPELINE_DEVELOPMENT &&
+        appconfI2S_AUDIO_SAMPLE_RATE == 3 * appconfAUDIO_PIPELINE_SAMPLE_RATE) {
         int packaged_sync_score = 0;
 
-        packaged_ref_mode =
+        requested_packaged_ref_mode =
             mic_input_settings->ref_source_mode == AUDIO_PIPELINE_REF_SOURCE_PACKAGED_INPUT;
+        packaged_ref_mode = requested_packaged_ref_mode;
         packaged_mic_mode =
             mic_input_settings->mic_source_mode == AUDIO_PIPELINE_MIC_SOURCE_PACKAGED_INPUT;
         if (packaged_ref_mode || packaged_mic_mode) {
@@ -381,7 +388,10 @@ int speaker_pipeline_output(void *output_app_data,
 #endif
     }
 
-    if (frame_data == NULL) {
+    if (frame_data == NULL || (packaged_sync_missing && requested_packaged_ref_mode)) {
+        if (frame_data != NULL) {
+            frame_pool_release(ref_input_free_queue, frame_data);
+        }
         goto skip_ref_enqueue;
     }
     
@@ -426,7 +436,14 @@ skip_ref_enqueue:
     ;
 
     if (packaged_sync_missing) {
+        void *stale_ref_frame_data;
         void *stale_mic_frame_data;
+
+        while (rtos_osal_queue_receive(ref_input_queue,
+                                       &stale_ref_frame_data,
+                                       RTOS_OSAL_NO_WAIT) == RTOS_OSAL_SUCCESS) {
+            frame_pool_release(ref_input_free_queue, stale_ref_frame_data);
+        }
 
         while (rtos_osal_queue_receive(mic_input_sim_queue,
                                        &stale_mic_frame_data,
@@ -437,7 +454,7 @@ skip_ref_enqueue:
 
     if (packaged_mic_mode) {
         void *mic_frame_data = NULL;
-#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
         mic_input_packaged_snapshot_t *snapshot =
             &audio_pipeline_runtime.mic_input_packaged_snapshot;
 #endif
@@ -449,7 +466,7 @@ skip_ref_enqueue:
         int32_t *mic_dst = (int32_t *) mic_frame_data;
         xassert(appconfMIC_PIPELINE_INPUT_CHANNELS ==
                 AUDIO_PIPELINE_MIC_INPUT_CHANNEL_MAP_COUNT);
-#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
         snapshot->frame_counter++;
         snapshot->magic = 0x534E4150; /* SNAP */
         snapshot->guard_a = 0x13579BDF;
@@ -477,7 +494,7 @@ skip_ref_enqueue:
                                                  packaged_sync_phase),
                                              frame);
                 *(mic_dst + (mic_ch * appconfAUDIO_PIPELINE_FRAME_ADVANCE) + frame) = sample;
-#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
                 if (frame < AUDIO_PIPELINE_PACKAGED_SNAPSHOT_SAMPLES) {
                     snapshot->mapped_mic_samples[mic_ch][frame] = sample;
                 }
@@ -532,7 +549,8 @@ void audio_pipeline_input(void *input_app_data,
     }
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
-    if (appconfI2S_AUDIO_SAMPLE_RATE == 3 * appconfAUDIO_PIPELINE_SAMPLE_RATE) {
+    if (appconfAUDIO_PIPELINE_DEVELOPMENT &&
+        appconfI2S_AUDIO_SAMPLE_RATE == 3 * appconfAUDIO_PIPELINE_SAMPLE_RATE) {
 #if appconfDEVICE_CTRL_SPI
         mic_input_settings = &mic_input_pipeline_settings_runtime.active;
 #endif
@@ -591,6 +609,11 @@ void audio_pipeline_input(void *input_app_data,
                    appconfAUDIO_PIPELINE_FRAME_ADVANCE *
                        appconfMIC_PIPELINE_INPUT_CHANNELS * sizeof(int32_t));
             frame_pool_release(mic_input_sim_free_queue, sim_mic_frame_data);
+        } else {
+            memset(mic_data,
+                   0,
+                   appconfAUDIO_PIPELINE_FRAME_ADVANCE *
+                       appconfMIC_PIPELINE_INPUT_CHANNELS * sizeof(int32_t));
         }
     }
 
@@ -756,7 +779,7 @@ int audio_pipeline_output(void *output_app_data,
     }
 #endif
 
-#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
     mic_output_packaged_snapshot_t *snapshot =
         &mic_output_pipeline_settings_runtime.packaged_snapshot;
     snapshot->magic = 0x4D4F5554; /* MOUT */
