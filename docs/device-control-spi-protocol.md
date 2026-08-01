@@ -321,7 +321,7 @@ Image status flags:
 ### Audio Pipeline Debug AEC Capture
 
 When both `appconfDEVICE_CTRL_SPI` and
-`appconfAUDIO_PIPELINE_DEBUG_SNAPSHOTS` are enabled, the tile 1
+`appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG` is enabled, the tile 1
 `AUDIO_PIPELINE_MIC_INPUT_SETTINGS_RESID` (`232`) resource exposes a
 fixed-delay AEC output capture path. It is debug-only and captures the 10
 contiguous frames immediately after `aec_process_frame_1thread()` produces
