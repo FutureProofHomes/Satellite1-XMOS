@@ -10,6 +10,14 @@
  * can be compiled for both bare metal and x86.
  */
 static unsigned X_energy_recalc_bin = 0;
+
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+unsigned fixed_delay_aec_debug_get_recalc_bin(void)
+{
+    return X_energy_recalc_bin;
+}
+#endif
+
 void aec_process_frame_1thread(
         aec_state_t *main_state,
         aec_state_t *shadow_state,

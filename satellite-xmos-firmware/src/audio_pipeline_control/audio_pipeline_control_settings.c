@@ -4,6 +4,14 @@
 #include "audio_pipeline_control_cmds.h"
 #include "audio_pipeline_control_settings.h"
 
+#ifndef appconfAUDIO_PIPELINE_DEVELOPMENT
+#define appconfAUDIO_PIPELINE_DEVELOPMENT 0
+#endif
+
+#ifndef appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+#define appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG 0
+#endif
+
 static const audio_pipeline_gain_t audio_pipeline_unity_gain = 0x01000000;
 
 static bool audio_pipeline_packaged_payload_channel_index_is_valid(
@@ -21,7 +29,8 @@ static bool audio_pipeline_bool_setting_is_valid(uint8_t value)
 void mic_output_pipeline_settings_default(
     mic_output_pipeline_settings_t *settings)
 {
-    settings->pack_extra_upsample_channels = 1;
+    settings->pack_extra_upsample_channels =
+        appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG ? 1 : 0;
     settings->overwrite_ref_with_ic_ns_output = 1;
 
     settings->i2s_channel_map[0] = 0;
@@ -40,10 +49,16 @@ void mic_input_pipeline_settings_default(
 {
     settings->mic_gain = audio_pipeline_unity_gain;
     settings->ref_gain = audio_pipeline_unity_gain;
+#if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+    settings->ref_source_mode = AUDIO_PIPELINE_REF_SOURCE_PACKAGED_INPUT;
+    settings->mic_source_mode = AUDIO_PIPELINE_MIC_SOURCE_PACKAGED_INPUT;
+#else
     settings->ref_source_mode = AUDIO_PIPELINE_REF_SOURCE_LEGACY_DOWNSAMPLED;
     settings->mic_source_mode = AUDIO_PIPELINE_MIC_SOURCE_PDM;
+#endif
 
-    settings->ref_input_channel_map[0] = 1;
+    settings->ref_input_channel_map[0] =
+        appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG ? 3 : 1;
     settings->ref_input_channel_map[1] = 4;
 
     settings->mic_input_channel_map[0] = 1;
@@ -118,6 +133,18 @@ bool mic_output_pipeline_settings_update_is_valid(
         return false;
     }
 
+    if ((field_mask & AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD) != 0 &&
+        !audio_pipeline_bool_setting_is_valid(
+            settings_update->settings.pack_extra_upsample_channels)) {
+        return false;
+    }
+
+    if (!appconfAUDIO_PIPELINE_DEVELOPMENT &&
+        (field_mask & AUDIO_PIPELINE_SETTINGS_PACK_EXTRA_UPSAMPLE_CHANNELS_FIELD) != 0 &&
+        settings_update->settings.pack_extra_upsample_channels != 0) {
+        return false;
+    }
+
     if ((field_mask & AUDIO_PIPELINE_SETTINGS_I2S_CHANNEL_MAP_FIELD) != 0) {
         size_t index;
 
@@ -135,6 +162,12 @@ bool mic_output_pipeline_settings_update_is_valid(
         for (index = 0; index < AUDIO_PIPELINE_UPSAMPLE_CHANNEL_MAP_COUNT; index++) {
             if (!audio_pipeline_upsample_channel_index_is_valid(
                     settings_update->settings.upsample_channel_map[index])) {
+                return false;
+            }
+
+            if (!appconfAUDIO_PIPELINE_DEVELOPMENT &&
+                settings_update->settings.upsample_channel_map[index] ==
+                    AUDIO_PIPELINE_OUTPUT_VIRTUAL_SYNC_CHANNEL) {
                 return false;
             }
         }
@@ -220,6 +253,12 @@ bool mic_input_pipeline_settings_update_is_valid(
         memcpy(settings.mic_input_channel_map,
                settings_update->settings.mic_input_channel_map,
                sizeof(settings.mic_input_channel_map));
+    }
+
+    if (!appconfAUDIO_PIPELINE_DEVELOPMENT &&
+        (settings.ref_source_mode == AUDIO_PIPELINE_REF_SOURCE_PACKAGED_INPUT ||
+         settings.mic_source_mode == AUDIO_PIPELINE_MIC_SOURCE_PACKAGED_INPUT)) {
+        return false;
     }
 
     return mic_input_pipeline_settings_are_valid(&settings);
