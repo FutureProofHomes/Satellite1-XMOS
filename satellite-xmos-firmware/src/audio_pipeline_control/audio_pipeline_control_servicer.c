@@ -23,6 +23,12 @@ extern void fixed_delay_ns_capture_get_probe(fixed_delay_ns_capture_probe_t *pro
 extern int fixed_delay_ns_capture_select_chunk(uint16_t chunk_index);
 extern void fixed_delay_ns_capture_get_selected_chunk(
     fixed_delay_ns_capture_chunk_t *chunk);
+extern void fixed_delay_agc_capture_arm(const fixed_delay_agc_capture_arm_t *arm);
+extern void fixed_delay_agc_capture_get_status(fixed_delay_agc_capture_status_t *status);
+extern void fixed_delay_agc_capture_get_probe(fixed_delay_agc_capture_probe_t *probe);
+extern int fixed_delay_agc_capture_select_chunk(uint16_t chunk_index);
+extern void fixed_delay_agc_capture_get_selected_chunk(
+    fixed_delay_agc_capture_chunk_t *chunk);
 #endif
 
 #if appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG && ON_TILE(1)
@@ -69,6 +75,16 @@ static control_cmd_info_t audio_pipeline_mic_settings_cmd_map[] = {
       sizeof(fixed_delay_ns_capture_chunk_t), CMD_READ_ONLY },
     { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_NS_CAPTURE_PROBE, 1,
       sizeof(fixed_delay_ns_capture_probe_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_AGC_CAPTURE, 1,
+      sizeof(fixed_delay_agc_capture_arm_t), CMD_WRITE_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_STATUS, 1,
+      sizeof(fixed_delay_agc_capture_status_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_AGC_CAPTURE_CHUNK, 1,
+      sizeof(fixed_delay_agc_capture_chunk_select_t), CMD_WRITE_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_CHUNK, 1,
+      sizeof(fixed_delay_agc_capture_chunk_t), CMD_READ_ONLY },
+    { AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_PROBE, 1,
+      sizeof(fixed_delay_agc_capture_probe_t), CMD_READ_ONLY },
 #endif
 };
 
@@ -545,6 +561,56 @@ static control_ret_t audio_pipeline_servicer_read_cmd(
         payload[-1] = ret;
         return ret;
     }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_STATUS) {
+#if ON_TILE(0)
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        fixed_delay_agc_capture_get_status(
+            (fixed_delay_agc_capture_status_t *)payload);
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_CHUNK) {
+#if ON_TILE(0)
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        fixed_delay_agc_capture_chunk_t chunk;
+        fixed_delay_agc_capture_get_selected_chunk(&chunk);
+        memcpy(payload, &chunk, sizeof(chunk));
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
+
+    if (cmd_id == AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_PROBE) {
+#if ON_TILE(0)
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            ret = CONTROL_BAD_COMMAND;
+            payload[-1] = ret;
+            return ret;
+        }
+        fixed_delay_agc_capture_probe_t probe;
+        fixed_delay_agc_capture_get_probe(&probe);
+        memcpy(payload, &probe, sizeof(probe));
+#else
+        ret = CONTROL_BAD_COMMAND;
+#endif
+        payload[-1] = ret;
+        return ret;
+    }
 #endif
 
     switch (resid) {
@@ -687,6 +753,40 @@ static control_ret_t audio_pipeline_servicer_write_cmd(
         }
         memcpy(&select, payload, sizeof(select));
         if (fixed_delay_ns_capture_select_chunk(select.chunk_index) != 0) {
+            return SERVICER_WRONG_PAYLOAD;
+        }
+        return ret;
+#else
+        return CONTROL_BAD_COMMAND;
+#endif
+    }
+
+    if (CONTROL_CMD_CLEAR_READ(cmd) ==
+        AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_AGC_CAPTURE) {
+#if ON_TILE(0)
+        fixed_delay_agc_capture_arm_t arm;
+
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            return CONTROL_BAD_RESOURCE;
+        }
+        memcpy(&arm, payload, sizeof(arm));
+        fixed_delay_agc_capture_arm(&arm);
+        return ret;
+#else
+        return CONTROL_BAD_COMMAND;
+#endif
+    }
+
+    if (CONTROL_CMD_CLEAR_READ(cmd) ==
+        AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_AGC_CAPTURE_CHUNK) {
+#if ON_TILE(0)
+        fixed_delay_agc_capture_chunk_select_t select;
+
+        if (resid != AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID) {
+            return CONTROL_BAD_RESOURCE;
+        }
+        memcpy(&select, payload, sizeof(select));
+        if (fixed_delay_agc_capture_select_chunk(select.chunk_index) != 0) {
             return SERVICER_WRONG_PAYLOAD;
         }
         return ret;

@@ -439,6 +439,43 @@ No per-frame NS metadata is captured. The probe reports `base_frame_counter`,
 captures: write arm, poll status until state is done, write select chunk, then
 read chunk. Repeat select/read for chunks `0..chunk_count-1`.
 
+### Audio Pipeline Debug AGC Capture
+
+When `appconfDEVICE_CTRL_SPI` and `appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG` are
+enabled, the tile 0 `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` (`230`) resource
+also exposes a minimal fixed-delay AGC capture path. It is debug-only and captures
+10 contiguous frames around `agc_process_frame()` in the fixed-delay tile 0
+pipeline.
+
+Added debug command IDs on resource `230` after the NS capture commands:
+
+| Command | ID | Encoded value | Direction | Command-map payload length | SPI frame payload length |
+| --- | --- | --- | --- | --- | --- |
+| `AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_AGC_CAPTURE` | `28` | `0x1C` | Write | 8 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_STATUS` | `29` | `0x9D` | Read | 24 bytes | 25 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_AGC_CAPTURE_CHUNK` | `30` | `0x1E` | Write | 4 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_CHUNK` | `31` | `0x9F` | Read | 240 bytes | 241 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_AGC_CAPTURE_PROBE` | `32` | `0xA0` | Read | 32 bytes | 33 bytes |
+
+The chunked payload starts with flattened sample data as
+`int32_le data[frame][stream][sample]`, with 10 frames, 2 streams, and 240
+samples per frame/stream. Stream `0` is AGC input (`frame_data->samples[0]`
+before `agc_process_frame()`), and stream `1` is AGC output. The sample section
+is 19,200 bytes.
+
+The sample section is followed by 10 fixed-size 56-byte metadata records:
+`uint32 frame_counter`, `int32 vnr_flag`, `int32 aec_ref_power_mant`,
+`int32 aec_ref_power_exp`, `int32 aec_corr_factor_mant`,
+`int32 aec_corr_factor_exp`, `int32 gain_mant`, `int32 gain_exp`,
+`int32 x_slow_mant`, `int32 x_slow_exp`, `int32 x_fast_mant`,
+`int32 x_fast_exp`, `int32 x_peak_mant`, and `int32 x_peak_exp`. Total capture
+size is 19,760 bytes split into 89 chunks. Each chunk carries 224 data bytes plus
+14 bytes of metadata so the read fits in a 256-byte SPI transaction including the
+device-control status byte. The probe reports `base_frame_counter`,
+`stream_count`, `sample_bytes`, and `meta_bytes`. Host flow matches the AEC,
+IC/VNR, and NS captures: write arm, poll status until state is done, write select
+chunk, then read chunk. Repeat select/read for chunks `0..chunk_count-1`.
+
 ## Changelog
 
 ### `0x11`
@@ -458,6 +495,8 @@ read chunk. Repeat select/read for chunks `0..chunk_count-1`.
 - Added additive DFU image status read command
   `DFU_CONTROLLER_SERVICER_RESID_DFU_GETIMAGESTATUS` (`91`).
 - Added debug-only fixed-delay NS capture commands on
+  `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` (`230`).
+- Added debug-only fixed-delay AGC capture commands on
   `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` (`230`).
 
 ### `0x10`
