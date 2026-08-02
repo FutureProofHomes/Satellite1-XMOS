@@ -61,6 +61,22 @@
       AUDIO_PIPELINE_FIXED_DELAY_IC_VNR_CAPTURE_CHUNK_DATA_BYTES - 1) / \
      AUDIO_PIPELINE_FIXED_DELAY_IC_VNR_CAPTURE_CHUNK_DATA_BYTES)
 #define AUDIO_PIPELINE_FIXED_DELAY_IC_VNR_CAPTURE_MAGIC (0x49435643u) /* ICVC */
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_FRAMES  (10)
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_STREAMS  (2)
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLES_PER_FRAME (240)
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES (224)
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLE_BYTES \
+    (AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_FRAMES * \
+     AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_STREAMS * \
+     AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLES_PER_FRAME * \
+     sizeof(int32_t))
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_TOTAL_BYTES \
+    (AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLE_BYTES)
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNKS \
+    ((AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_TOTAL_BYTES + \
+      AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES - 1) / \
+     AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES)
+#define AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_MAGIC (0x4E534343u) /* NSCC */
 
 #ifndef appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
 #define appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG 0
@@ -331,6 +347,56 @@ typedef struct
     uint32_t sample_bytes;
     uint32_t meta_bytes;
 } fixed_delay_ic_vnr_capture_probe_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t request_id;
+} fixed_delay_ns_capture_arm_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t capture_id;
+    uint32_t base_frame_counter;
+    uint32_t total_bytes;
+    uint16_t frames_captured;
+    uint16_t chunk_count;
+    uint16_t selected_chunk;
+    uint8_t state;
+    uint8_t reserved;
+} fixed_delay_ns_capture_status_t;
+
+typedef struct
+{
+    uint16_t chunk_index;
+    uint16_t reserved;
+} fixed_delay_ns_capture_chunk_select_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t capture_id;
+    uint16_t chunk_index;
+    uint16_t chunk_count;
+    uint8_t valid_bytes;
+    uint8_t reserved;
+    uint8_t data[AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES];
+} fixed_delay_ns_capture_chunk_t;
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t marker;
+    uint32_t base_frame_counter;
+    uint32_t total_bytes;
+    uint16_t selected_chunk;
+    uint16_t chunk_count;
+    uint16_t frames_captured;
+    uint16_t stream_count;
+    uint32_t sample_bytes;
+    uint32_t reserved;
+} fixed_delay_ns_capture_probe_t;
 #endif
 
 typedef struct

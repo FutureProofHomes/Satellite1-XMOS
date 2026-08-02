@@ -66,6 +66,16 @@ static int32_t DWORD_ALIGNED fixed_delay_ic_vnr_capture_samples
     [AUDIO_PIPELINE_FIXED_DELAY_IC_VNR_CAPTURE_SAMPLES_PER_FRAME];
 static fixed_delay_ic_vnr_capture_frame_meta_t fixed_delay_ic_vnr_capture_meta
     [AUDIO_PIPELINE_FIXED_DELAY_IC_VNR_CAPTURE_FRAMES];
+static fixed_delay_ns_capture_status_t fixed_delay_ns_capture_status = {
+    .magic = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_MAGIC,
+    .total_bytes = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_TOTAL_BYTES,
+    .chunk_count = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNKS,
+    .state = AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_IDLE,
+};
+static int32_t DWORD_ALIGNED fixed_delay_ns_capture_samples
+    [AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_FRAMES]
+    [AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_STREAMS]
+    [AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLES_PER_FRAME];
 
 void fixed_delay_ic_vnr_capture_arm(const fixed_delay_ic_vnr_capture_arm_t *arm)
 {
@@ -147,6 +157,137 @@ void fixed_delay_ic_vnr_capture_get_selected_chunk(
         for (size_t i = 0; i < chunk->valid_bytes; i++) {
             chunk->data[i] = fixed_delay_ic_vnr_capture_byte_at(byte_offset + i);
         }
+    }
+}
+
+void fixed_delay_ns_capture_arm(const fixed_delay_ns_capture_arm_t *arm)
+{
+    memset(fixed_delay_ns_capture_samples, 0, sizeof(fixed_delay_ns_capture_samples));
+    fixed_delay_ns_capture_status.magic = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_MAGIC;
+    fixed_delay_ns_capture_status.capture_id = arm->request_id;
+    fixed_delay_ns_capture_status.base_frame_counter = 0;
+    fixed_delay_ns_capture_status.total_bytes =
+        AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_TOTAL_BYTES;
+    fixed_delay_ns_capture_status.frames_captured = 0;
+    fixed_delay_ns_capture_status.chunk_count =
+        AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNKS;
+    fixed_delay_ns_capture_status.selected_chunk = 0;
+    fixed_delay_ns_capture_status.state =
+        AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_ARMED;
+    fixed_delay_ns_capture_status.reserved = 0;
+}
+
+void fixed_delay_ns_capture_get_status(fixed_delay_ns_capture_status_t *status)
+{
+    memcpy(status, &fixed_delay_ns_capture_status, sizeof(*status));
+}
+
+void fixed_delay_ns_capture_get_probe(fixed_delay_ns_capture_probe_t *probe)
+{
+    memset(probe, 0, sizeof(*probe));
+    probe->magic = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_MAGIC;
+    probe->marker = 0x50524F42u; /* PROB */
+    probe->base_frame_counter = fixed_delay_ns_capture_status.base_frame_counter;
+    probe->total_bytes = fixed_delay_ns_capture_status.total_bytes;
+    probe->selected_chunk = fixed_delay_ns_capture_status.selected_chunk;
+    probe->chunk_count = fixed_delay_ns_capture_status.chunk_count;
+    probe->frames_captured = fixed_delay_ns_capture_status.frames_captured;
+    probe->stream_count = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_STREAMS;
+    probe->sample_bytes = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLE_BYTES;
+}
+
+int fixed_delay_ns_capture_select_chunk(uint16_t chunk_index)
+{
+    if (chunk_index >= AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNKS) {
+        return -1;
+    }
+    fixed_delay_ns_capture_status.selected_chunk = chunk_index;
+    return 0;
+}
+
+void fixed_delay_ns_capture_get_selected_chunk(
+    fixed_delay_ns_capture_chunk_t *chunk)
+{
+    const uint16_t chunk_index = fixed_delay_ns_capture_status.selected_chunk;
+    const size_t byte_offset =
+        (size_t)chunk_index * AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES;
+
+    memset(chunk, 0, sizeof(*chunk));
+    chunk->magic = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_MAGIC;
+    chunk->capture_id = fixed_delay_ns_capture_status.capture_id;
+    chunk->chunk_index = chunk_index;
+    chunk->chunk_count = AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNKS;
+    const size_t remaining =
+        AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_TOTAL_BYTES - byte_offset;
+    chunk->valid_bytes =
+        (remaining < AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES) ?
+        (uint8_t)remaining :
+        AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNK_DATA_BYTES;
+    if (chunk_index < AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_CHUNKS &&
+        fixed_delay_ns_capture_status.state ==
+            AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_DONE) {
+        const uint8_t *samples = (const uint8_t *)fixed_delay_ns_capture_samples;
+        for (size_t i = 0; i < chunk->valid_bytes; i++) {
+            chunk->data[i] = samples[byte_offset + i];
+        }
+    }
+}
+
+static int fixed_delay_ns_capture_begin_frame(
+    uint32_t frame_counter,
+    uint16_t *frame)
+{
+    if (fixed_delay_ns_capture_status.state ==
+        AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_ARMED) {
+        fixed_delay_ns_capture_status.state =
+            AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_CAPTURING;
+        fixed_delay_ns_capture_status.base_frame_counter = frame_counter;
+        fixed_delay_ns_capture_status.frames_captured = 0;
+    }
+
+    if (fixed_delay_ns_capture_status.state !=
+        AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_CAPTURING) {
+        return 0;
+    }
+
+    if (fixed_delay_ns_capture_status.frames_captured >=
+        AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_FRAMES) {
+        return 0;
+    }
+
+    *frame = fixed_delay_ns_capture_status.frames_captured;
+    return 1;
+}
+
+static void fixed_delay_ns_capture_store_input(
+    uint16_t frame,
+    const int32_t ns_input[appconfAUDIO_PIPELINE_FRAME_ADVANCE])
+{
+    memcpy(fixed_delay_ns_capture_samples[frame][0],
+           ns_input,
+           AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLES_PER_FRAME * sizeof(int32_t));
+}
+
+static void fixed_delay_ns_capture_store_output(
+    uint16_t frame,
+    const int32_t ns_output[appconfAUDIO_PIPELINE_FRAME_ADVANCE])
+{
+    if (fixed_delay_ns_capture_status.state !=
+        AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_CAPTURING) {
+        return;
+    }
+
+    if (frame < AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_FRAMES) {
+        memcpy(fixed_delay_ns_capture_samples[frame][1],
+               ns_output,
+               AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_SAMPLES_PER_FRAME * sizeof(int32_t));
+        frame++;
+        fixed_delay_ns_capture_status.frames_captured = frame;
+    }
+
+    if (frame >= AUDIO_PIPELINE_FIXED_DELAY_NS_CAPTURE_FRAMES) {
+        fixed_delay_ns_capture_status.state =
+            AUDIO_PIPELINE_FIXED_DELAY_AEC_CAPTURE_DONE;
     }
 }
 
@@ -387,11 +528,25 @@ static void stage_ns(frame_data_t *frame_data)
 #if appconfAUDIO_PIPELINE_SKIP_NS
 #else
     int32_t DWORD_ALIGNED ns_output[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+    uint16_t capture_frame = 0;
+    int capture_current_frame = fixed_delay_ns_capture_begin_frame(
+        frame_data->debug_frame_counter,
+        &capture_frame);
+    if (capture_current_frame) {
+        fixed_delay_ns_capture_store_input(capture_frame, frame_data->samples[0]);
+    }
+#endif
     configASSERT(NS_FRAME_ADVANCE == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
     ns_process_frame(
                 &ns_stage_state.state,
                 ns_output,
                 frame_data->samples[0]);
+#if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
+    if (capture_current_frame) {
+        fixed_delay_ns_capture_store_output(capture_frame, ns_output);
+    }
+#endif
     memcpy(frame_data->samples[0], ns_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
 #if appconfDEVICE_CTRL_SPI && appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG
     snapshot_frame_samples(frame_data->debug_ns_output, ns_output);

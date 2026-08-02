@@ -408,6 +408,37 @@ write select chunk, then read chunk. Repeat select/read for chunks
 `sample_bytes`, and `meta_bytes`; host validation should replay any pre-capture
 zero-history frames before comparing IC/VNR output.
 
+### Audio Pipeline Debug NS Capture
+
+When `appconfDEVICE_CTRL_SPI` and `appconfAUDIO_PIPELINE_DEVELOPMENT_DEBUG` are
+enabled, the tile 0 `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` (`230`) resource
+also exposes a minimal fixed-delay NS capture path. It is debug-only and captures
+10 contiguous frames around `ns_process_frame()` in the fixed-delay tile 0
+pipeline.
+
+Added debug command IDs on resource `230` after the IC/VNR capture commands:
+
+| Command | ID | Encoded value | Direction | Command-map payload length | SPI frame payload length |
+| --- | --- | --- | --- | --- | --- |
+| `AUDIO_PIPELINE_SETTINGS_CMD_ARM_FIXED_DELAY_NS_CAPTURE` | `23` | `0x17` | Write | 8 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_NS_CAPTURE_STATUS` | `24` | `0x98` | Read | 24 bytes | 25 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_SELECT_FIXED_DELAY_NS_CAPTURE_CHUNK` | `25` | `0x19` | Write | 4 bytes | N/A |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_NS_CAPTURE_CHUNK` | `26` | `0x9A` | Read | 240 bytes | 241 bytes |
+| `AUDIO_PIPELINE_SETTINGS_CMD_GET_FIXED_DELAY_NS_CAPTURE_PROBE` | `27` | `0x9B` | Read | 32 bytes | 33 bytes |
+
+The chunked payload is flattened sample data as
+`int32_le data[frame][stream][sample]`, with 10 frames, 2 streams, and 240
+samples per frame/stream. Stream `0` is NS input (`frame_data->samples[0]`
+before `ns_process_frame()`), and stream `1` is NS output. The sample section is
+19,200 bytes split into 86 chunks. Each chunk carries 224 data bytes plus 14
+bytes of metadata so the read fits in a 256-byte SPI transaction including the
+device-control status byte.
+
+No per-frame NS metadata is captured. The probe reports `base_frame_counter`,
+`stream_count`, and `sample_bytes`. Host flow matches the AEC and IC/VNR
+captures: write arm, poll status until state is done, write select chunk, then
+read chunk. Repeat select/read for chunks `0..chunk_count-1`.
+
 ## Changelog
 
 ### `0x11`
@@ -426,6 +457,8 @@ zero-history frames before comparing IC/VNR output.
   `DFU_CONTROLLER_SERVICER_RESID_DFU_GETFLASHSERIAL` (`90`).
 - Added additive DFU image status read command
   `DFU_CONTROLLER_SERVICER_RESID_DFU_GETIMAGESTATUS` (`91`).
+- Added debug-only fixed-delay NS capture commands on
+  `AUDIO_PIPELINE_MIC_OUTPUT_SETTINGS_RESID` (`230`).
 
 ### `0x10`
 
