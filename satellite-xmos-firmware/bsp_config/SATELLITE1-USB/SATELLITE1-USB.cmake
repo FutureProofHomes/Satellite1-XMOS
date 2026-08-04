@@ -16,6 +16,7 @@ target_link_libraries(fph_ffva_board_support_satellite1_usb
     INTERFACE
         core::general
         rtos::freertos
+        rtos::freertos_usb
         rtos::drivers::general
         rtos::drivers::usb
         rtos::drivers::dfu_image

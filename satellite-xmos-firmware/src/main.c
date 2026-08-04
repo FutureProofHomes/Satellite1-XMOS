@@ -21,9 +21,11 @@
 #include "platform/platform_init.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_conf.h"
+#if appconfUSB_ENABLED
 #include "usb_support.h"
 #include "usb_audio.h"
 #include "usb_cdc.h"
+#endif
 #include "audio_pipeline.h"
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
@@ -288,7 +290,6 @@ static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-        cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
 #if ON_TILE(0)        
         reset_watchdog();
 #endif        

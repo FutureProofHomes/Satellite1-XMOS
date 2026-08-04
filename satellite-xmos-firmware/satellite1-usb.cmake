@@ -1,5 +1,8 @@
 query_tools_version()
 
+file(GLOB_RECURSE USB_SOURCES ${CMAKE_CURRENT_LIST_DIR}/usb/*.c)
+set(USB_INCLUDES ${CMAKE_CURRENT_LIST_DIR}/usb)
+
 set(FFVA_FD_PIPELINE_CONFIGS
     aec__vnr_ic__ns__agc
     aec__vnr_ic__ns
@@ -84,8 +87,8 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
     #**********************
     set(TARGET_NAME tile0_satellite1_usb_firmware_${FFVA_PL_CFG})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
-    target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
-    target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
+    target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES} ${USB_SOURCES})
+    target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES} ${USB_INCLUDES})
     target_compile_definitions(${TARGET_NAME}
         PUBLIC
             ${FFVA_INT_COMPILE_DEFINITIONS}
@@ -104,8 +107,8 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
 
     set(TARGET_NAME tile1_satellite1_usb_firmware_${FFVA_PL_CFG})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
-    target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
-    target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
+    target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES} ${USB_SOURCES})
+    target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES} ${USB_INCLUDES})
     target_compile_definitions(${TARGET_NAME}
         PUBLIC
             ${FFVA_INT_COMPILE_DEFINITIONS}

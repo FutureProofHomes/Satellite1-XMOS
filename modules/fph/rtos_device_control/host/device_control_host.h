@@ -103,22 +103,6 @@ control_ret_t control_init_i2c(unsigned char i2c_slave_address);
  */
 control_ret_t control_cleanup_i2c(void);
 #endif
-#if USE_USB || __DOXYGEN__
-/** Initialize the USB host interface
- *
- *  \param vendor_id     Vendor ID of controlled USB device
- *  \param product_id    Product ID of controlled USB device
- *  \param interface_num USB Control interface number of controlled device
- *
- *  \returns           Whether the initialization was successful or not
- */
-control_ret_t control_init_usb(int vendor_id, int product_id, int interface_num);
-/** Shutdown the USB host interface connection
- *
- *  \returns           Whether the shutdown was successful or not
- */
-control_ret_t control_cleanup_usb(void);
-#endif
 #if USE_SPI || __DOXYGEN__
 #if RPI || __DOXYGEN__
 #include "bcm2835.h"
@@ -152,10 +136,9 @@ control_ret_t control_init_spi(spi_mode_t spi_mode, int spi_bitrate, unsigned de
  */
 control_ret_t control_cleanup_spi(void);
 #endif
-//#if (!USE_USB && !USE_XSCOPE && !USE_I2C && !USE_SPI)
-#if (!USE_USB && !USE_I2C && !USE_SPI)
+#if (!USE_I2C && !USE_SPI)
 #error "Please specify transport for device control using USE_xxx define in build file"
-#error "Eg. -DUSE_I2C=1 or -DUSE_USB=1 or -DUSE_SPI=1"
+#error "Eg. -DUSE_I2C=1 or -DUSE_SPI=1"
 #endif 
 
 #if USE_I2C && __xcore__
