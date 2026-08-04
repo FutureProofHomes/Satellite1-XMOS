@@ -357,7 +357,8 @@ def assert_clean_workspace(args: argparse.Namespace) -> None:
         Refusing to build from a dirty workspace: {git_info}
 
         Commit or stash local changes before building reproducible firmware artifacts.
-        Use --allow-dirty only for local throwaway builds.
+        Use --allow-dirty only for controlled CI builds that inject firmware_version.txt
+        or for local throwaway builds.
         """)
     )
     sys.exit(1)

@@ -66,7 +66,7 @@ for ((i = 0; i < ${#examples[@]}; i += 1)); do
 
     (cd ${path}; rm -rf build_${board})
     (cd ${path}; mkdir -p build_${board})
-    (cd ${path}/build_${board}; log_errors cmake ../ -G "$CI_CMAKE_GENERATOR" -DCMAKE_TOOLCHAIN_FILE=${toolchain_file} -DBOARD=${board} -DENABLE_ALL_FFVA_PIPELINES=1; log_errors $CI_BUILD_TOOL ${app_target} $CI_BUILD_TOOL_ARGS)
+    (cd ${path}/build_${board}; log_errors cmake ../ -G "$CI_CMAKE_GENERATOR" -DCMAKE_TOOLCHAIN_FILE=${toolchain_file} -DBOARD=${board} -DENABLE_ALL_FFVA_PIPELINES=1 -DALLOW_DIRTY_VERSIONING=ON; log_errors $CI_BUILD_TOOL ${app_target} $CI_BUILD_TOOL_ARGS)
     (cd ${path}/build_${board}; cp ${app_target}.xe ${DIST_DIR})
     
     if [ "$run_data_partition_target" = "Yes" ]; then
