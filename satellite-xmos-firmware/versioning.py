@@ -2,7 +2,6 @@ import argparse
 import dataclasses
 import datetime
 import filecmp
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -17,6 +16,7 @@ VERSION_FILE = PROJ_ROOT / "firmware_version.txt"
 DEFAULT_DEV_TRACK_PATH = PROJ_ROOT / "dev_tracking"
 DEFAULT_BUILD_DIR = PROJ_ROOT / "build"
 VERSION_HEADER_FILE = Path(__file__).parent / "src" / "version.h"
+DEV_COUNTER_START = 100
 
 TO_TRACK = [
     "{variant}.factory.bin",
@@ -142,7 +142,12 @@ class GitInfo:
     branch: str
     commit: str
     last_tag: Union[str, None] = None
-    patch_str: str = ""
+    status_str: str = dataclasses.field(default="", compare=False)
+    patch_str: str = dataclasses.field(default="", compare=False)
+
+    @property
+    def dirty(self) -> bool:
+        return bool(self.status_str)
     
     @classmethod
     def from_ws(cls, repo_root:str=PROJ_ROOT) -> tuple[str]:
@@ -163,13 +168,14 @@ class GitInfo:
             except:
                 last_tag = None # current repo doesn't have any tag
 
+            status_str = subprocess.run(['git', 'status', '--porcelain'],
+                    cwd=repo_root, capture_output=True, text=True,  check=True
+                ).stdout.strip()
             patch_str = subprocess.run(['git', 'diff'], 
                     cwd=repo_root, capture_output=True, text=True,  check=True
                 ).stdout
-            
 
-
-            return cls(branch, commit_hash, last_tag, patch_str)
+            return cls(branch, commit_hash, last_tag, status_str, patch_str)
         
         except subprocess.CalledProcessError:
             print("Calling git failed!")
@@ -182,7 +188,7 @@ class GitInfo:
         return data_dict
 
     def __str__(self):
-        return f"{self.commit}" + ("+patch" if self.patch_str else "") + f"@{self.branch}"
+        return f"{self.commit}" + ("+dirty" if self.dirty else "") + f"@{self.branch}"
 
     def __repr__(self):
         return f"GitInfo({str(self)})"
@@ -209,13 +215,11 @@ class TrackedDevBuild:
     build_time: datetime.datetime
     git_info: Union[GitInfo, None] = None
     track_path: Union[Path, None] = None
-    patch_file_md5: Union[str, None] =  None
 
     def __eq__(self, other):
         return (
             self.variant == other.variant and
-            self.git_info == other.git_info and
-            self.patch_file_md5 == other.patch_file_md5
+            self.git_info == other.git_info
         )
     def add_patch_file(self):
         pass
@@ -264,37 +268,14 @@ class TrackedDevBuild:
         variant = obj_dict["variant"]
         build_time = datetime.datetime.fromisoformat(obj_dict["build_time"])
         git_info = GitInfo(**obj_dict["git_info"])
-        patch_file = track_path / "build_time.patch"
-        if patch_file.exists():
-            with patch_file.open("r") as f:
-                git_info.patch_str = f.read()
-        patch_file_md5 = obj_dict["patch_file_md5"]
         
         return cls( 
             version=XMOSVersion.from_string(track_path.name), 
             variant=variant,
             build_time=build_time,
             git_info=git_info,
-            track_path=track_path,
-            patch_file_md5=patch_file_md5
+            track_path=track_path
         )
-        
-def create_patch_file( repo_root:Path, patch_file:Path ) -> str:
-    try:
-        with patch_file.open("w") as f:
-            subprocess.run(
-                        ["git", "diff" ], 
-                        cwd=repo_root, stdout=f
-            )
-    except:
-        print( "Error while trying to create patch file.")
-        sys.exit(1)
-
-    md5 = None
-    with patch_file.open("rb") as f:
-        md5 = hashlib.md5(f.read()).hexdigest()
-    
-    return md5
 
 
 
@@ -326,35 +307,60 @@ def track_dev_build(args: argparse.Namespace) -> TrackedDevBuild:
     dev_track_path = DEFAULT_DEV_TRACK_PATH
     git_info = GitInfo.from_ws()
     last_tag_version = XMOSVersion.from_string(git_info.last_tag)
+    version = last_tag_version.set_to_dev()
+
+    if git_info.dirty:
+        print(
+            "WARNING: Dirty dev build will not be stored in dev_tracking. "
+            "Commit changes before building artifacts for experiments."
+        )
+        return TrackedDevBuild(
+            version=version,
+            variant=args.variant,
+            build_time=datetime.datetime.now(),
+            git_info=git_info,
+        )
     
     dev_build = TrackedDevBuild(
-        version = last_tag_version.set_to_dev(),
+        version = version,
         variant=args.variant,
         build_time=datetime.datetime.now(),
         git_info=git_info
     )
-    
-    patch_file = args.build_dir / "build_time.patch"
-    if git_info.patch_str:
-        md5 = create_patch_file( ".", patch_file )
-        dev_build.patch_file_md5 = md5
-    
+
     last_dev_build = TrackedDevBuild.latest(
         dev_track_path,
         last_tag_version
     )
 
-    if last_dev_build is None or last_dev_build != dev_build :
-        if not last_dev_build is None :
-            dev_build.version = last_dev_build.version
-        dev_build.version.counter_inc()
-        
-        dev_build.store(dev_track_path)
-        if git_info.patch_str and patch_file.exists():
-            shutil.move( patch_file, dev_build.track_path )
-        return dev_build
-    
-    return last_dev_build
+    if last_dev_build is None:
+        dev_build.version.pre_counter = DEV_COUNTER_START - 1
+    else:
+        dev_build.version = last_dev_build.version
+
+    dev_build.version.counter_inc()
+    dev_build.store(dev_track_path)
+    return dev_build
+
+
+def assert_clean_workspace(args: argparse.Namespace) -> None:
+    git_info = GitInfo.from_ws()
+    if not git_info.dirty:
+        return
+    if getattr(args, "allow_dirty", False):
+        print(
+            "WARNING: Building from a dirty workspace. Commit changes for reproducible firmware artifacts."
+        )
+        return
+    print(
+        textwrap.dedent(f"""\
+        Refusing to build from a dirty workspace: {git_info}
+
+        Commit or stash local changes before building reproducible firmware artifacts.
+        Use --allow-dirty only for local throwaway builds.
+        """)
+    )
+    sys.exit(1)
 
 
 
@@ -389,7 +395,7 @@ def get_version(args: argparse.Namespace) -> XMOSVersion:
         
         vstr = ""
         with version_file.open("r") as f:
-            vstr = f.readline()
+            vstr = f.readline().strip()
     else:
         vstr = args.version
     
@@ -415,6 +421,8 @@ def print_info(args: argparse.Namespace) -> None:
             tracked_build = TrackedDevBuild.load(track_path)
 
     print( f"Current source: {git_info}" )
+    if git_info.dirty:
+        print("Workspace has uncommitted changes.")
     print( f"{VERSION_HEADER_FILE.relative_to(Path.cwd())}: {'not found' if from_header_file is None else str(from_header_file)}")
     if tracked_build:
         ws_build_xe = args.build_dir / (tracked_build.variant + ".factory.bin")
@@ -433,17 +441,35 @@ def print_info(args: argparse.Namespace) -> None:
 
 # Command: build
 def set_firmware_version(args: argparse.Namespace) -> None:
+    assert_clean_workspace(args)
     version = get_version(args)
     create_version_header_file(VERSION_HEADER_FILE, version)
     
 
 def install_targets(args: argparse.Namespace) -> None:
-    version = get_version(args)
+    assert_clean_workspace(args)
+    version = XMOSVersion.from_header_file(VERSION_HEADER_FILE)
+    if version is None:
+        print(f"Version header {VERSION_HEADER_FILE} not found. Run build first.")
+        sys.exit(1)
+
     create_yaml_import(args.build_dir, args.variant, version)
     if version.is_dev :
-        track_path = track_dev_build(args).track_path 
+        if version.pre_counter == 0:
+            print(
+                "WARNING: Untracked dev build will not be stored in dev_tracking. "
+                "Commit changes before building artifacts for experiments."
+            )
+            return
+
+        track_path = args.track_root / str(version)
+        if not track_path.exists():
+            print(f"Tracked dev build folder not found: {track_path}")
+            sys.exit(1)
+
         for file in TO_TRACK:
             shutil.copy( args.build_dir / file.format(variant=args.variant), track_path)
+        create_yaml_import(track_path, args.variant, version)
     
     
 
@@ -454,7 +480,6 @@ def main():
     exclusive_group = parser.add_mutually_exclusive_group(required=False)
     exclusive_group.add_argument(
         "--version", 
-        nargs=1, 
         action="store", 
         default=None,
         help=textwrap.dedent("""\
@@ -466,7 +491,7 @@ def main():
     )
     exclusive_group.add_argument(
         "--infile",  
-        nargs=1, 
+        type=Path,
         action="store", 
         default=None,
         help=textwrap.dedent("""\
@@ -476,7 +501,7 @@ def main():
     )
     parser.add_argument(
         "--build-dir", 
-        nargs=1,
+        type=Path,
         action="store",
         default=DEFAULT_BUILD_DIR,
         help="CMake build folder. Default: '{PROJECT_ROOT}/build'"
@@ -484,10 +509,16 @@ def main():
     
     parser.add_argument(
         "--track-root", 
-        nargs=1, 
+        type=Path,
         action="store", 
         default=DEFAULT_DEV_TRACK_PATH, 
         help="Folder to keep tracked dev builds. Default: '{PROJECT_ROOT}/dev_tracking'"
+    )
+    parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        default=False,
+        help="Allow builds from a dirty workspace. Intended for local throwaway builds only."
     )
     
     
@@ -499,10 +530,22 @@ def main():
     build_parser = subparsers.add_parser("build", help="Pass XMOS firmware version to build system.")
     build_parser.add_argument("variant", help="")
     build_parser.add_argument("--track", action="store_true", default=False, help="")
+    build_parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        default=False,
+        help="Allow builds from a dirty workspace. Intended for local throwaway builds only."
+    )
     build_parser.set_defaults(func=set_firmware_version)
 
     install_parser = subparsers.add_parser("track", help="Copy variant targets to tracked build folder.")
     install_parser.add_argument("variant", help="")
+    install_parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        default=False,
+        help="Allow builds from a dirty workspace. Intended for local throwaway builds only."
+    )
     install_parser.set_defaults(func=install_targets)
     
     args = parser.parse_args()
