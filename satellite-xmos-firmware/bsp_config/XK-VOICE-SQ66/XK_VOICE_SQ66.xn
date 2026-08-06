@@ -14,7 +14,7 @@
             <Source Location="SPI:bootFlash"/>
           </Boot>
           <Tile Number="0" Reference="tile[0]">
-            
+
             <!-- USB Ports -->
             <Port Location="XS1_PORT_1H"  Name="PORT_USB_TX_READYIN"/>
             <Port Location="XS1_PORT_1J"  Name="PORT_USB_CLK"/>
@@ -35,16 +35,16 @@
             <Port Location="XS1_PORT_1C"  Name="PORT_XSPI_CLK"/>
             <Port Location="XS1_PORT_1D"  Name="PORT_XSPI_MOSI"/>
             <Port Location="XS1_PORT_1P"  Name="PORT_XSPI_MISO"/>
-            
+
             <!-- I2C Master Ports -->
             <Port Location="XS1_PORT_1N"  Name="PORT_I2C_SCL"/>
             <Port Location="XS1_PORT_1O"  Name="PORT_I2C_SDA"/>
-            
-            
+
+
             <!-- Mic related ports -->
             <Port Location="XS1_PORT_1M" Name="PORT_PDM_CLK"/>
             <Port Location="XS1_PORT_8D" Name="PORT_PDM_DATA"/>  <!-- only bits 4,5,6 & 7 are used due to overlap with 1b ports -->
-           
+
             <Port Location="XS1_PORT_1L"  Name="PORT_MCLK_IN"/>
             <Port Location="XS1_PORT_1L"  Name="PORT_MCLK_IN_OUT"/>
 
@@ -76,7 +76,7 @@
 
             <!-- GPIO Ports -->
             <Port Location="XS1_PORT_4A"  Name="PORT_GPI_0"/>  <!-- only bit 3 is pinned out on package -->
-            <Port Location="XS1_PORT_1F"  Name="PORT_GPI_1"/>  
+            <Port Location="XS1_PORT_1F"  Name="PORT_GPI_1"/>
             <Port Location="XS1_PORT_1K"  Name="GPIO_TILE_1_PORT_1K"/>  <!-- NOTE shared with PORT_I2S_DATA2 -->
 
           </Tile>

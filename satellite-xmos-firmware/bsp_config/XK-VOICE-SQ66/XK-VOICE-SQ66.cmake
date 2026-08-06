@@ -30,13 +30,13 @@ target_link_options(fph_ffva_board_support_sq66
         ${CMAKE_CURRENT_LIST_DIR}/XK_VOICE_SQ66.xn
 )
 
-# MICS: 
+# MICS:
 # pins 0-3 are not used for PDM data, DDR is not used
-# North: 4 (pin 4 falling edge) 
+# North: 4 (pin 4 falling edge)
 # South: 5 (pin 5 falling edge)
 # South: 6 (pin 6 falling edge)
-# East:  7 (pin 7 falling edge ) 
- 
+# East:  7 (pin 7 falling edge )
+
 # use East as first and West as second mic
 set(MIC_MAPPING "4, 5")
 
@@ -55,7 +55,7 @@ target_compile_definitions(fph_ffva_board_support_sq66
         MIC_ARRAY_CONFIG_MIC_INPUT=8
         MIC_ARRAY_CONFIG_MIC_COUNT=2
         MIC_ARRAY_CONFIG_INPUT_MAPPING={${MIC_MAPPING}}
-        
+
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_B=XS1_CLKBLK_2
         MIC_ARRAY_CONFIG_PORT_MCLK=PORT_MCLK_IN

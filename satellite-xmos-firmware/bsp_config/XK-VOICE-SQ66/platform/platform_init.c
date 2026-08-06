@@ -100,8 +100,8 @@ static void spi_init(void)
                         DEVICE_CONTROL_HOST_MODE,
                         4, //number of servicers
                         client_intertile_ctx,
-                        1); 
-    
+                        1);
+
     device_control_start(device_control_spi_ctx,
                          appconfSPI_DEV_CTRL_PORT,
                          -1);
@@ -110,8 +110,8 @@ static void spi_init(void)
                         DEVICE_CONTROL_CLIENT_MODE,
                         0,
                         client_intertile_ctx,
-                        1); 
-    
+                        1);
+
     device_control_start(device_control_spi_ctx,
                          appconfSPI_DEV_CTRL_PORT,
                          appconfSPI_DEV_CTRL_PRIORITY);
@@ -185,7 +185,7 @@ static void i2s_init(void)
 static void servicer_init(void)
 {
 #if ON_TILE(GPIO_SERVICER_NO)
-    static device_control_gpio_ports_t gpio_res_info[GPIO_CONTROLLER_MAX_RESOURCES];      
+    static device_control_gpio_ports_t gpio_res_info[GPIO_CONTROLLER_MAX_RESOURCES];
     gpio_res_info[0].resource_idx = RESOURCE_IN_A;
     gpio_res_info[0].writeable = false;
     gpio_res_info[0].port_id = PORT_GPI_0;

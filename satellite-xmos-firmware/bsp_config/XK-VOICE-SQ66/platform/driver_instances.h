@@ -25,7 +25,7 @@
 
 #define I2S_TILE_NO        1
 #define SPEAKER_PIPELINE_TILE_NO I2S_TILE_NO
-#define GPIO_SERVICER_NO   1 
+#define GPIO_SERVICER_NO   1
 
 /** TILE 0 Clock Blocks */
 #define PDM_CLKBLK_1  XS1_CLKBLK_1

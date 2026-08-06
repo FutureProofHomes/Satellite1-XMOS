@@ -41,7 +41,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     endif()
 
     # message(${FFVA_INT_COMPILE_DEFINITIONS})
-    
+
     #**********************
     # Tile Targets
     #**********************
@@ -103,7 +103,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     #**********************
     # Merge binaries
-    #**********************    
+    #**********************
     merge_binaries(sq66_firmware_${FFVA_AP} tile0_sq66_firmware_${FFVA_AP} tile1_sq66_firmware_${FFVA_AP} 1)
 
     #**********************
@@ -112,7 +112,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     create_run_target(sq66_firmware_${FFVA_AP})
     create_debug_target(sq66_firmware_${FFVA_AP})
     create_upgrade_img_target(sq66_firmware_${FFVA_AP} ${XTC_VERSION_MAJOR} ${XTC_VERSION_MINOR})
-    
+
     #**********************
     # Create data partition support targets
     #**********************
@@ -158,7 +158,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         #[[ Copy Files ]]               "${DATA_PARTITION_FILE_LIST}"
         #[[ Dependencies ]]             "${DATA_PARTITION_FILE_LIST}"
     )
-        
+
     create_flash_image_target(
         #[[ Target ]]                  ${TARGET_NAME}
         #[[ Boot Partition Size ]]     0x100000
