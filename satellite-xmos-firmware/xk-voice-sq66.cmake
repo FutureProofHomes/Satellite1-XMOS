@@ -6,10 +6,6 @@ list(APPEND APP_COMPILER_FLAGS
     ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
 
-list(APPEND APP_COMPILE_DEFINITIONS
-    DEBUG_PRINT_ENABLE_DFU_SERVICER=1
-)
-
 list(APPEND APP_LINK_OPTIONS
     ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
 )
@@ -31,6 +27,8 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfLED_RING=0
         appconfINPUT_SAMPLES_MIC_DELAY_MS=20
     )
+    # Explorer enables this diagnostic globally; SQ66 does not provide its output backend.
+    list(FILTER FFVA_INT_COMPILE_DEFINITIONS EXCLUDE REGEX "^DEBUG_PRINT_ENABLE_DFU_SERVICER=")
 
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)

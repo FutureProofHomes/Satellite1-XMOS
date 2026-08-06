@@ -30,7 +30,9 @@
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
 #include "gpio/gpio_servicer.h"
+#if appconfLED_RING
 #include "led_ring/led_ring_servicer.h"
+#endif
 
 
 /* Config headers for sw_pll */
@@ -332,7 +334,7 @@ void startup_task(void *arg)
     );
 #endif
 
-#if ON_TILE(WS2812_TILE_NO)
+#if appconfLED_RING && ON_TILE(WS2812_TILE_NO)
     servicer_t servicer_led_ring;
     led_ring_servicer_init(&servicer_led_ring);
     
