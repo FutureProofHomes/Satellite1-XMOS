@@ -159,7 +159,7 @@ fi
 XE_PATH="$BUILD_DIR/$TARGET.xe"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-    run_cmd cmake -B "$BUILD_DIR" --toolchain xmos_cmake_toolchain/xs3a.cmake -DUSE_DEV_MODE=ON
+    run_cmd cmake -B "$BUILD_DIR" --toolchain xmos_cmake_toolchain/xs3a.cmake -DUSE_DEV_MODE=ON -DUSE_DEV_TRACKING=ON
     run_cmd cmake --build "$BUILD_DIR" -j --target "$TARGET"
 fi
 
