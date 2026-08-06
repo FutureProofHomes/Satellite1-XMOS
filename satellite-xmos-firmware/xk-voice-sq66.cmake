@@ -89,6 +89,9 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     # Create version.h
     #*********************
     SET(VERSIONING_CMD "build")
+    if(ALLOW_DIRTY_VERSIONING)
+        list(APPEND VERSIONING_CMD "--allow-dirty")
+    endif()
     if(USE_DEV_TRACKING)
         list(APPEND VERSIONING_CMD "--track")
     endif()
