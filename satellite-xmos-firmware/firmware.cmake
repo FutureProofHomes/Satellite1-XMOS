@@ -15,6 +15,7 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
+option(USE_DEV_MODE "Enable dev-mode" OFF)
 option(ALLOW_DIRTY_VERSIONING "Allow versioning.py to run from a dirty workspace for controlled CI inputs or local throwaway builds" OFF)
 
 #**********************
@@ -29,7 +30,6 @@ set(APP_COMPILER_FLAGS
 )
 
 set(APP_COMPILE_DEFINITIONS
-    DEBUG_PRINT_ENABLE=0
     PLATFORM_USES_TILE_0=1
     PLATFORM_USES_TILE_1=1
     XUD_CORE_CLOCK=600
@@ -49,6 +49,12 @@ set(APP_COMMON_LINK_LIBRARIES
     lib_src
     lib_sw_pll
 )
+
+if(USE_DEV_MODE)
+    list(APPEND APP_COMPILE_DEFINITIONS appconfWATCHDOG_ENABLED=0)
+else()
+    list(APPEND APP_COMPILE_DEFINITIONS appconfWATCHDOG_ENABLED=1)
+endif()
 
 
 #**********************
