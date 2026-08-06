@@ -315,6 +315,7 @@ void startup_task(void *arg)
 
 #if ON_TILE(GPIO_SERVICER_NO)
     gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
+#endif
 
 #if ON_TILE(0)
     servicer_t dfu_servicer_ctx;
@@ -335,7 +336,6 @@ void startup_task(void *arg)
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
-#endif
 #endif
 
 #if appconfLED_RING && ON_TILE(WS2812_TILE_NO)
