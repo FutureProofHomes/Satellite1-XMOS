@@ -893,9 +893,11 @@ void startup_task(void *arg)
 #if appconfDEVICE_CTRL_SPI
     device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
-#if ON_TILE(0)
+#if ON_TILE(GPIO_SERVICER_NO)
     gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
+#endif
 
+#if ON_TILE(0)
     mic_output_pipeline_settings_runtime_init(&mic_output_pipeline_settings_runtime);
     audio_pipeline_tile0_servicer_init(&mic_audio_pipeline_servicer_state);
 
@@ -920,7 +922,6 @@ void startup_task(void *arg)
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
-
     servicer_t dfu_servicer_ctx;
     dfu_servicer_init(&dfu_servicer_ctx);
     
@@ -979,6 +980,7 @@ void startup_task(void *arg)
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
+#endif
 #endif
 
 #if appconfLED_RING && ON_TILE(WS2812_TILE_NO)
