@@ -48,7 +48,6 @@
 #ifndef appconfINPUT_SAMPLES_MIC_DELAY_MS
 #define appconfINPUT_SAMPLES_MIC_DELAY_MS        0
 #endif
-
 #ifndef appconfMIC_PASSTHROUGH_TEST_PATTERN
 #define appconfMIC_PASSTHROUGH_TEST_PATTERN 0
 #endif
@@ -123,6 +122,10 @@
 
 #ifndef appconfI2S_ESP_ENABLED
 #define appconfI2S_ESP_ENABLED     0
+#endif
+
+#ifndef appconfLED_RING
+#define appconfLED_RING             1
 #endif
 
 #define appconfI2S_AUDIO_INPUTS    1
