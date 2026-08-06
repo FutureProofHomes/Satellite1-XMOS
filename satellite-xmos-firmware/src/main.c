@@ -981,7 +981,6 @@ void startup_task(void *arg)
         NULL
     );
 #endif
-#endif
 
 #if appconfLED_RING && ON_TILE(WS2812_TILE_NO)
     servicer_t servicer_led_ring;
