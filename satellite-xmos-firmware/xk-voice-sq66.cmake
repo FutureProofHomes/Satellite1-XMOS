@@ -1,15 +1,5 @@
 query_tools_version()
 
-# Append xscope specific settings
-list(APPEND APP_COMPILER_FLAGS
-    -fxscope
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
-)
-
-list(APPEND APP_LINK_OPTIONS
-    ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
-)
-
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(FFVA_INT_COMPILE_DEFINITIONS
@@ -27,8 +17,21 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfLED_RING=0
         appconfINPUT_SAMPLES_MIC_DELAY_MS=20
     )
-    # Explorer enables this diagnostic globally; SQ66 does not provide its output backend.
+    # Explorer enables this diagnostic globally; SQ66 configures it per build mode.
     list(FILTER FFVA_INT_COMPILE_DEFINITIONS EXCLUDE REGEX "^DEBUG_PRINT_ENABLE_DFU_SERVICER=")
+    if(USE_DEV_MODE)
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS
+            DEBUG_PRINT_ENABLE=1
+            configENABLE_DEBUG_PRINTF=1
+            DEBUG_PRINT_ENABLE_DFU_SERVICER=1
+        )
+    else()
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS
+            DEBUG_PRINT_ENABLE=0
+            configENABLE_DEBUG_PRINTF=0
+            DEBUG_PRINT_ENABLE_DFU_SERVICER=0
+        )
+    endif()
 
     if(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)
@@ -52,13 +55,19 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${FFVA_INT_COMPILE_DEFINITIONS}
             THIS_XCORE_TILE=0
     )
-    target_compile_options(${TARGET_NAME} PRIVATE ${APP_COMPILER_FLAGS})
+    target_compile_options(${TARGET_NAME}
+        PRIVATE
+            ${APP_COMPILER_FLAGS}
+            -fxscope
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+    )
     target_link_libraries(${TARGET_NAME}
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::sq66
             fph::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
@@ -72,13 +81,19 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${FFVA_INT_COMPILE_DEFINITIONS}
             THIS_XCORE_TILE=1
     )
-    target_compile_options(${TARGET_NAME} PRIVATE ${APP_COMPILER_FLAGS})
+    target_compile_options(${TARGET_NAME}
+        PRIVATE
+            ${APP_COMPILER_FLAGS}
+            -fxscope
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
+    )
     target_link_libraries(${TARGET_NAME}
         PUBLIC
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::sq66
             fph::ffva::ap::${PL_NAME}
             sln_voice::app::ffva::sp::passthrough
+            ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
