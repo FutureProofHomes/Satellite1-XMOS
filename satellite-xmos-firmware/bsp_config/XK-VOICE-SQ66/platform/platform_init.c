@@ -9,6 +9,7 @@
 #include "platform/app_pll_ctrl.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_init.h"
+#include "control/device_control_servicer_config.h"
 
 static void mclk_init(chanend_t other_tile_c)
 {
@@ -98,7 +99,7 @@ static void spi_init(void)
                         PORT_XSPI_CS);
     device_control_init(device_control_spi_ctx,
                         DEVICE_CONTROL_HOST_MODE,
-                        4, //number of servicers
+                        APP_DEVICE_CTRL_TOTAL_SERVICER_COUNT,
                         client_intertile_ctx,
                         1);
 
