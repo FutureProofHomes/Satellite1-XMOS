@@ -19,6 +19,19 @@ static uint8_t spi_xfer_rx_default_buf[SPI_XFER_RX_SIZE];
 static uint8_t spi_xfer_tx_default_buf[SPI_XFER_TX_SIZE];
 static int spi_read_payload_pending;
 
+static void spi_stage_status_response(device_control_t *device_control_ctx,
+                                      control_ret_t status)
+{
+    spi_xfer_tx_buf[0] = 1;
+    spi_xfer_tx_buf[1] = status;
+    memset(&spi_xfer_tx_buf[2], 0, SPI_XFER_TX_SIZE - 2);
+    if (device_control_ctx->status_buffer != NULL) {
+        memcpy(&spi_xfer_tx_buf[2],
+               device_control_ctx->status_buffer,
+               device_control_ctx->status_buffer_len);
+    }
+}
+
 RTOS_SPI_SLAVE_CALLBACK_ATTR
 void device_control_spi_start_cb(rtos_spi_slave_t *ctx,
                                  device_control_t *device_control_ctx)
@@ -42,14 +55,7 @@ void device_control_spi_start_cb(rtos_spi_slave_t *ctx,
     }
     xassert(dc_ret == CONTROL_SUCCESS);
 
-    spi_xfer_tx_buf[0] = 1;
-    spi_xfer_tx_buf[1] = CONTROL_SUCCESS;
-    memset(&spi_xfer_tx_buf[2], 0, SPI_XFER_TX_SIZE - 2);
-    if (device_control_ctx->status_buffer != NULL) {
-        memcpy(&spi_xfer_tx_buf[2],
-               device_control_ctx->status_buffer,
-               device_control_ctx->status_buffer_len);
-    }
+    spi_stage_status_response(device_control_ctx, CONTROL_SUCCESS);
     
     spi_slave_xfer_prepare(ctx, spi_xfer_rx_buf, SPI_XFER_RX_SIZE, spi_xfer_tx_buf, SPI_XFER_TX_SIZE);
 }
@@ -71,8 +77,14 @@ void device_control_spi_xfer_done_cb(rtos_spi_slave_t *ctx,
         return;
     }
 
-    if ((rx_len >= 3) && (rx_buf[0] == 0) && (rx_buf[1] == 0) && (rx_buf[2] == 0) && spi_read_payload_pending) {
+    if ((rx_len >= 3) && (rx_buf[0] == 0) && (rx_buf[1] == 0) && (rx_buf[2] == 0)) {
+        /*
+         * The response currently staged in spi_xfer_tx_buf was clocked during
+         * this transfer. A zero header is always a NOP, including while a read
+         * payload is pending, so do not dispatch it as special resource 0.
+         */
         spi_read_payload_pending = 0;
+        spi_stage_status_response(device_control_ctx, CONTROL_SUCCESS);
         spi_slave_xfer_prepare(ctx, spi_xfer_rx_buf, SPI_XFER_RX_SIZE, spi_xfer_tx_buf, SPI_XFER_TX_SIZE);
         return;
     }
@@ -106,10 +118,7 @@ void device_control_spi_xfer_done_cb(rtos_spi_slave_t *ctx,
     // no response payload, only return status
     if( num_response_bytes == 1){
         //include device control status buffer into response
-        spi_xfer_tx_buf[0] = 1;
-        spi_xfer_tx_buf[1] = ret;
-        memset(&spi_xfer_tx_buf[2], 0, SPI_XFER_TX_SIZE - 2 );
-        memcpy(&spi_xfer_tx_buf[2], device_control_ctx->status_buffer, device_control_ctx->status_buffer_len );
+        spi_stage_status_response(device_control_ctx, ret);
         spi_read_payload_pending = 0;
     }
     spi_slave_xfer_prepare(ctx, spi_xfer_rx_buf, SPI_XFER_RX_SIZE, spi_xfer_tx_buf, SPI_XFER_TX_SIZE);

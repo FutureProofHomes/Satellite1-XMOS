@@ -71,15 +71,24 @@ Transfer limits:
 
 ## NOP Transfers
 
-A request with first three bytes all zero is treated as a NOP by the SPI
-transport callback:
+A transfer whose first three bytes are all zero is a NOP, independent of
+whether a read payload is pending in the SPI TX buffer:
 
 ```text
 00 00 00
 ```
 
-Host code uses follow-up zero-filled transfers to clock out data that the device
-prepared after the previous command.
+The NOP is recognized only when all three header bytes are present; transfers
+shorter than three bytes remain malformed packets. A NOP is never dispatched to
+`CONTROL_SPECIAL_RESID` (`0`) and does not update the device-control last-command
+status.
+
+The response already staged before the NOP is clocked during that NOP transfer.
+After every NOP, the transport clears pending-read state and stages a fresh
+successful status-only frame for the next transfer. Thus, a no-pending NOP drains
+a write/status response, and a pending-read NOP consumes the currently clocked
+read payload exactly once rather than re-arming it. Host code uses zero-filled
+follow-up transfers to clock out data prepared after the previous command.
 
 ## Default Buffer Behavior
 
@@ -323,6 +332,10 @@ Image status flags:
 ### `0x11`
 
 - Added explicit SPI read-payload availability framing.
+- Complete zero headers (`[00, 00, 00]`) are transport NOPs regardless of
+  pending-read state. They do not dispatch special resource `0` or change the
+  last-command status, and they stage a fresh successful status response after
+  clocking the current response.
 - Read responses now begin with `CONTROL_RET_STATUS_PAYLOAD_AVAIL` (`23`), followed by
   the payload prepared by the device-control read handler.
 - Special resource reads now use the same status-plus-data payload convention as
