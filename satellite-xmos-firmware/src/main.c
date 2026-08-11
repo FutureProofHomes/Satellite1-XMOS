@@ -21,11 +21,6 @@
 #include "platform/platform_init.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_conf.h"
-#if appconfUSB_ENABLED
-#include "usb_support.h"
-#include "usb_audio.h"
-#include "usb_cdc.h"
-#endif
 #include "audio_pipeline.h"
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
@@ -35,9 +30,6 @@
 
 /* Config headers for sw_pll */
 #include "sw_pll.h"
-
-volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
-volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
 
 #define DEVICE_STATUS_READY_REGISTER_IDX   0
 #define DEVICE_STATUS_READY_VALUE          1
@@ -52,8 +44,7 @@ void speaker_pipeline_input(void *input_app_data,
                         size_t frame_count)
 {
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
-    if (!appconfUSB_AUDIO_ENABLED || aec_ref_source == appconfAEC_REF_I2S) {
-        /* This shouldn't need to block given it shares a clock with the PDM mics */
+    /* This shouldn't need to block given it shares a clock with the PDM mics */
 
         xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
         /* I2S provides sample channel format */
@@ -72,22 +63,6 @@ void speaker_pipeline_input(void *input_app_data,
             *(tmpptr + i) = tmp[i][0][0];
             *(tmpptr + i + frame_count) = tmp[i][0][1];
         }
-    }
-
-#if appconfUSB_AUDIO_ENABLED
-    int32_t **usb_mic_audio_frame = NULL;
-    if (true) {
-        usb_mic_audio_frame = input_audio_frames;
-        /*
-        * As noted above, this does not block.
-        * and expects ref L, ref R, mic 0, mic 1
-        */
-        usb_audio_recv(intertile_usb_audio_ctx,
-            frame_count,
-            usb_mic_audio_frame,
-            ch_count);
-    }
-#endif    
 #endif
 }
 
@@ -189,12 +164,7 @@ void audio_pipeline_input(void *input_app_data,
 #endif
 
 
-    /*
-     * NOTE: ALWAYS receive the next frame from the PDM mics,
-     * even if USB is the current mic source. The controls the
-     * timing since usb_audio_recv() does not block and will
-     * receive all zeros if no frame is available yet.
-     */
+    /* Receive the next frame from the PDM microphones. */
     rtos_mic_array_rx(mic_array_ctx,
                       mic_ptr,
                       frame_count,
@@ -252,13 +222,6 @@ int audio_pipeline_output(void *output_app_data,
                 (int32_t*) tmp,
                 appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE,
                 portMAX_DELAY);
-#endif
-
-#if appconfUSB_AUDIO_ENABLED
-    usb_audio_send(intertile_usb_audio_ctx,
-                frame_count,
-                output_audio_frames,
-                6);
 #endif
 
     return AUDIO_PIPELINE_FREE_FRAME;
@@ -409,10 +372,6 @@ static void tile_common_init(chanend_t c)
 {
     platform_init(c);
     chanend_free(c);
-
-#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
-    usb_audio_init(intertile_usb_audio_ctx, appconfUSB_AUDIO_TASK_PRIORITY);
-#endif
 
     xTaskCreate((TaskFunction_t) startup_task,
                 "startup_task",
