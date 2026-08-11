@@ -4,18 +4,6 @@
 #ifndef APP_CONF_CHECK_H_
 #define APP_CONF_CHECK_H_
 
-#if appconfUSB_ENABLED && appconfSPI_OUTPUT_ENABLED
-#error Cannot use both USB and SPI interfaces
-#endif
-
-#if appconfUSB_ENABLED && appconfEXTERNAL_MCLK
-#error Cannot use USB with an external mclk source
-#endif
-
-#if appconfUSB_ENABLED && appconfINTENT_ENABLED
-#error Cannot use wakeword engine in USB configurations
-#endif
-
 #if appconfI2S_TDM_ENABLED
 #error TDM mode not longer supported in this firmware version
 #endif

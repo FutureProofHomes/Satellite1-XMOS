@@ -8,7 +8,6 @@
 #include "version.h"
 
 /* Intertile port settings */
-#define appconfUSB_AUDIO_PORT          0
 #define appconfGPIO_T0_RPC_PORT        1
 #define appconfGPIO_T1_RPC_PORT        2
 #define appconfAUDIOPIPELINE_PORT      7
@@ -83,14 +82,6 @@
 #define appconfI2S_ENABLED         1
 #endif
 
-#ifndef appconfUSB_ENABLED
-#define appconfUSB_ENABLED         0
-#endif
-
-#ifndef appconfUSB_AUDIO_SAMPLE_RATE
-#define appconfUSB_AUDIO_SAMPLE_RATE appconfAUDIO_PIPELINE_SAMPLE_RATE
-#endif
-
 #ifndef appconfI2S_AUDIO_SAMPLE_RATE
 #define appconfI2S_AUDIO_SAMPLE_RATE appconfAUDIO_PIPELINE_SAMPLE_RATE
 #endif
@@ -121,24 +112,6 @@
 #define appconfI2S_MODE            appconfI2S_MODE_MASTER
 #endif
 
-#define appconfAEC_REF_USB         0
-#define appconfAEC_REF_I2S         1
-#ifndef appconfAEC_REF_DEFAULT
-#define appconfAEC_REF_DEFAULT     appconfAEC_REF_I2S
-#endif
-
-#define appconfMIC_SRC_MICS        0
-#define appconfMIC_SRC_USB         1
-#ifndef appconfMIC_SRC_DEFAULT
-#define appconfMIC_SRC_DEFAULT     appconfMIC_SRC_MICS
-#endif
-
-#define appconfUSB_AUDIO_RELEASE   0
-#define appconfUSB_AUDIO_TESTING   1
-#ifndef appconfUSB_AUDIO_MODE
-#define appconfUSB_AUDIO_MODE      appconfUSB_AUDIO_RELEASE
-#endif
-
 #define appconfSPI_AUDIO_RELEASE   0
 #define appconfSPI_AUDIO_TESTING   1
 #ifndef appconfSPI_AUDIO_MODE
@@ -151,12 +124,6 @@
 /* I/O and interrupt cores for Tile 0 */
 #define appconfSPI_IO_CORE                      1 /* Must be kept off core 0 with the RTOS tick ISR */
 #define appconfSPI_INTERRUPT_CORE               2 /* Must be kept off I/O cores. */
-
-#define appconfXUD_IO_CORE                      3 /* Must be kept off core 0 with the RTOS tick ISR */
-#define appconfUSB_INTERRUPT_CORE               4 /* Must be kept off I/O cores. Best kept off core 0 with the tick ISR. */
-#define appconfUSB_SOF_INTERRUPT_CORE           5 /* Must be kept off I/O cores. Best kept off cores with other ISRs. */
-
-
 
 /* I/O and interrupt cores for Tile 1 */
 #define appconfPDM_MIC_IO_CORE                  1 /* Must be kept off core 0 with the RTOS tick ISR */
@@ -172,8 +139,6 @@
 #define appconfGPIO_RPC_HOST_PRIORITY             (configMAX_PRIORITIES/2 + 2)
 #define appconfGPIO_TASK_PRIORITY                 (configMAX_PRIORITIES/2 + 2)
 #define appconfI2C_TASK_PRIORITY                  (configMAX_PRIORITIES/2 + 2)
-#define appconfUSB_MGR_TASK_PRIORITY              (configMAX_PRIORITIES/2 + 1)
-#define appconfUSB_AUDIO_TASK_PRIORITY            (configMAX_PRIORITIES/2 + 1)
 #define appconfSPI_TASK_PRIORITY                  (configMAX_PRIORITIES/2 + 1)
 #define appconfQSPI_FLASH_TASK_PRIORITY           (configMAX_PRIORITIES/2 + 0)
 #define appconfLED_TASK_PRIORITY                  (configMAX_PRIORITIES / 2 - 1)
