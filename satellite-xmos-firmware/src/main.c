@@ -25,7 +25,9 @@
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
 #include "gpio/gpio_servicer.h"
+#if appconfLED_RING
 #include "led_ring/led_ring_servicer.h"
+#endif
 
 
 /* Config headers for sw_pll */
@@ -234,6 +236,7 @@ void vApplicationMallocFailedHook(void)
     for(;;);
 }
 
+#if appconfWATCHDOG_ENABLED
 static void init_watchdog(void)
 {
     //xin : 24 Mhz, decrement WATCHDOG_COUNT every 2.7 ms:
@@ -250,12 +253,13 @@ static void reset_watchdog(void)
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
 }
 #endif
+#endif
 
 static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-#if ON_TILE(0)        
+#if ON_TILE(0) && appconfWATCHDOG_ENABLED
         reset_watchdog();
 #endif        
         vTaskDelay(pdMS_TO_TICKS(5000));
@@ -271,9 +275,11 @@ void startup_task(void *arg)
 #if appconfDEVICE_CTRL_SPI
     device_control_t *device_control_ctx[1] = {device_control_spi_ctx}; 
 
-#if ON_TILE(0)
+#if ON_TILE(GPIO_SERVICER_NO)
     gpio_servicer_start(device_control_gpio_ctx, device_control_ctx, 1 );
+#endif
 
+#if ON_TILE(0)
     servicer_t dfu_servicer_ctx;
     dfu_servicer_init(&dfu_servicer_ctx);
     
@@ -294,7 +300,7 @@ void startup_task(void *arg)
     );
 #endif
 
-#if ON_TILE(WS2812_TILE_NO)
+#if appconfLED_RING && ON_TILE(WS2812_TILE_NO)
     servicer_t servicer_led_ring;
     led_ring_servicer_init(&servicer_led_ring);
     
@@ -326,7 +332,9 @@ void startup_task(void *arg)
 
     audio_pipeline_init(NULL, NULL);
     
+#if appconfWATCHDOG_ENABLED
     init_watchdog();
+#endif
 
     mem_analysis();
 }

@@ -35,6 +35,7 @@
 **/test_results.csv
 **/test_results.xml
 **/.venv/**
+.env
 .metadata
 *.gtkw
 *.swmem

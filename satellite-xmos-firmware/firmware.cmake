@@ -16,6 +16,7 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
 option(ALLOW_DIRTY_VERSIONING "Allow versioning.py to run from a dirty workspace for controlled CI inputs or local throwaway builds" OFF)
+option(USE_DEV_MODE "Enable SQ66 development-mode diagnostics" OFF)
 
 #**********************
 # Flags

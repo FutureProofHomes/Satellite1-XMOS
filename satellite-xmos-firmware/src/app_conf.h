@@ -42,6 +42,10 @@
 #define appconfPIPELINE_BYPASS 0
 #endif
 
+#ifndef appconfWATCHDOG_ENABLED
+#define appconfWATCHDOG_ENABLED 1
+#endif
+
 #if appconfPIPELINE_BYPASS
 #define appconfAUDIO_PIPELINE_SKIP_STATIC_DELAY  1
 #define appconfAUDIO_PIPELINE_SKIP_AEC           1

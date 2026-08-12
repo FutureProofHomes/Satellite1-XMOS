@@ -98,7 +98,7 @@ static void spi_init(void)
                         PORT_XSPI_CS);
     device_control_init(device_control_spi_ctx,
                         DEVICE_CONTROL_HOST_MODE,
-                        3 + appconfLED_RING_ENABLED, // number of servicers
+                        2, // GPIO + DFU servicers; LED ring is disabled on SQ66
                         client_intertile_ctx,
                         1);
 

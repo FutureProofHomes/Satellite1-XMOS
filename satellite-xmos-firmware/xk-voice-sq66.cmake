@@ -1,5 +1,10 @@
 query_tools_version()
 
+set(SQ66_APP_SOURCES ${APP_SOURCES})
+list(REMOVE_ITEM SQ66_APP_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/src/led_ring/led_ring_servicer.c
+)
+
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     set(FFVA_INT_COMPILE_DEFINITIONS
         ${APP_COMPILE_DEFINITIONS}
@@ -17,6 +22,15 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfINPUT_SAMPLES_MIC_DELAY_MS=20
     )
 
+    if(USE_DEV_MODE)
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS
+            DEBUG_PRINT_ENABLE=1
+            configENABLE_DEBUG_PRINTF=1
+            DEBUG_PRINT_ENABLE_DFU_SERVICER=1
+            appconfWATCHDOG_ENABLED=0
+        )
+    endif()
+
     if(${FFVA_AP} STREQUAL bypass)
         set(PL_NAME fixed_delay)
         list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=1)
@@ -27,7 +41,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(TARGET_NAME tile0_sq66_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
-    target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
+    target_sources(${TARGET_NAME} PUBLIC ${SQ66_APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
     target_compile_definitions(${TARGET_NAME} PUBLIC ${FFVA_INT_COMPILE_DEFINITIONS} THIS_XCORE_TILE=0)
     target_compile_options(${TARGET_NAME} PRIVATE ${APP_COMPILER_FLAGS} -fxscope ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope)
@@ -36,7 +50,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(TARGET_NAME tile1_sq66_firmware_${FFVA_AP})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
-    target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
+    target_sources(${TARGET_NAME} PUBLIC ${SQ66_APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
     target_compile_definitions(${TARGET_NAME} PUBLIC ${FFVA_INT_COMPILE_DEFINITIONS} THIS_XCORE_TILE=1)
     target_compile_options(${TARGET_NAME} PRIVATE ${APP_COMPILER_FLAGS} -fxscope ${CMAKE_CURRENT_LIST_DIR}/src/config.xscope)
