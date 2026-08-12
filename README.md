@@ -1,136 +1,113 @@
-# Satellite1 XMOS firmware
+# Satellite1 XMOS Firmware
 
-## Variants
-**satellite1_firmware_fixed_delay**
+This repository contains the XMOS firmware for Satellite1. It builds the
+audio-pipeline firmware that runs on the Satellite1 XMOS HAT.
 
-Uses the 'Automatic Delay Estimation and Correction' pipeline of the sln_voice example repository.
+The XK-VOICE-SQ66 board is available for development and debugging when
+xTAG/xscope visibility is needed. See [SQ66 Dev-Mode Workflow](docs/sq66-dev-mode.md).
 
-**satellite1_firmware_bypass**
+## Prerequisites
 
-A variant which bypasses the mic-pipeline. Hence, the raw mic signal is streamed to the ESP32-S3.
+- Git with access to the repository submodules.
+- XMOS XTC Tools 15.3.1.
+- Python 3.10.
+- CMake 3.21 or newer.
 
-## Firmware Files
-
-**variant_name.factory.bin**
-
-A complete image of the flash memory, including both the boot partition (containing the flash loader and factory image) and the data partition.
-
-**variant_name.upgrade.bin**
-
-A firmware upgrade image that can be uploaded through the Device Firmware Update (DFU) service. Requires a factory image with DFU support running on the device.
-
-
-**variant_name.xe**
-
-The XMOS executable (XE) binary format stores programs for XMOS devices and includes information about the system it is intended to run on, allowing support for multiple program loads, configurations and debugging.
-
-
-## Flashing via Satellite1 ESPHome Firmware
-
-
-## Flashing via dfu-util
-> **Note:** The Satellite1 does not come with a pre-flashed XMOS firmware. Hence, the initial firmware needs to be written directly to the flash memory via SPI. Use 'Flashing via Satellite1 ESPHome Firmware' in this case.  
-
-
-If the XMOS device is running a factory firmware with DFU over USB support, an upgrade image can be uploaded as follows:
-```bash
-dfu-util -e -a 1 -D variant_name.upgrade.bin
-```
-
-
-## Running / Flashing via xTAG
-> **Note**: The Satellite1 does not include an xTAG debugger. This option applies only when testing the firmware with a developer board like the XCORE.AI EVALUATION KIT. 
-
-When the XMOS board is connected as a USB xTag device, the firmware can be run or flashed as follows:
-
-Running without flashing:
+Clone the repository and initialize its submodules:
 
 ```bash
-xrun --xscope variant_name.xe
-```
-
-Flashing:
-```bash
-xflash --quad-spi-clock 50MHz --factory variant_name.xe --boot-partition-size 0x100000 --data variant_name_data_partition.bin
-```
-
-
-## Building the firmware locally
-
-### Clone repository
-
-```bash
-git clone https://github.com/FutureProofHomes/Satellite1-XMOS.git
+git clone git@github.com:FutureProofHomes/Satellite1-XMOS.git
 cd Satellite1-XMOS
 git submodule update --init --recursive
 ```
 
-### Setup XTC-Tools
-Download XTX-15.3.1 from https://www.xmos.com/software-tools/
+Set the local XTC installation in an ignored `.env` file when it is not at the
+default location used by `tools/env/xmos_env.sh`:
 
-On Mac, the original software requires installing into `/Applications`. If you want to install into another directory, change `XMOS_TOOL_PATH` in `${INSTALL_DIR}/SetEnv.sh` to :
 ```bash
-export XMOS_TOOL_PATH=${0:A:h};
+XMOS_XTC_ROOT=$HOME/Projects/FutureProofHomes/XMOS_XTC_15.3.1
 ```
 
-### Setup Python Virtual Environment
-The `xmos-ai-tools` python package is required for building the firmware modules.
-It is recommended to install it into a virtual environment:
+Create the repository-local Python environment and install the required XMOS
+Python tools:
 
 ```bash
 python3.10 -m venv .venv
-source activate .venv/bin/activate
-pip install -r requirements.txt
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -c 'import xmos_ai_tools.runtime; print(xmos_ai_tools.runtime.__file__)'
 ```
 
-for later builds simply activate the environment before calling cmake:
-```bash
-source activate .venv/bin/activate
-```
-
-
-### Creating factory and upgrade images
-
-On Linux and Mac run:
+Before configuring or building firmware, activate the Python environment and
+load the XTC environment:
 
 ```bash
-cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
-cd build
-
-make create_flash_img_variant_name
-make create_upgrade_img_variant_name
+source .venv/bin/activate
+source tools/env/xmos_env.sh
+export PATH="$VIRTUAL_ENV/bin:$PATH"
 ```
 
-On Windows run:
-```bash
-cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
-cd build
+## Satellite1 Targets
 
-ninja create_flash_img_variant_name
-ninja create_upgrade_img_variant_name
-```
+| Target | Purpose |
+| --- | --- |
+| `satellite1_firmware_fixed_delay` | Normal Satellite1 audio pipeline with fixed delay processing. |
+| `satellite1_firmware_bypass` | Bypasses the microphone pipeline for raw microphone-path debugging. |
+| `satellite1_firmware_adec` | Automatic delay-estimation and correction pipeline. |
 
-### Building the XMOS executable only (.xe file)
-Run the following commands in the root folder to build the firmware.
-
-On Linux and Mac run:
+Build the fixed-delay executable:
 
 ```bash
 cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
-cd build
-
-make variant_name
+cmake --build build --target satellite1_firmware_fixed_delay
 ```
 
-On Windows run:
+Build Satellite1 factory and upgrade artifacts:
+
 ```bash
-cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
-cd build
-
-ninja variant_name
+cmake --build build --target create_flash_img_satellite1_firmware_fixed_delay
+cmake --build build --target create_upgrade_img_satellite1_firmware_fixed_delay
 ```
 
+Replace `satellite1_firmware_fixed_delay` with another target from the table
+when required. Generated artifacts are written to the selected build directory.
 
+## Firmware Artifacts
 
+For a firmware target named `<target>`, the build can produce:
 
+| Artifact | Purpose |
+| --- | --- |
+| `<target>.xe` | XMOS executable used for xTAG/xscope development and debugging. |
+| `<target>.factory.bin` | Factory flash image for initial/persistent installation. |
+| `<target>.upgrade.bin` | DFU upgrade image for a device already running a compatible factory image. |
+| `<target>.factory.md5`, `<target>.upgrade.md5` | MD5 sidecars used by current firmware-flashing workflows. |
 
+Creating an artifact is separate from installing it on a device. Satellite1
+factory installation is performed through the Satellite1 ESPHome/SPI flashing
+workflow with the matching factory image and MD5 sidecar.
+
+## Versioning And Reproducibility
+
+Normal builds reject dirty source trees. Use a clean, committed checkout for
+artifacts that will be shared, embedded in ESPHome, or used for comparison.
+
+For a tracked development artifact, configure with:
+
+```bash
+cmake -B build --toolchain xmos_cmake_toolchain/xs3a.cmake \
+  -DUSE_DEV_TRACKING=ON
+```
+
+This creates versioned artifact metadata under `dev_tracking/`. The firmware's
+runtime version is a compatibility identifier; retain the generated metadata,
+checksums, and Git commit for full artifact provenance.
+
+`-DALLOW_DIRTY_VERSIONING=ON` is only for local throwaway builds of uncommitted
+changes. Do not use those artifacts for release or ESPHome embedding.
+
+## SQ66 Development And Debugging
+
+When xTAG/xscope visibility is needed during Satellite1 firmware development,
+use the [SQ66 Dev-Mode Workflow](docs/sq66-dev-mode.md). It provides adapter
+detection, dev-mode builds, temporary xscope runs, and debugger invocation.
