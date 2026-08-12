@@ -20,6 +20,7 @@
 /* Tile specifiers */
 #define FLASH_TILE_NO      0
 #define SPI_CLIENT_TILE_NO 0
+#define GPIO_SERVICER_NO   0
 
 #define MICARRAY_TILE_NO   1
 #define I2S_TILE_NO        1
