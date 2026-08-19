@@ -35,9 +35,29 @@ env:
   FIRMWARE_ARTIFACT_NAME: "satellite1_firmware"
 
 jobs:
+  manifest_preflight:
+    name: Check firmware manifest
+    runs-on: ubuntu-latest
+    outputs:
+      requires_data_partition: ${{ steps.check_manifest.outputs.requires_data_partition }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for data partition builds
+        id: check_manifest
+        run: |
+          if awk '$1 !~ /^#/ && $3 == "Yes" { found = 1 } END { exit !found }' tools/ci/firmwares.txt; then
+            echo "requires_data_partition=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "requires_data_partition=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build_host_apps:
     name: Build host applications
     runs-on: ubuntu-latest
+    needs: manifest_preflight
+    if: ${{ needs.manifest_preflight.outputs.requires_data_partition == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,7 +81,10 @@ jobs:
   build_firmware:
     name: Build satellite xmos firmware
     runs-on: ubuntu-latest
-    needs: build_host_apps
+    needs:
+      - manifest_preflight
+      - build_host_apps
+    if: ${{ always() && needs.manifest_preflight.result == 'success' && (needs.build_host_apps.result == 'success' || needs.build_host_apps.result == 'skipped') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,6 +96,7 @@ jobs:
           docker pull ${XCORE_BUILDER}
 
       - name: Download host build artifacts
+        if: ${{ needs.manifest_preflight.outputs.requires_data_partition == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.HOST_APPS_ARTIFACT_NAME }}
@@ -102,4 +126,3 @@ jobs:
           name: ${{ env.FIRMWARE_ARTIFACT_NAME }}
           path: |
             ./dist/*.*
-
