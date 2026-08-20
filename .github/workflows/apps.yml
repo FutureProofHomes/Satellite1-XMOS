@@ -44,6 +44,7 @@ env:
   XCORE_BUILDER: "ghcr.io/xmos/xcore_builder:v3.1"
   HOST_APPS_ARTIFACT_NAME: "host_apps"
   FIRMWARE_ARTIFACT_NAME: "satellite1_firmware"
+  DEBIAN_PACKAGE_ARTIFACT_NAME: "satellite1_firmware_deb"
 
 jobs:
   manifest_preflight:
@@ -143,3 +144,10 @@ jobs:
           name: ${{ env.FIRMWARE_ARTIFACT_NAME }}
           path: |
             ./dist/*.*
+            !./dist/*.deb
+
+      - name: Save Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DEBIAN_PACKAGE_ARTIFACT_NAME }}
+          path: ./dist/*.deb
