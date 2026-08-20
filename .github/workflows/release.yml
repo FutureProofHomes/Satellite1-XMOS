@@ -24,6 +24,10 @@ on:
       tag:
         description: 'Tag for the release.'
         required: true
+      package_revision:
+        description: 'Debian packaging revision for the XMOS firmware package.'
+        required: false
+        default: "1"
 
 env:
   TMP_SOURCES_DIR: ${{ github.workspace }}/tmp/src
@@ -96,6 +100,7 @@ jobs:
     with:
       firmware_artifact_name: ${{ needs.create_release_tag.outputs.firmware_artifact_name }}
       firmware_version_string: ${{ needs.create_release_tag.outputs.new_tag }}
+      package_revision: ${{ github.event.inputs.package_revision || '1' }}
 
   create_release:
     name: Release Firmware
