@@ -24,11 +24,16 @@ on:
       tag:
         description: 'Tag for the release.'
         required: true
+      package_revision:
+        description: 'Debian packaging revision for the XMOS firmware package.'
+        required: false
+        default: "1"
 
 env:
   TMP_SOURCES_DIR: ${{ github.workspace }}/tmp/src
   RELEASE_SOURCES_DIR: ${{ github.workspace }}/release/src
   FIRMWARE_ARTIFACT_NAME: "satellite_firmware_apps"
+  DEBIAN_PACKAGE_ARTIFACT_NAME: "satellite1_firmware_deb"
 permissions:
   contents: write
 
@@ -96,6 +101,7 @@ jobs:
     with:
       firmware_artifact_name: ${{ needs.create_release_tag.outputs.firmware_artifact_name }}
       firmware_version_string: ${{ needs.create_release_tag.outputs.new_tag }}
+      package_revision: ${{ github.event.inputs.package_revision || '1' }}
 
   create_release:
     name: Release Firmware
@@ -111,6 +117,12 @@ jobs:
           name: ${{ env.FIRMWARE_ARTIFACT_NAME }}
           path: ${{ env.RELEASE_SOURCES_DIR }}
 
+      - name: Get Debian package
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.DEBIAN_PACKAGE_ARTIFACT_NAME }}
+          path: ${{ github.workspace }}/release/debian
+
       - name: Zip Release Binaries
         run: |
           cd ${{ env.RELEASE_SOURCES_DIR }}
@@ -121,7 +133,9 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip
+          files: |
+            ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip
+            ${{ github.workspace }}/release/debian/*.deb
           generate_release_notes: true
           append_body: true
           tag_name: ${{ needs.create_release_tag.outputs.new_tag }}

@@ -1,0 +1,8 @@
+Package: satellite1-xmos-firmware
+Version: @PACKAGE_VERSION@
+Section: firmware
+Priority: optional
+Architecture: all
+Maintainer: Mischa Siekmann <mischa.siekmann@futureproofhomes.net>
+Description: Satellite1 XMOS firmware images
+ Factory and update images for the Satellite1 XMOS processor.
