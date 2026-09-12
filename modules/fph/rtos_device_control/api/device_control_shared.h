@@ -17,7 +17,7 @@
 /**
  * This is the version of control protocol. Used to check compatibility
  */
-#define CONTROL_VERSION 0x10
+#define CONTROL_VERSION 0x11
 
 /**
  * @{
@@ -56,6 +56,12 @@ typedef enum {
     SERVICER_SPECIAL_COMMAND_BUF_SIZE_ERROR,
     
 } control_ret_t;
+
+/**
+ * SPI transport status byte indicating that the remaining bytes in the frame
+ * contain a read payload.
+ */
+#define CONTROL_RET_STATUS_PAYLOAD_AVAIL 23
 
 /**
  * This type is used to inform the control library the direction of

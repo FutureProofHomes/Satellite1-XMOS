@@ -2,6 +2,7 @@
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
 #include <stdint.h>
+#include <stddef.h>
 
 // Define the delay to wait before rebooting the device after a successful download
 #define DFU_REBOOT_DELAY_MS 100
@@ -60,9 +61,25 @@ uint32_t dfu_common_make_manifest();
  * \return                  0 if the write operation was successful, a non-zero error value otherwise.
  */
 uint16_t dfu_common_read_from_flash(uint8_t alt,
-                                    uint16_t block_num,
-                                    uint8_t *data,
-                                    uint16_t length);
+                                     uint16_t block_num,
+                                     uint8_t *data,
+                                     uint16_t length);
+
+/**
+ * \brief Read the external flash IC unique serial number.
+ *
+ * \param[out] serial       Buffer to receive the serial bytes.
+ * \param[in] serial_len    Number of serial bytes to read.
+ */
+void dfu_common_get_flash_serial(uint8_t *serial, size_t serial_len);
+
+/**
+ * \brief Return flags describing the current DFU image layout.
+ *
+ * Bit 0 indicates an upgrade image is present. Bit 1 indicates a data partition
+ * is available after the DFU image area.
+ */
+uint8_t dfu_common_get_image_status_flags(void);
 
 /**
  * \brief Reboot the device.
