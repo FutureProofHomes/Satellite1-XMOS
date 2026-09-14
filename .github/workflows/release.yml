@@ -11,7 +11,6 @@ name: Build and Release Artifacts
 on:
   push:
     branches:
-      - "develop"
       - "staging"
       - "main"
     
@@ -22,8 +21,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag for the release.'
-        required: true
+        description: 'Optional release tag. Leave empty to auto-bump for the selected branch.'
+        required: false
       package_revision:
         description: 'Debian packaging revision for the XMOS firmware package.'
         required: false
@@ -32,6 +31,7 @@ on:
 env:
   TMP_SOURCES_DIR: ${{ github.workspace }}/tmp/src
   RELEASE_SOURCES_DIR: ${{ github.workspace }}/release/src
+  RELEASE_ASSETS_DIR: ${{ github.workspace }}/release/assets
   FIRMWARE_ARTIFACT_NAME: "satellite_firmware_apps"
   DEBIAN_PACKAGE_ARTIFACT_NAME: "satellite1_firmware_deb"
 permissions:
@@ -128,6 +128,12 @@ jobs:
           cd ${{ env.RELEASE_SOURCES_DIR }}
           zip -r --symlinks ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip .
 
+      - name: Prepare standalone factory assets
+        run: |
+          mkdir -p ${{ env.RELEASE_ASSETS_DIR }}
+          cp ${{ env.RELEASE_SOURCES_DIR }}/satellite1_firmware_fixed_delay.factory.bin ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.bin
+          cp ${{ env.RELEASE_SOURCES_DIR }}/satellite1_firmware_fixed_delay.factory.md5 ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.md5
+
       - run: tree ${{ env.RELEASE_SOURCES_DIR }}
       
       - name: Create release
@@ -135,6 +141,8 @@ jobs:
         with:
           files: |
             ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip
+            ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.bin
+            ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.md5
             ${{ github.workspace }}/release/debian/*.deb
           generate_release_notes: true
           append_body: true
