@@ -137,25 +137,29 @@ static control_ret_t special_read_command(device_control_t *ctx,
     switch (cmd) {
     case CONTROL_GET_VERSION:
         rtos_printf("read version %d\n", CONTROL_VERSION);
-        if (payload_len != sizeof(control_version_t)) {
+        if (payload_len != (sizeof(control_version_t) + 1)) {
             rtos_printf("wrong payload size %d for read version command, need %d\n",
-                    payload_len, sizeof(control_version_t));
+                    payload_len,
+                    (int)(sizeof(control_version_t) + 1));
 
             return CONTROL_BAD_COMMAND;
         } else {
-            *((control_version_t*) payload) = CONTROL_VERSION;
+            payload[0] = CONTROL_SUCCESS;
+            *((control_version_t*) &payload[1]) = CONTROL_VERSION;
             return CONTROL_SUCCESS;
         }
 
     case CONTROL_GET_LAST_COMMAND_STATUS:
         rtos_printf("read last command status %d\n", ctx->last_status);
-        if (payload_len != sizeof(control_status_t)) {
-            rtos_printf("wrong payload size %d for read version command, need %d\n",
-                    payload_len, sizeof(control_version_t));
+        if (payload_len != (sizeof(control_status_t) + 1)) {
+            rtos_printf("wrong payload size %d for read status command, need %d\n",
+                    payload_len,
+                    (int)(sizeof(control_status_t) + 1));
 
             return CONTROL_BAD_COMMAND;
         } else {
-            *((control_status_t*) payload) = ctx->last_status;
+            payload[0] = CONTROL_SUCCESS;
+            *((control_status_t*) &payload[1]) = ctx->last_status;
             return CONTROL_SUCCESS;
         }
 
@@ -472,7 +476,8 @@ control_ret_t device_control_resources_register(device_control_t *ctx,
     }
 
     if (registered_count == ctx->servicer_count) {
-        ctx->status_buffer = rtos_osal_malloc( registered_count );
+        ctx->status_buffer = rtos_osal_malloc(MAX_STATUS_BUFFER_LEN);
+        xassert(ctx->status_buffer != NULL);
         ctx->status_buffer_len = MAX_STATUS_BUFFER_LEN;
         memset( ctx->status_buffer, 0, ctx->status_buffer_len );
         return CONTROL_SUCCESS;

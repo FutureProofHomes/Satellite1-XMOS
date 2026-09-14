@@ -18,6 +18,7 @@ target_link_libraries(fph_ffva_board_support_satellite1
         rtos::freertos
         rtos::drivers::general
         rtos::drivers::dfu_image
+        fph::qspi_flash_ext
         fph::rtos_mic_array
         fph::i2s_sync
         fph::rtos_ws2812

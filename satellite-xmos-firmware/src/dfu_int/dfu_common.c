@@ -12,10 +12,17 @@
 #include "quadflashlib.h"
 
 #include "dfu_common.h"
+#include "fph_qspi_flash_ext.h"
 #include "rtos_dfu_image.h"
 #include "rtos_qspi_flash.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_conf.h" // needed for appconfI2C_DFU_ENABLED
+
+#define W25Q64JV_READ_UNIQUE_ID_CMD 0x4B
+#define W25Q64JV_READ_UNIQUE_ID_DUMMY_BYTES 4
+
+#define DFU_IMAGE_STATUS_UPGRADE_PRESENT (1U << 0)
+#define DFU_IMAGE_STATUS_DATA_PARTITION_AVAILABLE (1U << 1)
 
 static size_t bytes_avail = 0;
 static uint32_t dn_base_addr = 0;
@@ -113,9 +120,9 @@ uint32_t dfu_common_make_manifest()
 }
 
 uint16_t dfu_common_read_from_flash(uint8_t alt,
-                                    uint16_t block_num,
-                                    uint8_t *data,
-                                    uint16_t length)
+                                     uint16_t block_num,
+                                     uint8_t *data,
+                                     uint16_t length)
 {
     uint32_t endaddr = 0;
     uint16_t retval = 0;
@@ -151,6 +158,30 @@ uint16_t dfu_common_read_from_flash(uint8_t alt,
         retval = length;
     }
     return retval;
+}
+
+void dfu_common_get_flash_serial(uint8_t *serial, size_t serial_len)
+{
+    fph_qspi_flash_read_register(qspi_flash_ctx,
+                                 W25Q64JV_READ_UNIQUE_ID_CMD,
+                                 W25Q64JV_READ_UNIQUE_ID_DUMMY_BYTES,
+                                 serial,
+                                 serial_len);
+}
+
+uint8_t dfu_common_get_image_status_flags(void)
+{
+    uint8_t flags = 0;
+
+    if (rtos_dfu_image_get_upgrade_size(dfu_image_ctx) > 0) {
+        flags |= DFU_IMAGE_STATUS_UPGRADE_PRESENT;
+    }
+
+    if (rtos_qspi_flash_size_get(qspi_flash_ctx) > rtos_dfu_image_get_data_partition_addr(dfu_image_ctx)) {
+        flags |= DFU_IMAGE_STATUS_DATA_PARTITION_AVAILABLE;
+    }
+
+    return flags;
 }
 
 void reboot(void)
