@@ -25,7 +25,7 @@
 #endif
 
 typedef struct {
-    int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE];
+    int32_t samples[appconfAUDIO_SPK_CHANNELS][appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE];
 } frame_data_t;
 
 static void *audio_pipeline_input_i(void *input_app_data)
