@@ -142,7 +142,9 @@ void audio_pipeline_input(void *input_app_data,
                         size_t frame_count)
 {
     (void) input_app_data;
-    int32_t **mic_ptr = (int32_t **)(input_audio_frames + (appconfMIC_PIPELINE_REF_CHANNELS * frame_count));
+    int32_t *mic_data = (int32_t *)input_audio_frames +
+                        (appconfMIC_PIPELINE_REF_CHANNELS * frame_count);
+    int32_t **mic_ptr = (int32_t **)mic_data;
 
     static int flushed;
     while (!flushed) {
