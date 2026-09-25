@@ -21,13 +21,16 @@ target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
-        fwk_voice::aec
+        fph::aec_4y
         fwk_voice::agc
-        fwk_voice::ic
+        fph::ic_4y
         fwk_voice::ns
         fwk_voice::vnr::features
         fwk_voice::vnr::inference
 )
+
+target_compile_definitions(fixed_delay_aec_ic_ns_agc_2mic_2ref
+    INTERFACE appconfMIC_PIPELINE_PROC_CHANNELS=4)
 
 ##******************************************
 ## Create ADEC "prevarch" AEC+IC+NS+AGC 

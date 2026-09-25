@@ -11,8 +11,8 @@
 #include <stdint.h>
 
 /* Pipeline config */
-#define AP_MAX_Y_CHANNELS (2)
-#define AP_MAX_X_CHANNELS (2)
+#define AP_MAX_Y_CHANNELS (appconfMIC_PIPELINE_PROC_CHANNELS)
+#define AP_MAX_X_CHANNELS (1)
 #define AP_FRAME_ADVANCE (240)
 
 /* AEC config */

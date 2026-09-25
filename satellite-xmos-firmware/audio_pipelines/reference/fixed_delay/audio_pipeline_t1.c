@@ -31,6 +31,17 @@ static stage_delay_ctx_t DWORD_ALIGNED delay_buf_state = {};
 #endif
 static aec_ctx_t DWORD_ALIGNED aec_state = {};
 
+#if appconfMIC_PIPELINE_REF_CHANNELS == 2
+static void mix_stereo_reference_to_mono(frame_data_t *frame_data)
+{
+    for (size_t i = 0; i < appconfAUDIO_PIPELINE_FRAME_ADVANCE; i++) {
+        int64_t sum = (int64_t)frame_data->aec_reference_audio_samples[0][i] +
+                      frame_data->aec_reference_audio_samples[1][i];
+        frame_data->aec_reference_audio_samples[0][i] = (int32_t)(sum / 2);
+    }
+}
+#endif
+
 
 static void *audio_pipeline_input_i(void *input_app_data)
 {
@@ -42,6 +53,9 @@ static void *audio_pipeline_input_i(void *input_app_data)
                        (int32_t **)frame_data->aec_reference_audio_samples,
                        appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
                        appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+#if appconfMIC_PIPELINE_REF_CHANNELS == 2
+    mix_stereo_reference_to_mono(frame_data);
+#endif
 
     frame_data->vnr_pred_flag = 0;
 

@@ -24,7 +24,9 @@
 #define appconfAUDIO_PIPELINE_SAMPLE_RATE       16000
 #define appconfMIC_PIPELINE_REF_CHANNELS        2
 #define appconfMIC_PIPELINE_INPUT_CHANNELS      MIC_ARRAY_CONFIG_MIC_COUNT
+#ifndef appconfMIC_PIPELINE_PROC_CHANNELS
 #define appconfMIC_PIPELINE_PROC_CHANNELS       2
+#endif
 #define appconfMIC_PIPELINE_OUT_CHANNELS        2
 #define appconfAUDIO_SPK_CHANNELS               2
 
