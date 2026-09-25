@@ -207,12 +207,11 @@ int audio_pipeline_output(void *output_app_data,
     int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfMIC_PIPELINE_OUT_CHANNELS];
     int32_t *tmpptr = (int32_t *)output_audio_frames;
      
-     // 0 : proc 0, AEC+IC+NS+AGC audio
-     // 1 : proc 1, mic 1 audio with AEC applied
-     // 2 : ref 0, overwritten by AEC+IC output
-     // 3 : ref 1, overwritten by AEC+IC+NS output
-     // 4 : mic 0
-     // 5 : mic 1
+     // 0 : averaged AEC residual, processed by NS and AGC
+     // 1-3 : remaining AEC residuals
+     // 4 : reference 0
+     // 5 : reference 1, overwritten by NS output
+     // 6-9 : raw microphone channels
 
      if (appconfI2S_AUDIO_SAMPLE_RATE == 3*appconfAUDIO_PIPELINE_SAMPLE_RATE) {    
         // duplicate to 48kHz

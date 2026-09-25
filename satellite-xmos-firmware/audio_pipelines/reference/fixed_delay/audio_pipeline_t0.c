@@ -72,6 +72,17 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
                                appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 }
 
+static void stage_average_aec_residuals(frame_data_t *frame_data)
+{
+    for (size_t i = 0; i < appconfAUDIO_PIPELINE_FRAME_ADVANCE; i++) {
+        int64_t sum = (int64_t)frame_data->samples[0][i] +
+                      frame_data->samples[1][i] +
+                      frame_data->samples[2][i] +
+                      frame_data->samples[3][i];
+        frame_data->samples[0][i] = (int32_t)(sum / 4);
+    }
+}
+
 static void stage_vnr_and_ic(frame_data_t *frame_data)
 {
 #if appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR
@@ -150,15 +161,17 @@ void audio_pipeline_init(
     void *input_app_data,
     void *output_app_data)
 {
-    const int stage_count = 3;
+    const int stage_count = 4;
     const pipeline_stage_t stages[] = {
+        (pipeline_stage_t)stage_average_aec_residuals,
         (pipeline_stage_t)stage_vnr_and_ic,
         (pipeline_stage_t)stage_ns,
         (pipeline_stage_t)stage_agc,
     };
 
     const configSTACK_DEPTH_TYPE stage_stack_sizes[] = {
-        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_vnr_and_ic) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_average_aec_residuals) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_vnr_and_ic),
         configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_ns),
         configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_agc) + RTOS_THREAD_STACK_SIZE(audio_pipeline_output_i),
     };

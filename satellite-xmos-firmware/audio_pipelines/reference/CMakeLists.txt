@@ -30,7 +30,9 @@ target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
 )
 
 target_compile_definitions(fixed_delay_aec_ic_ns_agc_2mic_2ref
-    INTERFACE appconfMIC_PIPELINE_PROC_CHANNELS=4)
+    INTERFACE
+        appconfMIC_PIPELINE_PROC_CHANNELS=4
+        appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR=1)
 
 ##******************************************
 ## Create ADEC "prevarch" AEC+IC+NS+AGC 
