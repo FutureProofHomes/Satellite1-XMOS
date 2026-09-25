@@ -218,8 +218,8 @@ int audio_pipeline_output(void *output_app_data,
             // CONF_CHANNEL_0_STAGE : AGC : AEC+IC+NS+AGC : indx 0       
             int32_t smpl_ch0 = *(tmpptr + in_frame + (0 * frame_count));
             
-            // CONF_CHANNEL_1_STAGE : NS :  AEC+IC+NS : indx 3       
-            int32_t smpl_ch1 = *(tmpptr + in_frame + (3 * frame_count));
+            // CONF_CHANNEL_1_STAGE : NS : AEC+IC+NS : index 5
+            int32_t smpl_ch1 = *(tmpptr + in_frame + (5 * frame_count));
             
             tmp[out_frame][0][0] = smpl_ch0;
             tmp[out_frame][0][1] = smpl_ch1;
@@ -231,7 +231,7 @@ int audio_pipeline_output(void *output_app_data,
     } else {
         for (int j=0; j<frame_count; j++) {
             tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // (AEC+IC+NS+AGC) -> ESP32
-            tmp[j][0][1] = *(tmpptr+j+(3*frame_count));    // (AEC+IC+NS) -> ESP32
+            tmp[j][0][1] = *(tmpptr+j+(5*frame_count));    // (AEC+IC+NS) -> ESP32
         }
     }    
     
