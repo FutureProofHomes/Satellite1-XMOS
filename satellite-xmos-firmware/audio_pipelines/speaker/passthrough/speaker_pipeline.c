@@ -35,10 +35,14 @@ static void *audio_pipeline_input_i(void *input_app_data)
     frame_data = pvPortMalloc(sizeof(frame_data_t));
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
+    int32_t *channels[2] = {
+        frame_data->samples[0],
+        frame_data->samples[1],
+    };
     speaker_pipeline_input(input_app_data,
-                       (int32_t **)frame_data->samples,
-                       2,
-                       appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
+                           channels,
+                           2,
+                           appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 
     return frame_data;
 }
@@ -46,10 +50,14 @@ static void *audio_pipeline_input_i(void *input_app_data)
 static int audio_pipeline_output_i(frame_data_t *frame_data,
                                    void *output_app_data)
 {
+    int32_t *channels[2] = {
+        frame_data->samples[0],
+        frame_data->samples[1],
+    };
     return speaker_pipeline_output(output_app_data,
-                               (int32_t **)frame_data->samples,
-                               2,
-                               appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
+                                   channels,
+                                   2,
+                                   appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
 }
 
 void empty_stage(void)

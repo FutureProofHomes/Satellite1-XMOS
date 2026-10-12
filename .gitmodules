@@ -40,3 +40,6 @@
 [submodule "modules/xscope_fileio/xscope_fileio"]
 	path = modules/xscope_fileio/xscope_fileio
 	url = git@github.com:xmos/xscope_fileio.git
+[submodule "modules/lib_audio_dsp_adapter/lib_audio_dsp"]
+	path = modules/lib_audio_dsp_adapter/lib_audio_dsp
+	url = git@github.com:xmos/lib_audio_dsp.git

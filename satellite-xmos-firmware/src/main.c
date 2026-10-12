@@ -49,8 +49,6 @@ void speaker_pipeline_input(void *input_app_data,
         xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
         /* I2S provides sample channel format */
         int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][appconfI2S_AUDIO_INPUTS][appconfAUDIO_PIPELINE_CHANNELS];
-        int32_t *tmpptr = (int32_t *)input_audio_frames;
-
         size_t rx_count =
         rtos_i2s_rx(i2s_ctx,
                     (int32_t*) tmp,
@@ -60,8 +58,8 @@ void speaker_pipeline_input(void *input_app_data,
 
         for (int i=0; i<frame_count; i++) {
             /* ref is first */
-            *(tmpptr + i) = tmp[i][0][0];
-            *(tmpptr + i + frame_count) = tmp[i][0][1];
+            input_audio_frames[0][i] = tmp[i][0][0];
+            input_audio_frames[1][i] = tmp[i][0][1];
         }
 #endif
 }
@@ -78,10 +76,9 @@ int speaker_pipeline_output(void *output_app_data,
     
     /* I2S expects sample channel format */
     int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_PIPELINE_CHANNELS];
-    int32_t *tmpptr = (int32_t *)output_audio_frames;
     for (int j=0; j<frame_count; j++) {
-        tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
-        tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
+        tmp[j][0][0] = output_audio_frames[0][j];    // ref 0 -> DAC
+        tmp[j][0][1] = output_audio_frames[1][j];    // ref 1 -> DAC
     }
     
     // send to DAC

@@ -11,6 +11,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A)
     add_subdirectory(voice)
     add_subdirectory(inferencing)
     add_subdirectory(sw_pll/lib_sw_pll)
+    add_subdirectory(lib_audio_dsp_adapter EXCLUDE_FROM_ALL)
 
     ## The following alias is added to support in intermediate version of fwk_voice
     ##  This can be removed once fwk_voice is updated to use the new, core::lib_tflite_micro alias

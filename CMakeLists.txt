@@ -8,6 +8,11 @@ endif()
 ## Project declaration
 project(satellite-xmos-firmware)
 
+option(SPEAKER_EQ_BUILD_TESTS "Build speaker EQ xsim tests" OFF)
+if(SPEAKER_EQ_BUILD_TESTS)
+    enable_testing()
+endif()
+
 ## Enable languages for project
 enable_language(CXX C ASM)
 
@@ -24,4 +29,3 @@ add_subdirectory(modules)
 if(PROJECT_IS_TOP_LEVEL AND ${CMAKE_SYSTEM_NAME} STREQUAL XCORE_XS3A)
     include(satellite-xmos-firmware/firmware.cmake)
 endif()
-
