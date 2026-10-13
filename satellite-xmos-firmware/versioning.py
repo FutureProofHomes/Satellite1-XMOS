@@ -66,8 +66,8 @@ class XMOSVersion:
         return self
     
     def set_to_dev(self):
-        if PRE_RELEASES[self.pre_release] == "dev":
-            return
+        # Always counter 0: a dev tag's own counter would give an untracked build the tagged
+        # build's version bytes.
         self.pre_release = PRE_RELEASES.index("dev")
         self.pre_counter = 0
         return self
