@@ -74,6 +74,9 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     if(USE_DEV_TRACKING)
         list(APPEND VERSIONING_CMD "--track")
     endif()
+    if(XMOS_FW_VERSION)
+        list(PREPEND VERSIONING_CMD "--version" "${XMOS_FW_VERSION}")
+    endif()
 
     add_custom_target(satellite1_firmware_${FFVA_AP}_versioning
         COMMAND ${Python3_EXECUTABLE} ${VERSIONING_SCRIPT} ${VERSIONING_CMD} satellite1_firmware_${FFVA_AP}

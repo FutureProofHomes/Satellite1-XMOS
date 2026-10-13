@@ -89,14 +89,18 @@ class XMOSVersion:
         groups = match.groupdict()
         if groups["prerelease"] and groups["prerelease"] not in PRE_RELEASES:
             raise SystemExit(f"Invalid pre_release string: {groups['prerelease']}")
-        
-        return cls(
+
+        version = cls(
             major=int(groups["major"]),
             minor=int(groups["minor"]),
             patch=int(groups["patch"]),
             pre_release=PRE_RELEASES.index(groups["prerelease"]) if groups["prerelease"] else 0,
             pre_counter=int(groups["counter"]) if groups["counter"] else 0
         )
+        # Each field is one byte on the XMOS (dfu_servicer.c), and counter_inc wraps after 254.
+        if max(version.major, version.minor, version.patch) > 255 or version.pre_counter > 254:
+            raise SystemExit(f"Version out of range (fields 0-255, counter 0-254): {vstr}")
+        return version
 
 
     @classmethod

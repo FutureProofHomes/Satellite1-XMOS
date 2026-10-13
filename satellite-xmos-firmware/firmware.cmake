@@ -16,6 +16,15 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
 option(ALLOW_DIRTY_VERSIONING "Allow versioning.py to run from a dirty workspace for controlled CI inputs or local throwaway builds" OFF)
+set(XMOS_FW_VERSION "" CACHE STRING "Explicit firmware version for versioning.py (e.g. v1.1.0-dev.3); empty uses firmware_version.txt")
+if(XMOS_FW_VERSION)
+    if(USE_DEV_TRACKING)
+        message(FATAL_ERROR "XMOS_FW_VERSION and USE_DEV_TRACKING both choose the version: use one")
+    endif()
+    # Cached, so it stamps every later build in this directory until cleared, and the ESP32 only
+    # reflashes an XMOS whose version bytes differ.
+    message(STATUS "Firmware version: ${XMOS_FW_VERSION} (XMOS_FW_VERSION; clear with -UXMOS_FW_VERSION)")
+endif()
 
 #**********************
 # Flags
