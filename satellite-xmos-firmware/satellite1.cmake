@@ -39,7 +39,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::satellite1
             fph::ffva::ap::${PL_NAME}
-            sln_voice::app::ffva::sp::passthrough
+            fph::ffva::sp::eq
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
@@ -59,7 +59,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::satellite1
             fph::ffva::ap::${PL_NAME}
-            sln_voice::app::ffva::sp::passthrough
+            fph::ffva::sp::eq
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
