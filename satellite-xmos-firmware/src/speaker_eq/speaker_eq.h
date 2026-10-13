@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <platform.h>
 
 #include "app_conf.h"
@@ -14,4 +18,26 @@
 #define SPEAKER_EQ_ACTIVE 1
 #else
 #define SPEAKER_EQ_ACTIVE 0
+#endif
+
+/* Per-frame tag written by stage 0 so both channels use the same design. */
+typedef struct {
+    uint32_t bank_seq;
+    uint8_t bank_index;
+    uint8_t active;
+} speaker_eq_frame_tag_t;
+
+#if SPEAKER_EQ_ACTIVE
+
+/* Starts the design task; call before the speaker pipeline stages run. */
+void speaker_eq_init(void);
+
+/* Stage-thread entry points. Channel 0 must run before channel 1 per frame. */
+void speaker_eq_process_ch0(int32_t *samples, speaker_eq_frame_tag_t *tag);
+void speaker_eq_process_ch1(int32_t *samples, const speaker_eq_frame_tag_t *tag);
+
+/* Resource 231 commands, called from the servicer. False rejects the payload. */
+bool speaker_eq_cmd_write(uint8_t cmd_id, const uint8_t *payload, size_t len);
+bool speaker_eq_cmd_read(uint8_t cmd_id, uint8_t *payload, size_t len);
+
 #endif
