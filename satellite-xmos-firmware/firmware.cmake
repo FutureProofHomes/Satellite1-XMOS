@@ -2,7 +2,11 @@
 # Gather Sources
 #**********************
 
+option(SATELLITE1_SPEAKER_EQ "Enable the resource-231 stereo speaker EQ pipeline" ON)
 file(GLOB_RECURSE APP_SOURCES   ${CMAKE_CURRENT_LIST_DIR}/src/*.c)
+if(NOT SATELLITE1_SPEAKER_EQ)
+    list(FILTER APP_SOURCES EXCLUDE REGEX "/speaker_eq/")
+endif()
 
 set(APP_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/src

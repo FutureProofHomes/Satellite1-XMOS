@@ -1,5 +1,9 @@
 # Satellite1 main-only 4Y2X on fwk_voice v0.9.0
 
+This report describes the no-EQ implementation subsequently committed as
+`0b92023232e2b33bbcbd5a42b23b1d0acb8b8ea5`. The uncommitted combined speaker-EQ
+integration is reported separately in [the EQ report](4y2x-speaker-eq-v0.9.0.md).
+
 ## Scope and provenance
 
 Implementation checkout:

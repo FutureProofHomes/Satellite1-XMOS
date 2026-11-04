@@ -8,6 +8,12 @@ exporting the East/West residuals to the existing NS/AGC chain without averaging
 IC/VNR processing remains bypassed on this branch. The alternative 4Y1X profile
 retains its mono-reference mixing and four-residual averaging.
 
+Speaker playback supports the resource-231 stereo EQ pipeline
+(`SATELLITE1_SPEAKER_EQ=ON`, default). Runtime EQ starts disabled until a profile
+and routing are supplied. `OFF` selects the original speaker passthrough. See
+[the combined AEC/EQ report](docs/4y2x-speaker-eq-v0.9.0.md) for memory, tests,
+artifact identities and runtime limitations.
+
 Only `satellite1_firmware_fixed_delay` is supported with XMOS `fwk_voice`
 v0.9.0 (`FIXED_DELAY_ONLY=ON`). See
 [the main-only integration report](docs/4y2x-main-only-v0.9.0.md) for build instructions,
@@ -139,5 +145,4 @@ cd build
 
 ninja variant_name
 ```
-
 

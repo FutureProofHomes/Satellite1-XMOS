@@ -1,5 +1,11 @@
 query_tools_version()
 
+if(SATELLITE1_SPEAKER_EQ)
+    set(SATELLITE1_SPEAKER_TARGET fph::ffva::sp::eq)
+else()
+    set(SATELLITE1_SPEAKER_TARGET sln_voice::app::ffva::sp::passthrough)
+endif()
+
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
     set(FFVA_INT_COMPILE_DEFINITIONS
@@ -39,7 +45,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::satellite1
             fph::ffva::ap::${PL_NAME}
-            sln_voice::app::ffva::sp::passthrough
+            ${SATELLITE1_SPEAKER_TARGET}
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
@@ -59,7 +65,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
             ${APP_COMMON_LINK_LIBRARIES}
             fph::ffva::satellite1
             fph::ffva::ap::${PL_NAME}
-            sln_voice::app::ffva::sp::passthrough
+            ${SATELLITE1_SPEAKER_TARGET}
     )
     target_link_options(${TARGET_NAME} PRIVATE ${APP_LINK_OPTIONS})
     unset(TARGET_NAME)
