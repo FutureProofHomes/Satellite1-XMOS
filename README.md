@@ -3,7 +3,15 @@
 ## Variants
 **satellite1_firmware_fixed_delay**
 
-Uses the 'Automatic Delay Estimation and Correction' pipeline of the sln_voice example repository.
+Uses four-microphone, mono-reference fixed-delay AEC, four-residual averaging,
+NS and AGC. IC/VNR processing remains bypassed on this branch.
+
+Only `satellite1_firmware_fixed_delay` is supported with XMOS `fwk_voice`
+v0.9.0 (`FIXED_DELAY_ONLY=ON`). See
+[the migration report](docs/4y1x-voice-v0.9.0.md) for build instructions,
+artifact provenance, memory comparison and validation limits.
+
+### Legacy variants (not built with v0.9.0)
 
 **satellite1_firmware_bypass**
 
@@ -78,14 +86,14 @@ The `xmos-ai-tools` python package is required for building the firmware modules
 It is recommended to install it into a virtual environment:
 
 ```bash
-python3.10 -m venv .venv
-source activate .venv/bin/activate
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 for later builds simply activate the environment before calling cmake:
 ```bash
-source activate .venv/bin/activate
+source .venv/bin/activate
 ```
 
 
@@ -129,8 +137,6 @@ cd build
 
 ninja variant_name
 ```
-
-
 
 
 

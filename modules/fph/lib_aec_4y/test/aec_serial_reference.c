@@ -4,20 +4,21 @@
 #include <stdio.h>
 #include <string.h>
 #include "aec_defines.h"
-#include "aec_api.h"
+#include "aec.h"
+#include "aec_priv.h"
 
 /* This is an example of processing one frame of data through the AEC pipeline stage. The example runs on 1 thread and
  * can be compiled for both bare metal and x86.
  */
-static unsigned X_energy_recalc_bin = 0;
-void aec_process_frame_1thread(
-        aec_state_t *main_state,
-        aec_state_t *shadow_state,
+void aec_serial_reference(
+        aec_filter_state_t *main_state,
+        aec_filter_state_t *shadow_state,
         int32_t (*output_main)[AEC_FRAME_ADVANCE],
         int32_t (*output_shadow)[AEC_FRAME_ADVANCE],
         const int32_t (*y_data)[AEC_FRAME_ADVANCE],
         const int32_t (*x_data)[AEC_FRAME_ADVANCE])
 {
+    unsigned X_energy_recalc_bin = main_state->shared_state->X_energy_recalc_bin;
     // Read number of mic and reference channels. These are specified as part of the configuration when aec_init() is called.
     int num_y_channels = main_state->shared_state->num_y_channels; //Number of mic channels
     int num_x_channels = main_state->shared_state->num_x_channels; //Number of reference channels
@@ -83,6 +84,7 @@ void aec_process_frame_1thread(
     if(X_energy_recalc_bin == (AEC_PROC_FRAME_LENGTH/2) + 1) { // Wrap around to 0 on completing one (AEC_PROC_FRAME_LENGTH/2) + 1 samples pass.
         X_energy_recalc_bin = 0;
     }
+    main_state->shared_state->X_energy_recalc_bin = X_energy_recalc_bin;
 
     // Update X-FIFO and calculate sigma_XX.
     /* Add the current X frame to the X FIFO and remove the oldest X frame from the X FIFO.

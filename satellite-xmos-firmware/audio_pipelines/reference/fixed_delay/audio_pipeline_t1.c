@@ -57,8 +57,6 @@ static void *audio_pipeline_input_i(void *input_app_data)
     mix_stereo_reference_to_mono(frame_data);
 #endif
 
-    frame_data->vnr_pred_flag = 0;
-
     memcpy(frame_data->samples, frame_data->mic_samples_passthrough, sizeof(frame_data->samples));
 
     return frame_data;
@@ -127,18 +125,21 @@ static void stage_aec(frame_data_t *frame_data)
 #else
     int32_t DWORD_ALIGNED stage1_output[AEC_MAX_Y_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
 
-    aec_process_frame_1thread(
-            &aec_state.aec_main_state,
-            &aec_state.aec_shadow_state,
+    /* Reference-activity threshold from the upstream stage1 pipeline: -60 dBFS. */
+    frame_data->ref_active_flag = aec_detect_input_activity(
+            frame_data->aec_reference_audio_samples,
+            f64_to_float_s32(0.001), AEC_MAX_X_CHANNELS);
+    frame_data->max_ref_energy = aec_calc_max_input_energy(
+            frame_data->aec_reference_audio_samples, AEC_MAX_X_CHANNELS);
+
+    aec_process_frame(
+            &aec_state.state,
             stage1_output,
             NULL,
             frame_data->samples,
             frame_data->aec_reference_audio_samples);
 
-    frame_data->max_ref_energy = aec_calc_max_input_energy(
-                                    frame_data->aec_reference_audio_samples,
-                                    aec_state.aec_main_state.shared_state->num_x_channels);
-    frame_data->aec_corr_factor = aec_calc_corr_factor(&aec_state.aec_main_state, 0);
+    frame_data->aec_corr_factor = aec_calc_corr_factor(&aec_state.state.main_state, 0);
     memcpy(frame_data->samples, stage1_output, AEC_MAX_Y_CHANNELS * appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
 #endif
 }
@@ -151,15 +152,13 @@ static void initialize_pipeline_stages(void)
     configASSERT(delay_buf_state.delay_buf);
 #endif
 
-    aec_init(&aec_state.aec_main_state,
-             &aec_state.aec_shadow_state,
-             &aec_state.aec_shared_state,
-             &aec_state.aec_main_memory_pool[0],
-             &aec_state.aec_shadow_memory_pool[0],
+    aec_init(&aec_state.state,
              AEC_MAX_Y_CHANNELS,
              AEC_MAX_X_CHANNELS,
              AEC_MAIN_FILTER_PHASES,
-             AEC_SHADOW_FILTER_PHASES);
+             AEC_SHADOW_FILTER_PHASES,
+             &aec_tdist_chans4_threads1);
+    configASSERT(aec_state.state.shared_state.tdist == &aec_tdist_chans4_threads1);
 }
 
 void audio_pipeline_init(

@@ -10,7 +10,6 @@ target_link_libraries(fph_lib_ic_4y
     PUBLIC
         lib_xcore_math
         fph::aec_4y
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference)
+        fwk_voice::vnr)
 
 add_library(fph::ic_4y ALIAS fph_lib_ic_4y)
