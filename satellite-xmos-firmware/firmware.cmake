@@ -11,6 +11,7 @@ set(APP_INCLUDES
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/bsp_config/bsp_config.cmake)
+option(FIXED_DELAY_ONLY "Configure only the migrated fixed-delay pipeline" ON)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
@@ -53,37 +54,18 @@ set(APP_COMMON_LINK_LIBRARIES
 
 #**********************
 # Pipeline Options
-# By default only these targets are created:
-#  example_ffva_int_fixed_delay
-#  example_ffva_ua_adec_altarch
+# Only fixed_delay has migrated to the v0.9.0 APIs.
 #**********************
 option(ENABLE_ALL_FFVA_PIPELINES  "Create all FFVA pipeline configurations"  OFF)
-
 if(ENABLE_ALL_FFVA_PIPELINES)
-    set(FFVA_PIPELINES_INT
-        bypass
-        fixed_delay
-        adec
-        adec_altarch
-        empty
-    )
+    message(FATAL_ERROR "Legacy FFVA pipelines have not migrated to fwk_voice v0.9.0")
+endif()
 
-    set(FFVA_PIPELINES_UA
-        fixed_delay
-        adec
-        adec_altarch
-        empty
-    )
+if(FIXED_DELAY_ONLY)
+    set(FFVA_PIPELINES_INT fixed_delay)
+    set(FFVA_PIPELINES_UA "")
 else()
-    set(FFVA_PIPELINES_INT
-        adec
-        fixed_delay
-        bypass
-    )
-
-    set(FFVA_PIPELINES_UA
-        adec_altarch
-    )
+    message(FATAL_ERROR "Only FIXED_DELAY_ONLY=ON is supported with fwk_voice v0.9.0")
 endif()
 
 #**********************

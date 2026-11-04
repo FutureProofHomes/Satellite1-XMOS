@@ -3,34 +3,66 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
-#include "aec_defines.h"
-#include "aec_api.h"
+#include "aec.h"
 #include "aec_priv.h"
+#if AEC_MAIN_ONLY
+#include "aec_main_only_control.h"
+#endif
 
 void aec_init(
-        aec_state_t *main_state,
-        aec_state_t *shadow_state,
-        aec_shared_state_t *shared_state,
-        uint8_t *main_mem_pool,
-        uint8_t *shadow_mem_pool,
+        aec_state_t *aec_state,
         unsigned num_y_channels,
         unsigned num_x_channels,
         unsigned num_main_filter_phases,
-        unsigned num_shadow_filter_phases) {
-    if (num_y_channels == 0 || num_y_channels > AEC_LIB_MAX_Y_CHANNELS ||
-        num_x_channels == 0 || num_x_channels > AEC_LIB_MAX_X_CHANNELS ||
-        num_main_filter_phases == 0 || num_shadow_filter_phases == 0 ||
+        unsigned num_shadow_filter_phases,
+        const aec_task_distribution_t *tdist) {
+    if (aec_state == NULL) return;
+    aec_init_filters(&aec_state->main_state,
+#if AEC_MAIN_ONLY
+            NULL, &aec_state->shared_state, (uint8_t *)&aec_state->main_mem_pool, NULL,
+#else
+            &aec_state->shadow_state, &aec_state->shared_state,
+            (uint8_t *)&aec_state->main_mem_pool, (uint8_t *)&aec_state->shadow_mem_pool,
+#endif
+            num_y_channels, num_x_channels, num_main_filter_phases,
+            num_shadow_filter_phases, tdist);
+}
+
+int aec_init_filters(aec_filter_state_t *main_state,
+        aec_filter_state_t *shadow_state, aec_shared_filter_state_t *shared_state,
+        uint8_t *main_pool, uint8_t *shadow_pool,
+        unsigned num_y_channels, unsigned num_x_channels,
+        unsigned num_main_filter_phases, unsigned num_shadow_filter_phases,
+        const aec_task_distribution_t *tdist) {
+    /* Check pool bounds and descriptor bounds before touching any state. */
+    if (main_state == NULL || shared_state == NULL || main_pool == NULL ||
+        tdist == NULL || tdist->thread_count != 1 ||
+        num_y_channels == 0 || num_y_channels > AEC_MAX_Y_CHANNELS ||
+        num_x_channels == 0 || num_x_channels > AEC_MAX_X_CHANNELS ||
+        num_main_filter_phases == 0 ||
+        (shadow_state == NULL && (shadow_pool != NULL || num_shadow_filter_phases != 0)) ||
+        (shadow_state != NULL && (shadow_pool == NULL || num_shadow_filter_phases == 0)) ||
+        num_main_filter_phases > AEC_MAIN_FILTER_PHASES ||
+        num_shadow_filter_phases > AEC_SHADOW_FILTER_PHASES ||
         num_main_filter_phases > AEC_LIB_MAX_PHASES / num_x_channels ||
         num_shadow_filter_phases > AEC_LIB_MAX_PHASES / num_x_channels) {
-        return;
+        return 0;
     }
-    aec_priv_main_init(main_state, shared_state, main_mem_pool, num_y_channels, num_x_channels, num_main_filter_phases);
-    aec_priv_shadow_init(shadow_state, shared_state, shadow_mem_pool, num_shadow_filter_phases);
+    aec_priv_main_init(main_state, shared_state, main_pool,
+            num_y_channels, num_x_channels, num_main_filter_phases);
+    if (shadow_state != NULL) {
+        aec_priv_shadow_init(shadow_state, shared_state, shadow_pool, num_shadow_filter_phases);
+    }
+    shared_state->tdist = tdist;
+#if AEC_MAIN_ONLY
+    aec_main_only_control_reset();
+#endif
+    return 1;
 }
 
 void aec_frame_init(
-        aec_state_t *main_state,
-        aec_state_t *shadow_state,
+        aec_filter_state_t *main_state,
+        aec_filter_state_t *shadow_state,
         const int32_t (*y_data)[AEC_FRAME_ADVANCE],
         const int32_t (*x_data)[AEC_FRAME_ADVANCE])
 {
@@ -153,7 +185,7 @@ void aec_forward_fft(
 //per x-channel
 //API: calculate X-energy (per x-channel)
 void aec_calc_X_fifo_energy(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned ch,
         unsigned recalc_bin)
 {
@@ -168,7 +200,7 @@ void aec_calc_X_fifo_energy(
 }
 //per x-channel
 void aec_update_X_fifo_and_calc_sigmaXX(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned ch)
 {
     bfp_s32_t *sigma_XX_ptr = &state->shared_state->sigma_XX[ch];
@@ -180,7 +212,7 @@ void aec_update_X_fifo_and_calc_sigmaXX(
 
 //per y-channel
 void aec_calc_Error_and_Y_hat(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned ch)
 {
     if(state == NULL) {
@@ -208,7 +240,7 @@ void aec_inverse_fft(
 }
 
 float_s32_t aec_calc_corr_factor(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned ch) {
     // We need yhat[240:480-32] and y[240:480-32]
     int frame_window = 32;
@@ -225,7 +257,7 @@ float_s32_t aec_calc_corr_factor(
 }
 
 void aec_calc_coherence(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned ch)
 {
     if(state->shared_state->config_params.aec_core_conf.bypass) {
@@ -244,7 +276,7 @@ void aec_calc_coherence(
 }
 
 void aec_calc_output(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         int32_t (*output)[AEC_FRAME_ADVANCE],
         unsigned ch)
 {
@@ -280,7 +312,7 @@ void aec_calc_freq_domain_energy(
 }
 
 void aec_calc_normalisation_spectrum(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned ch,
         unsigned is_shadow)
 {
@@ -296,7 +328,7 @@ void aec_calc_normalisation_spectrum(
 }
 
 void aec_filter_adapt(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned y_ch)
 {
     if(state == NULL) {
@@ -311,7 +343,7 @@ void aec_filter_adapt(
 }
 
 void aec_calc_T(
-        aec_state_t *state,
+        aec_filter_state_t *state,
         unsigned y_ch,
         unsigned x_ch)
 {
@@ -326,8 +358,8 @@ void aec_calc_T(
 }
 
 void aec_compare_filters_and_calc_mu(
-        aec_state_t *main_state,
-        aec_state_t *shadow_state)
+        aec_filter_state_t *main_state,
+        aec_filter_state_t *shadow_state)
 {
     if(main_state->shared_state->config_params.aec_core_conf.bypass) {
         return;
@@ -360,7 +392,7 @@ void aec_compare_filters_and_calc_mu(
 }
 
 void aec_update_X_fifo_1d(
-        aec_state_t *state)
+        aec_filter_state_t *state)
 {
     if(state == NULL) {
         return;
@@ -374,12 +406,19 @@ void aec_update_X_fifo_1d(
     }
 }
 
-void aec_reset_state(aec_state_t *main_state, aec_state_t *shadow_state){
-    aec_shared_state_t *shared_state = main_state->shared_state;
+void aec_reset_state(aec_state_t *aec_state){
+    aec_filter_state_t *main_state = &aec_state->main_state;
+#if AEC_MAIN_ONLY
+    aec_filter_state_t *shadow_state = NULL;
+    aec_main_only_control_reset();
+#else
+    aec_filter_state_t *shadow_state = &aec_state->shadow_state;
+#endif
+    aec_shared_filter_state_t *shared_state = main_state->shared_state;
     uint32_t y_channels = shared_state->num_y_channels;
     uint32_t x_channels = shared_state->num_x_channels;
     uint32_t main_phases = main_state->num_phases;
-    uint32_t shadow_phases = shadow_state->num_phases;
+    uint32_t shadow_phases = shadow_state != NULL ? shadow_state->num_phases : 0;
     //Main H_hat
     for(int ch=0; ch<y_channels; ch++) {
         for(int ph=0; ph<x_channels*main_phases; ph++) {
@@ -388,10 +427,12 @@ void aec_reset_state(aec_state_t *main_state, aec_state_t *shadow_state){
         }
     }
     //Shadow H_hat
-    for(int ch=0; ch<y_channels; ch++) {
-        for(int ph=0; ph<x_channels*shadow_phases; ph++) {
-            shadow_state->H_hat[ch][ph].exp = AEC_ZEROVAL_EXP;
-            shadow_state->H_hat[ch][ph].hr = AEC_ZEROVAL_HR;
+    if (shadow_state != NULL) {
+        for(int ch=0; ch<y_channels; ch++) {
+            for(int ph=0; ph<x_channels*shadow_phases; ph++) {
+                shadow_state->H_hat[ch][ph].exp = AEC_ZEROVAL_EXP;
+                shadow_state->H_hat[ch][ph].hr = AEC_ZEROVAL_HR;
+            }
         }
     }
     //X_fifo
@@ -405,8 +446,10 @@ void aec_reset_state(aec_state_t *main_state, aec_state_t *shadow_state){
     for(int ch=0; ch<x_channels; ch++) {
         main_state->X_energy[ch].exp = AEC_ZEROVAL_EXP;
         main_state->X_energy[ch].hr = AEC_ZEROVAL_HR;
-        shadow_state->X_energy[ch].exp = AEC_ZEROVAL_EXP;
-        shadow_state->X_energy[ch].hr = AEC_ZEROVAL_HR;
+        if (shadow_state != NULL) {
+            shadow_state->X_energy[ch].exp = AEC_ZEROVAL_EXP;
+            shadow_state->X_energy[ch].hr = AEC_ZEROVAL_HR;
+        }
         shared_state->sigma_XX[ch].exp = AEC_ZEROVAL_EXP;
         shared_state->sigma_XX[ch].hr = AEC_ZEROVAL_HR;
     }

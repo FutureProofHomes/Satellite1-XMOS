@@ -3,6 +3,18 @@
 #ifndef AEC_DEFINES_H
 #define AEC_DEFINES_H
 
+#ifdef __aec_conf_h_exists__
+    #include "aec_conf.h"
+#endif
+
+#ifndef AEC_MAIN_FILTER_PHASES
+#define AEC_MAIN_FILTER_PHASES (10)
+#endif
+
+#ifndef AEC_SHADOW_FILTER_PHASES
+#define AEC_SHADOW_FILTER_PHASES (5)
+#endif
+
 /**
  * @page page_aec_defines_h aec_defines.h
  *
@@ -21,14 +33,14 @@
  * AEC functions follow the convention of using @math{y} and @math{Y} for referring to time domain and frequency domain
  * representation of microphone input.
  *
- * The `num_y_channels` passed into aec_init() call should be less than or equal to AEC_LIB_MAX_Y_CHANNELS.
+ * The `num_y_channels` passed into aec_init() call should be less than or equal to AEC_MAX_Y_CHANNELS.
  * This define is only used for defining data structures in the aec_state. The library code implementation uses only the
  * num_y_channels aec is initialised for in the aec_init() call.
  *
  * @ingroup aec_defines
  */
-#ifndef AEC_LIB_MAX_Y_CHANNELS
-#define AEC_LIB_MAX_Y_CHANNELS (4)
+#ifndef AEC_MAX_Y_CHANNELS
+#define AEC_MAX_Y_CHANNELS (2)
 #endif
 
 /** @brief Maximum number of reference input channels supported in the library.
@@ -38,13 +50,15 @@
  * AEC functions follow the convention of using @math{x} and @math{X} for referring to time domain and frequency domain
  * representation of reference input.
  *
- * The `num_x_channels` passed into aec_init() call should be less than or equal to AEC_LIB_MAX_X_CHANNELS.
+ * The `num_x_channels` passed into aec_init() call should be less than or equal to AEC_MAX_X_CHANNELS.
  * This define is only used for defining data structures in the aec_state. The library code implementation uses only the
  * num_x_channels aec is initialised for in the aec_init() call.
  *
  * @ingroup aec_defines
  */
-#define AEC_LIB_MAX_X_CHANNELS (2)
+#ifndef AEC_MAX_X_CHANNELS
+#define AEC_MAX_X_CHANNELS (2)
+#endif
 
 /** @brief AEC frame size
  * This is the number of samples of new data that the AEC works on every frame. 240 samples at 16kHz is 15msec. Every
@@ -67,23 +81,16 @@
  */
 #define AEC_FD_FRAME_LENGTH ((AEC_PROC_FRAME_LENGTH / 2) + 1)
 
-/** @brief Maximum total number of phases supported in the AEC library
- * This is the maximum number of total phases supported in the AEC library. Total phases are calculated by summing
- * phases across adaptive filters for all x-y pairs.
- *
- * For example. for a 2 y-channels, 2 x-channels, 10 phases per x channel configuration, there are 4 adaptive filters,
- * H_hat<SUB>y0x0</SUB>, H_hat<SUB>y0x1</SUB>, H_hat<SUB>y1x0</SUB> and H_hat<SUB>y1x1</SUB>, each filter having 10
- * phases, so the total number of phases is 40.
- * When aec_init() is called to initialise the AEC, the num_y_channels, num_x_channels and num_main_filter_phases
- * parameters passed in should be such that num_y_channels * num_x_channels * num_main_filter_phases is less than equal
- * to AEC_LIB_MAX_PHASES.
- *
- * This define is only used when defining data structures within the AEC state structure. The AEC algorithm
- * implementation uses the num_main_filter_phases and num_shadow_filter_phases values that are passed into aec_init().
+/** @brief Descriptor capacity in each microphone's coefficient row.
+ * Must hold num_x_channels * num_filter_phases for either filter. Pool payloads
+ * are independently bounded by AEC_MAIN_FILTER_PHASES/AEC_SHADOW_FILTER_PHASES.
+ * All state consumers must use the same descriptor capacity.
  *
  * @ingroup aec_defines
  */
-#define AEC_LIB_MAX_PHASES (AEC_LIB_MAX_Y_CHANNELS * AEC_LIB_MAX_X_CHANNELS * 10)
+#ifndef AEC_LIB_MAX_PHASES
+#define AEC_LIB_MAX_PHASES (AEC_MAX_Y_CHANNELS * AEC_MAX_X_CHANNELS * AEC_MAIN_FILTER_PHASES)
+#endif
 
 /** Overlap data length
  *
@@ -101,5 +108,7 @@
 
 #define AEC_ZEROVAL_EXP (-1024) /// A very small exponent indicating 0 value.
 #define AEC_ZEROVAL_HR (31) /// Headroom value used in BFP arrays when indicating 0 value by setting exponent to AEC_ZEROVAL_EXP
+
+#define AEC_LIB_MAX_THREADS (3)
 
 #endif

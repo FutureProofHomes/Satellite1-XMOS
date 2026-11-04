@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "aec_defines.h"
+#include "aec_memory_pool.h"
+#include "aec_schedule.h"
 #include "xmath/xmath.h"
 
 
@@ -143,7 +145,7 @@ typedef struct {
 
     int32_t mu_coh_count; ///< Counter for tracking number of frames coherence has been low for.
     int32_t mu_shad_count; ///< Counter for tracking number of frames shadow filter has been used in
-    float_s32_t coh_mu[AEC_LIB_MAX_X_CHANNELS]; ///< Coherence mu
+    float_s32_t coh_mu[AEC_MAX_X_CHANNELS]; ///< Coherence mu
 }coherence_mu_params_t;
 
 
@@ -151,20 +153,20 @@ typedef struct {
  * @ingroup aec_types
  */
 typedef struct {
-    int32_t shadow_flag[AEC_LIB_MAX_Y_CHANNELS]; ///< shadow_state_e enum indicating shadow filter status
-    int shadow_reset_count[AEC_LIB_MAX_Y_CHANNELS]; ///< counter for tracking shadow filter resets
-    int shadow_better_count[AEC_LIB_MAX_Y_CHANNELS]; ///< counter for tracking shadow filter copy to main filter
+    int32_t shadow_flag[AEC_MAX_Y_CHANNELS]; ///< shadow_state_e enum indicating shadow filter status
+    int shadow_reset_count[AEC_MAX_Y_CHANNELS]; ///< counter for tracking shadow filter resets
+    int shadow_better_count[AEC_MAX_Y_CHANNELS]; ///< counter for tracking shadow filter copy to main filter
 }shadow_filter_params_t;
 
 /**
  * @brief AEC shared state structure.
  *
  * Data structures holding AEC persistent state that is common between main filter and shadow filter.
- * aec_state_t::shared_state for both main and shadow filter point to the common aec_shared_t structure.
+ * aec_filter_state_t::shared_state for both main and shadow filter point to the common aec_shared_t structure.
  *
  * @ingroup aec_types
  */
- //! [aec_shared_state_t]
+ //! [aec_shared_filter_state_t]
 typedef struct {
     /** BFP array pointing to the reference input spectrum phases. The term \b phase refers to the spectrum data for a
      * frame. Multiple phases means multiple frames of data.
@@ -177,58 +179,58 @@ typedef struct {
      * x-channels and 10 phases per x channel, 10 frames of X data spectrum is stored in the X_fifo. For a given x
      * channel, say x channel 0, X_fifo[0][0] points to the most recent frame's X spectrum and X_fifo[0][9] points to
      * the last phase, i.e the least recent frame's X spectrum.*/
-    bfp_complex_s32_t X_fifo[AEC_LIB_MAX_X_CHANNELS][AEC_LIB_MAX_PHASES];
+    bfp_complex_s32_t X_fifo[AEC_MAX_X_CHANNELS][AEC_LIB_MAX_PHASES];
 
     /** BFP array pointing to reference input signal spectrum. The X data values are stored as a length
      * AEC_FD_FRAME_LENGTH complex 32bit array per x channel.*/
-    bfp_complex_s32_t X[AEC_LIB_MAX_X_CHANNELS];
+    bfp_complex_s32_t X[AEC_MAX_X_CHANNELS];
 
     /** BFP array pointing to mic input signal spectrum. The Y data values are stored as a length
      * AEC_FD_FRAME_LENGTH complex 32bit array per y channel.*/
-    bfp_complex_s32_t Y[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_complex_s32_t Y[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to time domain mic input processing block. The y data values are stored as length
      * AEC_PROC_FRAME_LENGTH, 32bit integer array per y channel.*/
-    bfp_s32_t y[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_s32_t y[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to time domain reference input processing block. The x data values are stored as length
      * AEC_PROC_FRAME_LENGTH, 32bit integer array per x channel.*/
-    bfp_s32_t x[AEC_LIB_MAX_X_CHANNELS];
+    bfp_s32_t x[AEC_MAX_X_CHANNELS];
 
     /** BFP array pointing to time domain mic input values from the previous frame. These are put together with the new
      * samples received in the current frame to make a AEC_PROC_FRAME_LENGTH processing block. The prev_y data values
      * are stored as length (AEC_PROC_FRAME_LENGTH - AEC_FRAME_ADVANCE), 32bit integer array per y channel.*/
-    bfp_s32_t prev_y[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_s32_t prev_y[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to time domain reference input values from the previous frame. These are put together with
      * the new samples received in the current frame to make a AEC_PROC_FRAME_LENGTH processing block. The prev_x data
      * values are stored as length (AEC_PROC_FRAME_LENGTH - AEC_FRAME_ADVANCE), 32bit integer array per x channel.*/
-    bfp_s32_t prev_x[AEC_LIB_MAX_X_CHANNELS];
+    bfp_s32_t prev_x[AEC_MAX_X_CHANNELS];
 
     /** BFP array pointing to sigma_XX values which are the weighted average of the X_energy signal. The sigma_XX data
      * is stored as 32bit integer array of length AEC_FD_FRAME_LENGTH*/
-    bfp_s32_t sigma_XX[AEC_LIB_MAX_X_CHANNELS];
+    bfp_s32_t sigma_XX[AEC_MAX_X_CHANNELS];
 
     /** Exponential moving average of the time domain mic signal energy. This is calculated by calculating energy
      * per sample and summing across all samples. Stored in a y channels array
      * with every value stored as a 32bit integer mantissa and exponent.*/
-    float_s32_t y_ema_energy[AEC_LIB_MAX_Y_CHANNELS];
+    float_s32_t y_ema_energy[AEC_MAX_Y_CHANNELS];
 
     /** Exponential moving average of the time domain reference signal energy. This is calculated by calculating energy
      * per sample and summing across all samples. Stored in a x channels array with every value stored as a 32bit
      * integer mantissa and exponent.*/
-    float_s32_t x_ema_energy[AEC_LIB_MAX_X_CHANNELS];
+    float_s32_t x_ema_energy[AEC_MAX_X_CHANNELS];
 
     /** Energy of the mic input spectrum. This is calculated by calculating the energy per bin and summing across all
      * bins. Stored in a y channels array with every value stored as a 32bit integer mantissa and exponent.*/
-    float_s32_t overall_Y[AEC_LIB_MAX_Y_CHANNELS];
+    float_s32_t overall_Y[AEC_MAX_Y_CHANNELS];
 
     /** Sum of the X_energy across all bins for a given x channel. Stored in a x channels array with every value stored
      * as a 32bit integer mantissa and exponent.*/
-    float_s32_t sum_X_energy[AEC_LIB_MAX_X_CHANNELS];
+    float_s32_t sum_X_energy[AEC_MAX_X_CHANNELS];
 
     /** Structure containing coherence mu calculation related parameters.*/
-    coherence_mu_params_t coh_mu_state[AEC_LIB_MAX_Y_CHANNELS];
+    coherence_mu_params_t coh_mu_state[AEC_MAX_Y_CHANNELS];
 
     /** Structure containing shadow filter related parameters.*/
     shadow_filter_params_t shadow_filter_params;
@@ -244,26 +246,33 @@ typedef struct {
     /** Number of reference input channels that the AEC is configured for. This is the input parameter num_x_channels that
      * aec_init() gets called with.*/
     unsigned num_x_channels;
-}aec_shared_state_t;
-//! [aec_shared_state_t]
+
+    /** bin index for which the sum of X energy over all the X FIFO phases is re-calculated in the current frame.
+     * The index increments from 0 to AEC_PROC_FRAME_LENGTH/2, then decrements
+     * back to 0 over successive frames.*/
+    unsigned X_energy_recalc_bin;
+
+    const aec_task_distribution_t *tdist;
+}aec_shared_filter_state_t;
+//! [aec_shared_filter_state_t]
 
 /**
- * @brief AEC state structure.
+ * @brief AEC filter state structure.
  *
- * Data structures holding AEC persistent state. There are 2 instances of aec_state_t maintained within AEC; one for
- * main filter and one for shadow filter specific state.
+ * Data structures holding AEC filter persistent state. The aggregate embeds one
+ * main instance and, in the full-shadow ABI, one shadow instance.
  *
  * @ingroup aec_types
  */
-//! [aec_state_t]
+//! [aec_filter_state_t]
 typedef struct {
     /** BFP array pointing to estimated mic signal spectrum. The Y_data data values are stored as length
      * AEC_FD_FRAME_LENGTH, complex 32bit array per y channel.*/
-    bfp_complex_s32_t Y_hat[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_complex_s32_t Y_hat[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to adaptive filter error signal spectrum. The Error data is stored as length
      * AEC_FD_FRAME_LENGTH, complex 32bit array per y channel.*/
-    bfp_complex_s32_t Error[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_complex_s32_t Error[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to the adaptive filter spectrum.
      * The filter spectrum is stored as a num_y_channels x total_phases_across_all_x_channels array where each H_hat[i][j]
@@ -279,7 +288,7 @@ typedef struct {
      *
      * Each filter phase data which is pointed to by H_hat[i][j].data is stored as AEC_FD_FRAME_LENGTH complex 32bit
      * array.*/
-    bfp_complex_s32_t H_hat[AEC_LIB_MAX_Y_CHANNELS][AEC_LIB_MAX_PHASES];
+    bfp_complex_s32_t H_hat[AEC_MAX_Y_CHANNELS][AEC_LIB_MAX_PHASES];
 
     /** BFP array pointing to all phases of reference input spectrum across all x channels. Here, the reference input
      * spectrum is saved in a 1 dimensional array of phases, with x channel 0 phases followed by x channel 1 phases and
@@ -291,42 +300,42 @@ typedef struct {
     bfp_complex_s32_t X_fifo_1d[AEC_LIB_MAX_PHASES];
 
     /** BFP array pointing to T values which are stored as a length AEC_FD_FRAME_LENGTH, complex array per x channel.*/
-    bfp_complex_s32_t T[AEC_LIB_MAX_X_CHANNELS];
+    bfp_complex_s32_t T[AEC_MAX_X_CHANNELS];
 
     /** BFP array pointing to the normalisation spectrum which are stored as a length AEC_FD_FRAME_LENGTH, 32bit
      * integer array per x channel.*/
-    bfp_s32_t inv_X_energy[AEC_LIB_MAX_X_CHANNELS];
+    bfp_s32_t inv_X_energy[AEC_MAX_X_CHANNELS];
 
     /** BFP array pointing to the X_energy data which is the energy per bin of the X spectrum summed over all phases of
      * the X data. X_energy data is stored as a length AEC_FD_FRAME_LENGTH, integer 32bit array per x channel.*/
-    bfp_s32_t X_energy[AEC_LIB_MAX_X_CHANNELS];
+    bfp_s32_t X_energy[AEC_MAX_X_CHANNELS];
 
     /** BFP array pointing to time domain overlap data values which are used in the overlap add operation done while
      * calculating the echo canceller time domain output. Stored as a length 32, 32 bit integer array per y channel.*/
-    bfp_s32_t overlap[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_s32_t overlap[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to the time domain estimated mic signal. Stored as length AEC_PROC_FRAME_LENGTH, 32 bit
      * integer array per y channel.*/
-    bfp_s32_t y_hat[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_s32_t y_hat[AEC_MAX_Y_CHANNELS];
 
     /** BFP array pointing to the time domain adaptive filter error signal. Stored as length AEC_PROC_FRAME_LENGTH, 32 bit
      * integer array per y channel.*/
-    bfp_s32_t error[AEC_LIB_MAX_Y_CHANNELS];
+    bfp_s32_t error[AEC_MAX_Y_CHANNELS];
 
     /** mu values for every x-y pair stored as 32 bit integer mantissa and 32 bit integer exponent*/
-    float_s32_t mu[AEC_LIB_MAX_Y_CHANNELS][AEC_LIB_MAX_X_CHANNELS];
+    float_s32_t mu[AEC_MAX_Y_CHANNELS][AEC_MAX_X_CHANNELS];
 
     /** Exponential moving average of the time domain adaptive filter error signal energy. Stored in an x channels array
      * with every value stored as a 32bit integer mantissa and exponent.*/
-    float_s32_t error_ema_energy[AEC_LIB_MAX_Y_CHANNELS];
+    float_s32_t error_ema_energy[AEC_MAX_Y_CHANNELS];
 
     /** Energy of the adaptive filter error spectrum. Stored in a y channels array with every value stored as a 32bit
      * integer mantissa and exponent.*/
-    float_s32_t overall_Error[AEC_LIB_MAX_Y_CHANNELS];
+    float_s32_t overall_Error[AEC_MAX_Y_CHANNELS];
 
     /** Maximum X energy across all values of X_energy for a given x channel. Stored in an x channels array with every
      * value stored as a 32bit integer mantissa and exponent.*/
-    float_s32_t max_X_energy[AEC_LIB_MAX_X_CHANNELS];
+    float_s32_t max_X_energy[AEC_MAX_X_CHANNELS];
 
     /** fractional regularisation scalefactor.*/
     float_s32_t delta_scale;
@@ -335,13 +344,37 @@ typedef struct {
     float_s32_t delta;
 
     /** pointer to the state data shared between main and shadow filter.*/
-    aec_shared_state_t *shared_state;
+    aec_shared_filter_state_t *shared_state;
 
     /** Number of filter phases per x-y pair that AEC filter is configured for. This is the input argument
-     * num_main_filter_phases or num_shadow_filter_phases, depending on which filter the aec_state_t is instantiated
+     * num_main_filter_phases or num_shadow_filter_phases, depending on which filter the aec_filter_state_t is instantiated
      * for, passed in aec_init() call.*/
     unsigned num_phases;
+}aec_filter_state_t;
+//! [aec_filter_state_t]
+
+/**
+ * @brief AEC state struct.
+ *
+ * Data structure holding AEC module's persistent state.
+ *
+ * @ingroup aec_types
+ */
+typedef struct {
+    /** AEC main filter state */
+    aec_filter_state_t DWORD_ALIGNED main_state;
+    /** AEC shadow filter state */
+#if !AEC_MAIN_ONLY
+    aec_filter_state_t DWORD_ALIGNED shadow_state;
+#endif
+    /** AEC state shared between the main and shadow filter */
+    aec_shared_filter_state_t DWORD_ALIGNED shared_state;
+    /** Memory pool for the AEC main filter */
+    aec_memory_pool_t DWORD_ALIGNED main_mem_pool;
+    /** Memory pool for the AEC shadow filter */
+#if !AEC_MAIN_ONLY
+    aec_shadow_filt_memory_pool_t DWORD_ALIGNED shadow_mem_pool;
+#endif
 }aec_state_t;
-//! [aec_state_t]
 
 #endif

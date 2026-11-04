@@ -1,22 +1,20 @@
 ##******************************************
 ## Create fixed_delay AEC+IC+NS+AGC 
-##   2 mic input channels
-#    2 reference input channels
+##   Four microphone AEC with selectable reference profile
 ##******************************************
 
-add_library(fixed_delay_aec_ic_ns_agc_2mic_2ref INTERFACE)
-target_sources(fixed_delay_aec_ic_ns_agc_2mic_2ref
+add_library(fixed_delay_4mic INTERFACE)
+target_sources(fixed_delay_4mic
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/fixed_delay/audio_pipeline_t0.c
         ${CMAKE_CURRENT_LIST_DIR}/fixed_delay/audio_pipeline_t1.c
-        ${CMAKE_CURRENT_LIST_DIR}/fixed_delay/aec/aec_process_frame_1thread.c
 )
-target_include_directories(fixed_delay_aec_ic_ns_agc_2mic_2ref
+target_include_directories(fixed_delay_4mic
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/fixed_delay
 )
-target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
+target_link_libraries(fixed_delay_4mic
     INTERFACE
         core::general
         rtos::freertos
@@ -25,14 +23,24 @@ target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
         fwk_voice::agc
         fph::ic_4y
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
-target_compile_definitions(fixed_delay_aec_ic_ns_agc_2mic_2ref
+if(SATELLITE1_FIXED_DELAY_AEC_4Y2X_MAIN_ONLY)
+    set(_processed_channels 2)
+else()
+    set(_processed_channels 4)
+endif()
+target_compile_definitions(fixed_delay_4mic
     INTERFACE
-        appconfMIC_PIPELINE_PROC_CHANNELS=4
+        appconfMIC_PIPELINE_PROC_CHANNELS=${_processed_channels}
+        appconfFIXED_DELAY_AEC_4Y2X_MAIN_ONLY=$<BOOL:${SATELLITE1_FIXED_DELAY_AEC_4Y2X_MAIN_ONLY}>
         appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR=1)
+
+add_library(fph::ffva::ap::fixed_delay ALIAS fixed_delay_4mic)
+if(FIXED_DELAY_ONLY)
+    return()
+endif()
 
 ##******************************************
 ## Create ADEC "prevarch" AEC+IC+NS+AGC 
@@ -133,6 +141,5 @@ target_link_libraries(empty_2mic_2ref
 ##*********************************************
 
 add_library(fph::ffva::ap::adec_altarch ALIAS adec_altarch_aec_ic_ns_agc_2mic_2ref)
-add_library(fph::ffva::ap::fixed_delay ALIAS fixed_delay_aec_ic_ns_agc_2mic_2ref)
 add_library(fph::ffva::ap::adec ALIAS adec_aec_ic_ns_agc_2mic_2ref)
 add_library(fph::ffva::ap::empty ALIAS empty_2mic_2ref)

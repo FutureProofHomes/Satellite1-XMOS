@@ -1,4 +1,6 @@
 ## Add audio pipelines
 add_subdirectory(reference)
-add_subdirectory(referenceless)
+if(NOT FIXED_DELAY_ONLY)
+    add_subdirectory(referenceless)
+endif()
 add_subdirectory(speaker)
