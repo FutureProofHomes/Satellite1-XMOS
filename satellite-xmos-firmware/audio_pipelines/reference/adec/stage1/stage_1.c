@@ -5,8 +5,8 @@
 #include "stage_1.h"
 
 extern void aec_process_frame_1thread(
-        aec_state_t *main_state,
-        aec_state_t *shadow_state,
+        aec_filter_state_t *main_state,
+        aec_filter_state_t *shadow_state,
         int32_t (*output_main)[AEC_FRAME_ADVANCE],
         int32_t (*output_shadow)[AEC_FRAME_ADVANCE],
         const int32_t (*y_data)[AEC_FRAME_ADVANCE],
@@ -14,10 +14,10 @@ extern void aec_process_frame_1thread(
 
 static void aec_switch_configuration(stage_1_state_t *state, aec_conf_t *conf)
 {
-    aec_init(&state->aec_main_state, &state->aec_shadow_state, &state->aec_shared_state,
-            &state->aec_main_memory_pool[0], &state->aec_shadow_memory_pool[0],
+    aec_init(&state->aec,
             conf->num_y_channels, conf->num_x_channels,
-            conf->num_main_filt_phases, conf->num_shadow_filt_phases);
+            conf->num_main_filt_phases, conf->num_shadow_filt_phases,
+            &aec_tdist_chans2_threads1);
 }
 
 static inline void get_delayed_frame(
@@ -74,31 +74,31 @@ void stage_1_process_frame(stage_1_state_t *state, int32_t (*output_frame)[AP_FR
             );
 
     /** Detect if there's activity on the reference channels*/
-    *ref_active_flag = aec_detect_input_activity(input_x, state->ref_active_threshold, state->aec_main_state.shared_state->num_x_channels);
+    *ref_active_flag = aec_detect_input_activity(input_x, state->ref_active_threshold, state->aec.main_state.shared_state->num_x_channels);
 
     /** AEC*/
-    aec_process_frame_1thread(&state->aec_main_state, &state->aec_shadow_state, output_frame, NULL, input_y, input_x);
+    aec_process_frame_1thread(&state->aec.main_state, &state->aec.shadow_state, output_frame, NULL, input_y, input_x);
 
     /** Update metadata*/
-    *max_ref_energy = aec_calc_max_input_energy(input_x, state->aec_main_state.shared_state->num_x_channels);
-    for(int ch=0; ch<state->aec_main_state.shared_state->num_y_channels; ch++) {
-        aec_corr_factor[ch] = aec_calc_corr_factor(&state->aec_main_state, ch);
+    *max_ref_energy = aec_calc_max_input_energy(input_x, state->aec.main_state.shared_state->num_x_channels);
+    for(int ch=0; ch<state->aec.main_state.shared_state->num_y_channels; ch++) {
+        aec_corr_factor[ch] = aec_calc_corr_factor(&state->aec.main_state, ch);
     }
 
     /** Delay Estimation*/
     adec_input_t adec_in;
     adec_estimate_delay(
             &adec_in.from_de,
-            state->aec_main_state.H_hat[0],
-            state->aec_main_state.num_phases
+            state->aec.main_state.H_hat[0],
+            state->aec.main_state.num_phases
             );
 
 
     /** ADEC*/
     // Create input to ADEC from AEC
-    adec_in.from_aec.y_ema_energy_ch0 = state->aec_main_state.shared_state->y_ema_energy[0];
-    adec_in.from_aec.error_ema_energy_ch0 = state->aec_main_state.error_ema_energy[0];
-    adec_in.from_aec.shadow_flag_ch0 = state->aec_main_state.shared_state->shadow_filter_params.shadow_flag[0];
+    adec_in.from_aec.y_ema_energy_ch0 = state->aec.main_state.shared_state->y_ema_energy[0];
+    adec_in.from_aec.error_ema_energy_ch0 = state->aec.main_state.error_ema_energy[0];
+    adec_in.from_aec.shadow_flag_ch0 = state->aec.main_state.shared_state->shadow_filter_params.shadow_flag[0];
     // Directly from app
     adec_in.far_end_active_flag = *ref_active_flag;
 
@@ -111,7 +111,7 @@ void stage_1_process_frame(stage_1_state_t *state, int32_t (*output_frame)[AP_FR
 
     //** Reset AEC state if needed*/
     if(adec_output.reset_aec_flag) {
-        aec_reset_state(&state->aec_main_state, &state->aec_shadow_state);
+        aec_reset_state(&state->aec);
     }
 
     /** Update delay buffer if there's a delay change requested by ADEC*/
@@ -139,7 +139,7 @@ void stage_1_process_frame(stage_1_state_t *state, int32_t (*output_frame)[AP_FR
 
         // Initialise AEC for delay estimation config
         aec_switch_configuration(state, &state->aec_de_mode_conf);
-        state->aec_main_state.shared_state->config_params.coh_mu_conf.adaption_config = AEC_ADAPTION_FORCE_ON;
+        state->aec.main_state.shared_state->config_params.coh_mu_conf.adaption_config = AEC_ADAPTION_FORCE_ON;
         state->delay_estimator_enabled = 1;
         //printf("framenum %d: switch to de mode\n", framenum);
     } else if ((!adec_output.delay_estimator_enabled_flag && state->delay_estimator_enabled)) {

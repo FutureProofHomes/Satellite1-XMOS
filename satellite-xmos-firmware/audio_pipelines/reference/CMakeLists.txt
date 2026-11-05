@@ -18,6 +18,7 @@ target_include_directories(fixed_delay_aec_ic_ns_agc_2mic_2ref
 )
 target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
@@ -25,8 +26,7 @@ target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
         fwk_voice::agc
         fwk_voice::ic
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
 ##******************************************
@@ -53,6 +53,7 @@ target_include_directories(adec_aec_ic_ns_agc_2mic_2ref
 )
 target_link_libraries(adec_aec_ic_ns_agc_2mic_2ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
@@ -61,8 +62,7 @@ target_link_libraries(adec_aec_ic_ns_agc_2mic_2ref
         fwk_voice::agc
         fwk_voice::ic
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
 ##******************************************
@@ -89,6 +89,7 @@ target_include_directories(adec_altarch_aec_ic_ns_agc_2mic_2ref
 )
 target_link_libraries(adec_altarch_aec_ic_ns_agc_2mic_2ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
@@ -97,8 +98,7 @@ target_link_libraries(adec_altarch_aec_ic_ns_agc_2mic_2ref
         fwk_voice::agc
         fwk_voice::ic
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
 ##******************************************
