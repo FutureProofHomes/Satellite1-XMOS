@@ -6,6 +6,10 @@
 Uses four-microphone, mono-reference fixed-delay AEC, four-residual averaging,
 NS and AGC. IC/VNR processing remains bypassed on this branch.
 
+The speaker path includes the resource-231 stereo EQ engine, disabled until
+configured by the host. See [the EQ integration report](docs/4y1x-voice-v0.9.0-eq.md)
+for the no-EQ comparison, simulator checks and remaining runtime limits.
+
 Only `satellite1_firmware_fixed_delay` is supported with XMOS `fwk_voice`
 v0.9.0 (`FIXED_DELAY_ONLY=ON`). See
 [the migration report](docs/4y1x-voice-v0.9.0.md) for build instructions,
@@ -137,6 +141,5 @@ cd build
 
 ninja variant_name
 ```
-
 
 

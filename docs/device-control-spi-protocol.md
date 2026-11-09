@@ -28,6 +28,7 @@ The protocol version is returned by reading `CONTROL_GET_VERSION` from
 | `211` | `GPIO_CONTROLLER_RESOURCE_IN_A` | GPIO servicer | Registered by current Satellite1 board config |
 | `212` | `GPIO_CONTROLLER_RESOURCE_IN_B` | GPIO servicer | Defined, but not registered by current Satellite1 board config |
 | `221` | `GPIO_CONTROLLER_RESOURCE_OUT_A` | GPIO servicer | Defined, but not registered by current Satellite1 board config |
+| `231` | `SPEAKER_EQ_RESID` | Speaker EQ servicer | Registered when the speaker EQ is built in (`appconfSPEAKER_EQ_ENABLED`) and SPI device control is enabled |
 | `240` | `DFU_CONTROLLER_SERVICER_RESID` | DFU servicer | Registered when SPI device control is enabled |
 
 The current Satellite1 board config initializes two GPIO resource descriptors but
@@ -327,6 +328,135 @@ Image status flags:
 | `0` | `0x01` | Upgrade image present |
 | `1` | `0x02` | Data partition available after the DFU image area |
 
+### Speaker EQ Servicer
+
+References:
+
+- `satellite-xmos-firmware/src/speaker_eq/speaker_eq_cmds.h`
+- `satellite-xmos-firmware/src/speaker_eq/speaker_eq_servicer.c`
+- `satellite-xmos-firmware/src/speaker_eq/speaker_eq.c`
+
+The speaker EQ is a parametric EQ and safety limiter on the tile 1 speaker
+path, ahead of the AEC reference tap. It is built when
+`appconfSPEAKER_EQ_ENABLED` and `appconfDEVICE_CTRL_SPI` are both set; the
+Satellite1 EQ speaker pipeline sets the first. Its own tile 1 servicer owns
+resource `231`. The XMOS boots bypassed; the host writes both slots and then
+selects one with `SET_ROUTING`.
+
+Resource:
+
+| Resource ID | Symbol |
+| --- | --- |
+| `231` | `SPEAKER_EQ_RESID` |
+
+Commands:
+
+| Command | ID | Direction | Command-map payload length | SPI read request payload length |
+| --- | --- | --- | --- | --- |
+| `SPEAKER_EQ_CMD_GET_INFO` | `0` | Read | 40 bytes | 41 bytes |
+| `SPEAKER_EQ_CMD_GET_STATS` | `1` | Read | 48 bytes | 49 bytes |
+| `SPEAKER_EQ_CMD_SET_ROUTING` | `2` | Write | 2 bytes | N/A |
+| `SPEAKER_EQ_CMD_SET_SLOT` | `3` | Write | 214 bytes | N/A |
+| `SPEAKER_EQ_CMD_GET_SLOT` | `4` | Read | 214 bytes | 215 bytes |
+
+All multi-byte fields are little endian and floats are IEEE-754 binary32.
+Lengths are exact. Reads reserve byte `0` for the command status, as the DFU
+servicer does. Firmware without the EQ has no resource `231` and answers with a
+resource error, so a successful `GET_INFO` with a known `api_major`
+(currently `1`) is the support check.
+
+`SET_ROUTING` payload:
+
+| Byte offset | Field | Meaning |
+| --- | --- | --- |
+| `0` | `u8 eq_enabled` | `0` = bit-exact bypass, `1` = process |
+| `1` | `u8 profile_id` | `0` = none, `1` = Built-in Speaker slot, `2` = Line-out slot |
+
+Any other value returns `SERVICER_WRONG_PAYLOAD` and changes nothing.
+
+Slot payload, shared by `SET_SLOT` and `GET_SLOT`:
+
+| Byte offset | Field | Range |
+| --- | --- | --- |
+| `0` | `u8 slot` | `1` or `2` |
+| `1` | `f32 preamp_db` | -24 to +12 |
+| `5` | `f32 limiter_db` | -12 to 0, peak ceiling in dBFS |
+| `9` | `f32 attack_ms` | 0.1 to 100 |
+| `13` | `f32 release_ms` | 5 to 5000 |
+| `17` | `u8 filter_count` | 0 to 14 |
+| `18` | 14 filter records, 14 bytes each | unused records are ignored |
+
+Filter record:
+
+| Byte offset | Field | Range |
+| --- | --- | --- |
+| `0` | `u8 type` | see below |
+| `1` | `u8 flags` | bit 0 = enabled |
+| `2` | `f32 freq_hz` | 20 to 20000 |
+| `6` | `f32 gain_db` | -30 to +12, peak and shelf only |
+| `10` | `f32 q` | 0.1 to 10, peak, shelf and custom-Q cuts |
+
+Filter types: `1` peak, `2` low shelf, `3` high shelf, `4` high-pass 12 dB/oct
+custom Q, `5` low-pass 12 dB/oct custom Q, `6`/`7` high-pass Butterworth
+12/24 dB/oct, `8`/`9` high-pass Linkwitz-Riley 12/24 dB/oct, `10`/`11`
+low-pass Butterworth 12/24 dB/oct, `12`/`13` low-pass Linkwitz-Riley
+12/24 dB/oct. 24 dB/oct types use two of the 16 biquad sections, the others
+one. Peaks and shelves under 0.01 dB use none.
+
+A write that fails range checks, or needs more than 16 sections, returns
+`SERVICER_WRONG_PAYLOAD` and changes nothing. A write that decodes is accepted
+and designed by a low-priority task; poll `GET_INFO` for the result. If the
+gain at any point in the chain would exceed +18 dB, the slot is marked
+rejected and the previous design keeps running. `GET_SLOT` returns the slot
+most recently written.
+
+`GET_INFO` payload:
+
+| Byte offset | Field |
+| --- | --- |
+| `0` | `u8 api_major`, `u8 api_minor`, `u8 max_filters`, `u8 max_sections` |
+| `4` | `u32 sample_rate` |
+| `8` | `u8 eq_enabled`, `u8 profile_id` |
+| `10` | `u8 bypass_reason`: `0` processing, `1` disabled, `2` no profile, `3` flat, `4` CPU overload |
+| `11` | `u8 limiter_required`: the active profile can exceed the limiter ceiling |
+| `12` | `u8 slot_status[2]`: `0` empty, `1` ok, `2` rejected for headroom, `3` pending |
+| `14` | `u8 slot_sections[2]`: this and the two gains describe the slot's last design, even a rejected one whose predecessor is still playing |
+| `16` | `f32 slot_max_gain_db[2]`: net response maximum |
+| `24` | `f32 slot_peak_gain_db[2]`: worst gain at any section boundary |
+| `32` | `u32 design_count` |
+| `36` | `u32 bank_seq`: moves on each time what plays changes: a new design for the playing slot, or a different enable/profile pair. Designs for the other slot and routing writes that change nothing leave it, and the CPU overload bypass, alone |
+
+`GET_STATS` payload:
+
+| Byte offset | Field |
+| --- | --- |
+| `0` | `u32 frames` |
+| `4` | `u16 eq_us_max[2]`: per channel, since boot |
+| `8` | `u16 eq_us_avg[2]` |
+| `12` | `u16 eq_us_last[2]` |
+| `16` | `u32 overruns`: frames where a channel took over 4 ms |
+| `20` | `u8 bypass_reason`, `u8 watchdog_trips` |
+| `22` | `u8 limiter_pct[2]`: frames with gain reduction over the last 1.5 s window |
+| `24` | `f32 limiter_max_gr_db`: deepest gain reduction since boot, positive dB |
+| `28` | `u32 limiter_frames`: channel-frames with gain reduction since boot |
+| `32` | `u32 heap_min_free`, `u32 heap_free` (tile 1) |
+| `40` | `u32 design_rejects`: slot designs rejected for headroom since boot |
+| `44` | `u32 design_us_last`: microseconds the last slot design took |
+
+Processing notes:
+
+- Bypass is bit-exact. Going in or out of bypass, including selecting a flat
+  or empty slot, fades over 128 samples.
+- Edits that keep the same filters in the same order glide the coefficients
+  in over a few milliseconds. Edits that add, remove or re-order sections
+  (the design runs cuts before boosts) crossfade from the old filter chain to
+  the new one over 128 samples.
+- The limiter runs whenever the active profile's net response exceeds the
+  ceiling, and stays on until its gain recovers after a change.
+- If a channel takes over 8 ms for 3 consecutive frames, the EQ bypasses
+  itself (`bypass_reason` `4`) until the next published change (`bank_seq`
+  moves on a slot design or a routing write).
+
 ## Changelog
 
 ### `0x11`
@@ -343,6 +473,8 @@ Image status flags:
 - One-byte read payloads are no longer collapsed into status-only responses.
 - SPI seeds an initial status-only response after successful servicer
   registration so hosts can distinguish a live device from no response.
+- Added the speaker EQ servicer on resource `231` (additive; `CONTROL_VERSION`
+  unchanged).
 - Satellite1 reports device-control readiness in status-buffer index `0`, which
   moves GPIO status bytes one byte later on the SPI wire.
 - Added additive DFU flash serial read command

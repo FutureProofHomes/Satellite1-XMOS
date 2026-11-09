@@ -1,5 +1,8 @@
 # Satellite1 4Y1X fwk_voice v0.9.0 migration
 
+Speaker EQ behavior, build instructions and its same-4Y1X memory comparison are
+documented in [the speaker EQ guide](4y1x-voice-v0.9.0-eq.md).
+
 ## Scope and source
 
 - Checkout: `/Users/mischa/.local/share/opencode/worktree/20d933e7696444741ef981b7405dc73e4e2a8e29/satellite1-4y1x-voice-v090`.
