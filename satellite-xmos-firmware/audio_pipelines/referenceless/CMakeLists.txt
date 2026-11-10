@@ -18,14 +18,14 @@ target_include_directories(ic_ns_agc_2mic_2ref
 
 target_link_libraries(ic_ns_agc_2mic_2ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
         fwk_voice::agc
         fwk_voice::ic
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
 ##*********************************************

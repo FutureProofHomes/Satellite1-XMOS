@@ -14,9 +14,10 @@
 
 /* Library headers */
 #include "generic_pipeline.h"
-#include "agc_api.h"
-#include "ic_api.h"
-#include "ns_api.h"
+#include "agc.h"
+#include "ic.h"
+#include "ns.h"
+#include "voice_compat.h"
 #include "vnr_features_api.h"
 #include "vnr_inference_api.h"
 
@@ -48,7 +49,7 @@ typedef struct ic_stage_ctx {
 } ic_stage_ctx_t;
 
 typedef struct vnr_pred_stage_ctx {
-    vnr_pred_state_t vnr_pred_state;
+    voice_output_vnr_state_t vnr_pred_state;
 } vnr_pred_stage_ctx_t;
 
 typedef struct ns_stage_ctx {
@@ -114,10 +115,9 @@ static void stage_vnr_and_ic(frame_data_t *frame_data)
               ic_output);
 
     // VNR
-    vnr_pred_state_t *vnr_pred_state = &vnr_pred_stage_state.vnr_pred_state;
-    ic_calc_vnr_pred(&ic_stage_state.state, &vnr_pred_state->input_vnr_pred, &vnr_pred_state->output_vnr_pred);
+    voice_ic_calc_vnr_pred(&ic_stage_state.state, &vnr_pred_stage_state.vnr_pred_state);
 
-    ic_adapt(&ic_stage_state.state, vnr_pred_stage_state.vnr_pred_state.input_vnr_pred);
+    ic_adapt(&ic_stage_state.state);
 
     frame_data->input_vnr_pred = vnr_pred_stage_state.vnr_pred_state.input_vnr_pred;
     frame_data->output_vnr_pred = vnr_pred_stage_state.vnr_pred_state.output_vnr_pred;
@@ -150,7 +150,8 @@ static void stage_agc(frame_data_t *frame_data)
     int32_t DWORD_ALIGNED agc_output[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     configASSERT(AGC_FRAME_ADVANCE == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 
-    agc_stage_state.md.vnr_flag = float_s32_gt(frame_data->output_vnr_pred, f32_to_float_s32(VNR_AGC_THRESHOLD));
+    agc_stage_state.md.vnr_flag = f32_to_float_s32(
+            float_s32_gt(frame_data->output_vnr_pred, f32_to_float_s32(VNR_AGC_THRESHOLD)));
 
     agc_process_frame(
             &agc_stage_state.state,
@@ -162,7 +163,8 @@ static void stage_agc(frame_data_t *frame_data)
 }
 
 static void initialize_pipeline_stages(void) {
-    ic_init(&ic_stage_state.state);
+    int32_t ic_status = voice_ic_init(&ic_stage_state.state, &vnr_pred_stage_state.vnr_pred_state);
+    configASSERT(ic_status == 0);
 
     // Set some VNR parameters
     ic_stage_state.state.ic_adaption_controller_state.adaption_controller_config.input_vnr_threshold = 
