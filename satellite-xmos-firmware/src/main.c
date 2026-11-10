@@ -4,6 +4,8 @@
 #include <platform.h>
 #include <xs1.h>
 #include <xcore/channel.h>
+#include <limits.h>
+#include <stdint.h>
 #include <string.h>
 
 /* FreeRTOS headers */
@@ -21,9 +23,6 @@
 #include "platform/platform_init.h"
 #include "platform/driver_instances.h"
 #include "platform/platform_conf.h"
-#include "usb_support.h"
-#include "usb_audio.h"
-#include "usb_cdc.h"
 #include "audio_pipeline.h"
 #include "speaker_pipeline.h"
 #include "dfu_servicer.h"
@@ -34,9 +33,19 @@
 /* Config headers for sw_pll */
 #include "sw_pll.h"
 
-volatile int mic_from_usb = appconfMIC_SRC_DEFAULT;
-volatile int aec_ref_source = appconfAEC_REF_DEFAULT;
+#define DEVICE_STATUS_READY_REGISTER_IDX   0
+#define DEVICE_STATUS_READY_VALUE          1
 
+static int32_t mic_gain_10x(int32_t sample)
+{
+    if (sample > INT32_MAX / 10) {
+        return INT32_MAX;
+    }
+    if (sample < INT32_MIN / 10) {
+        return INT32_MIN;
+    }
+    return sample * 10;
+}
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
@@ -48,8 +57,7 @@ void speaker_pipeline_input(void *input_app_data,
                         size_t frame_count)
 {
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
-    if (!appconfUSB_AUDIO_ENABLED || aec_ref_source == appconfAEC_REF_I2S) {
-        /* This shouldn't need to block given it shares a clock with the PDM mics */
+    /* This shouldn't need to block given it shares a clock with the PDM mics */
 
         xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
         /* I2S provides sample channel format */
@@ -68,22 +76,6 @@ void speaker_pipeline_input(void *input_app_data,
             *(tmpptr + i) = tmp[i][0][0];
             *(tmpptr + i + frame_count) = tmp[i][0][1];
         }
-    }
-
-#if appconfUSB_AUDIO_ENABLED
-    int32_t **usb_mic_audio_frame = NULL;
-    if (true) {
-        usb_mic_audio_frame = input_audio_frames;
-        /*
-        * As noted above, this does not block.
-        * and expects ref L, ref R, mic 0, mic 1
-        */
-        usb_audio_recv(intertile_usb_audio_ctx,
-            frame_count,
-            usb_mic_audio_frame,
-            ch_count);
-    }
-#endif    
 #endif
 }
 
@@ -185,16 +177,16 @@ void audio_pipeline_input(void *input_app_data,
 #endif
 
 
-    /*
-     * NOTE: ALWAYS receive the next frame from the PDM mics,
-     * even if USB is the current mic source. The controls the
-     * timing since usb_audio_recv() does not block and will
-     * receive all zeros if no frame is available yet.
-     */
+    /* Receive the next frame from the PDM microphones. */
     rtos_mic_array_rx(mic_array_ctx,
                       mic_ptr,
                       frame_count,
                       portMAX_DELAY);
+
+    int32_t *mic_samples = (int32_t *)mic_ptr;
+    for (size_t i = 0; i < appconfAUDIO_PIPELINE_CHANNELS * frame_count; ++i) {
+        mic_samples[i] = mic_gain_10x(mic_samples[i]);
+    }
 
 }
 
@@ -250,13 +242,6 @@ int audio_pipeline_output(void *output_app_data,
                 portMAX_DELAY);
 #endif
 
-#if appconfUSB_AUDIO_ENABLED
-    usb_audio_send(intertile_usb_audio_ctx,
-                frame_count,
-                output_audio_frames,
-                6);
-#endif
-
     return AUDIO_PIPELINE_FREE_FRAME;
 }
 
@@ -279,22 +264,43 @@ static void init_watchdog(void)
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_CFG_NUM, (1 << XS1_WATCHDOG_COUNT_ENABLE_SHIFT) | (1 << XS1_WATCHDOG_TRIGGER_ENABLE_SHIFT) );
 }
 
+#if ON_TILE(0)
 static void reset_watchdog(void)
 {
     //reset watchdog to max
     write_sswitch_reg_no_ack(get_local_tile_id(), XS1_SSWITCH_WATCHDOG_COUNT_NUM, 0xFFF );
 }
+#endif
+
 static void mem_analysis(void)
 {
 	for (;;) {
 		rtos_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
-        cdc_printf("Tile[%d]:\n\tMinimum heap free: %d\n\tCurrent heap free: %d\n", THIS_XCORE_TILE, xPortGetMinimumEverFreeHeapSize(), xPortGetFreeHeapSize());
 #if ON_TILE(0)        
         reset_watchdog();
 #endif        
         vTaskDelay(pdMS_TO_TICKS(5000));
 	}
 }
+
+#if ON_TILE(0) && appconfDEVICE_CTRL_SPI
+static void device_control_ready_task(void *arg)
+{
+    device_control_t *device_control_ctx = arg;
+
+    xassert(device_control_ctx != NULL);
+
+    while (device_control_ctx->status_buffer == NULL) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    device_control_set_resource_status(device_control_ctx,
+                                       DEVICE_STATUS_READY_REGISTER_IDX,
+                                       DEVICE_STATUS_READY_VALUE);
+
+    vTaskDelete(NULL);
+}
+#endif
 
 void startup_task(void *arg)
 {
@@ -323,6 +329,15 @@ void startup_task(void *arg)
         "dfu servicer",
         RTOS_THREAD_STACK_SIZE(dfu_servicer),
         &dfu_servicer_reg_ctx,
+        appconfDEVICE_CONTROL_SPI_PRIORITY,
+        NULL
+    );
+
+    xTaskCreate(
+        device_control_ready_task,
+        "dc ready",
+        RTOS_THREAD_STACK_SIZE(device_control_ready_task),
+        device_control_spi_ctx,
         appconfDEVICE_CONTROL_SPI_PRIORITY,
         NULL
     );
@@ -375,10 +390,6 @@ static void tile_common_init(chanend_t c)
 {
     platform_init(c);
     chanend_free(c);
-
-#if appconfUSB_AUDIO_ENABLED && ON_TILE(USB_TILE_NO)
-    usb_audio_init(intertile_usb_audio_ctx, appconfUSB_AUDIO_TASK_PRIORITY);
-#endif
 
     xTaskCreate((TaskFunction_t) startup_task,
                 "startup_task",

@@ -74,7 +74,7 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
 
 static void stage_vnr_and_ic(frame_data_t *frame_data)
 {
-#if appconfAUDIO_PIPELINE_SKIP_IC_AND_VAD
+#if appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR
 #else
     int32_t DWORD_ALIGNED ic_output[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     ic_filter(&ic_stage_state.state,

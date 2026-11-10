@@ -11,7 +11,6 @@ name: Build and Release Artifacts
 on:
   push:
     branches:
-      - "develop"
       - "staging"
       - "main"
     
@@ -22,13 +21,19 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag for the release.'
-        required: true
+        description: 'Optional release tag. Leave empty to auto-bump for the selected branch.'
+        required: false
+      package_revision:
+        description: 'Debian packaging revision for the XMOS firmware package.'
+        required: false
+        default: "1"
 
 env:
   TMP_SOURCES_DIR: ${{ github.workspace }}/tmp/src
   RELEASE_SOURCES_DIR: ${{ github.workspace }}/release/src
+  RELEASE_ASSETS_DIR: ${{ github.workspace }}/release/assets
   FIRMWARE_ARTIFACT_NAME: "satellite_firmware_apps"
+  DEBIAN_PACKAGE_ARTIFACT_NAME: "satellite1_firmware_deb"
 permissions:
   contents: write
 
@@ -42,7 +47,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       
@@ -96,6 +101,7 @@ jobs:
     with:
       firmware_artifact_name: ${{ needs.create_release_tag.outputs.firmware_artifact_name }}
       firmware_version_string: ${{ needs.create_release_tag.outputs.new_tag }}
+      package_revision: ${{ github.event.inputs.package_revision || '1' }}
 
   create_release:
     name: Release Firmware
@@ -111,17 +117,33 @@ jobs:
           name: ${{ env.FIRMWARE_ARTIFACT_NAME }}
           path: ${{ env.RELEASE_SOURCES_DIR }}
 
+      - name: Get Debian package
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.DEBIAN_PACKAGE_ARTIFACT_NAME }}
+          path: ${{ github.workspace }}/release/debian
+
       - name: Zip Release Binaries
         run: |
           cd ${{ env.RELEASE_SOURCES_DIR }}
           zip -r --symlinks ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip .
+
+      - name: Prepare standalone factory assets
+        run: |
+          mkdir -p ${{ env.RELEASE_ASSETS_DIR }}
+          cp ${{ env.RELEASE_SOURCES_DIR }}/satellite1_firmware_fixed_delay.factory.bin ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.bin
+          cp ${{ env.RELEASE_SOURCES_DIR }}/satellite1_firmware_fixed_delay.factory.md5 ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.md5
 
       - run: tree ${{ env.RELEASE_SOURCES_DIR }}
       
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip
+          files: |
+            ${{ env.RELEASE_SOURCES_DIR }}/${{ env.FIRMWARE_ARTIFACT_NAME }}.zip
+            ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.bin
+            ${{ env.RELEASE_ASSETS_DIR }}/satellite1_xmos.factory.md5
+            ${{ github.workspace }}/release/debian/*.deb
           generate_release_notes: true
           append_body: true
           tag_name: ${{ needs.create_release_tag.outputs.new_tag }}

@@ -38,20 +38,6 @@ control_xscope_create_upload_buffer(uint32_t buffer[XSCOPE_UPLOAD_MAX_WORDS],
 }
 #endif
 
-#if USE_USB
-#define USB_TRANSACTION_MAX_BYTES 64
-static inline void
-control_usb_fill_header(uint16_t *windex, uint16_t *wvalue, uint16_t *wlength,
-                        control_resid_t resid, control_cmd_t cmd, unsigned payload_len)
-{
-  *windex = resid;
-  *wvalue = cmd;
-
-  assert(payload_len < (1<<16) && "payload length can't be represented as a uint16_t");
-  *wlength = (uint16_t)payload_len;
-}
-#endif
-
 #if USE_SPI
 #define SPI_TRANSACTION_MAX_BYTES 256
 #define SPI_DATA_MAX_BYTES (SPI_TRANSACTION_MAX_BYTES - 3)
