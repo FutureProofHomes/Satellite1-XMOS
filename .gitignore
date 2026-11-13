@@ -35,7 +35,6 @@
 **/test_results.csv
 **/test_results.xml
 **/.venv/**
-.metadata
 *.gtkw
 *.swmem
 *.bin
@@ -57,6 +56,8 @@ dev_tracking
 .waf-*/
 
 build/
+build-host/
+.venv-dsp/
 
 # filesystem cruft
 **/fat.fs
