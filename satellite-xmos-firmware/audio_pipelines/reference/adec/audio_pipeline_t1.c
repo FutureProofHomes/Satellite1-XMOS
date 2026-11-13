@@ -15,7 +15,7 @@
 
 /* Library headers */
 #include "generic_pipeline.h"
-#include "adec_api.h"
+#include "adec.h"
 
 /* App headers */
 #include "app_conf.h"

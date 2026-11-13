@@ -39,8 +39,10 @@ target_link_options(fph_ffva_board_support_satellite1
 # West:  5 (pin 1 rising edge )
 # pins 2 & 3 are not used
 
-# use East as first and West as second mic
-set(MIC_MAPPING "4, 5")
+# Only the 4Y pipeline captures all four microphones. Other pipelines retain
+# their two-channel capture ABI and East/West mapping.
+set(FOUR_MIC_PIPELINE "$<STREQUAL:$<TARGET_PROPERTY:FPH_MIC_CHANNELS>,4>")
+set(MIC_MAPPING "$<IF:${FOUR_MIC_PIPELINE},4$<COMMA> 5$<COMMA> 0$<COMMA> 1,4$<COMMA> 5>")
 
 target_compile_definitions(fph_ffva_board_support_satellite1
     INTERFACE
@@ -57,7 +59,7 @@ target_compile_definitions(fph_ffva_board_support_satellite1
         MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME=240
         MIC_ARRAY_CONFIG_USE_DDR=1
         MIC_ARRAY_CONFIG_MIC_INPUT=8
-        MIC_ARRAY_CONFIG_MIC_COUNT=2
+        MIC_ARRAY_CONFIG_MIC_COUNT=$<IF:${FOUR_MIC_PIPELINE},4,2>
         MIC_ARRAY_CONFIG_INPUT_MAPPING={${MIC_MAPPING}}
         
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1

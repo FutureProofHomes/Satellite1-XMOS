@@ -5,43 +5,43 @@
 #define AUDIO_PIPELINE_DSP_H_
 
 #include <stdint.h>
+#include <stddef.h>
 #include "FreeRTOS.h"
 #include "stream_buffer.h"
 #include "app_conf.h"
 #include <stdint.h>
 
 /* Pipeline config */
-#define AP_MAX_Y_CHANNELS (2)
-#define AP_MAX_X_CHANNELS (2)
+#define AP_MAX_Y_CHANNELS (appconfMIC_PIPELINE_PROC_CHANNELS)
+#define AP_MAX_X_CHANNELS (1)
 #define AP_FRAME_ADVANCE (240)
 
-/* AEC config */
-#define AEC_MAX_Y_CHANNELS   (AP_MAX_Y_CHANNELS)
-#define AEC_MAX_X_CHANNELS   (AP_MAX_X_CHANNELS)
-#define AEC_MAIN_FILTER_PHASES    (10)
-#define AEC_SHADOW_FILTER_PHASES    (5)
-
 /* Delay buffer config */
-#define MAX_DELAY_BUF_CHANNELS (2)
+#define MAX_DELAY_BUF_CHANNELS (AP_MAX_Y_CHANNELS)
 #define DELAY_BUF_MAX_DELAY_MS                ( 150 )
 #define DELAY_BUF_MAX_DELAY_SAMPLES           ( 16000*DELAY_BUF_MAX_DELAY_MS/1000 )
 
-#include "aec_api.h"
-#include "aec/aec_memory_pool.h"
-#include "agc_api.h"
-#include "ic_api.h"
-#include "ns_api.h"
-#include "vnr_features_api.h"
-#include "vnr_inference_api.h"
+#include "aec.h"
+#include "aec_schedule_4y.h"
+#include "agc.h"
+#include "ic.h"
+#include "ns.h"
+#include "voice_compat.h"
+
+_Static_assert(AEC_MAX_Y_CHANNELS == AP_MAX_Y_CHANNELS, "AEC microphone ABI mismatch");
+_Static_assert(AEC_MAX_X_CHANNELS == AP_MAX_X_CHANNELS, "AEC reference ABI mismatch");
+_Static_assert(AEC_MAIN_FILTER_PHASES == 10 && AEC_SHADOW_FILTER_PHASES == 5, "AEC phase ABI mismatch");
+_Static_assert(appconfMIC_PIPELINE_REF_CHANNELS == 2, "Reference mixing requires stereo input");
+_Static_assert(appconfMIC_PIPELINE_INPUT_CHANNELS == AP_MAX_Y_CHANNELS, "Capture and processing channel mismatch");
 
 
 /* Note: Changing the order here will effect the channel order for
  * audio_pipeline_input() and audio_pipeline_output()
  */
 typedef struct {
-    int32_t samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    int32_t aec_reference_audio_samples[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    int32_t mic_samples_passthrough[appconfAUDIO_PIPELINE_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t samples[appconfMIC_PIPELINE_PROC_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t aec_reference_audio_samples[appconfMIC_PIPELINE_REF_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t mic_samples_passthrough[appconfMIC_PIPELINE_INPUT_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
 
     /* Below is additional context needed by other stages on a per frame basis */
     int32_t vnr_pred_flag;
@@ -50,16 +50,18 @@ typedef struct {
     int32_t ref_active_flag;
 } frame_data_t;
 
+_Static_assert(offsetof(frame_data_t, aec_reference_audio_samples) == sizeof(((frame_data_t *)0)->samples),
+               "Output channels must be contiguous");
+_Static_assert(offsetof(frame_data_t, mic_samples_passthrough) ==
+               offsetof(frame_data_t, aec_reference_audio_samples) + sizeof(((frame_data_t *)0)->aec_reference_audio_samples),
+               "Capture channels must follow the stereo reference");
+
 typedef struct stage_delay_ctx {
     StreamBufferHandle_t delay_buf;
 } stage_delay_ctx_t;
 
 typedef struct aec_ctx {
-    aec_state_t DWORD_ALIGNED aec_main_state;
-    aec_state_t DWORD_ALIGNED aec_shadow_state;
-    aec_shared_state_t DWORD_ALIGNED aec_shared_state;
-    uint8_t DWORD_ALIGNED aec_main_memory_pool[sizeof(aec_memory_pool_t)];
-    uint8_t DWORD_ALIGNED aec_shadow_memory_pool[sizeof(aec_shadow_filt_memory_pool_t)];
+    aec_state_t DWORD_ALIGNED state;
 } aec_ctx_t;
 
 typedef struct ic_stage_ctx {
@@ -67,7 +69,7 @@ typedef struct ic_stage_ctx {
 } ic_stage_ctx_t;
 
 typedef struct vnr_pred_stage_ctx {
-    vnr_pred_state_t vnr_pred_state;
+    voice_output_vnr_state_t vnr_pred_state;
 } vnr_pred_stage_ctx_t;
 
 typedef struct ns_stage_ctx {
@@ -91,13 +93,5 @@ typedef struct agc_stage_ctx {
 #define AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CUR_FRAME_WORDS ( AP_INPUT_SAMPLES_MIC_DELAY_CHAN_CNT * appconfAUDIO_PIPELINE_FRAME_ADVANCE)
 #define AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES      ( AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CUR_FRAME_WORDS * sizeof(int32_t))
 #define AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES       ( AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CHAN * sizeof(int32_t) )
-
-void aec_process_frame_1thread(
-        aec_state_t *main_state,
-        aec_state_t *shadow_state,
-        int32_t (*output_main)[AEC_FRAME_ADVANCE],
-        int32_t (*output_shadow)[AEC_FRAME_ADVANCE],
-        const int32_t (*y_data)[AEC_FRAME_ADVANCE],
-        const int32_t (*x_data)[AEC_FRAME_ADVANCE]);
 
 #endif /* AUDIO_PIPELINE_DSP_H_ */

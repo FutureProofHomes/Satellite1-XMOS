@@ -1,33 +1,37 @@
 ##******************************************
-## Create fixed_delay AEC+IC+NS+AGC 
-##   2 mic input channels
-#    2 reference input channels
+## Create fixed_delay 4Y1X AEC + residual average + NS + AGC
+##   4 mic input channels, stereo reference mixed to mono
 ##******************************************
 
-add_library(fixed_delay_aec_ic_ns_agc_2mic_2ref INTERFACE)
-target_sources(fixed_delay_aec_ic_ns_agc_2mic_2ref
+add_library(fixed_delay_4mic_1ref INTERFACE)
+target_sources(fixed_delay_4mic_1ref
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/fixed_delay/audio_pipeline_t0.c
         ${CMAKE_CURRENT_LIST_DIR}/fixed_delay/audio_pipeline_t1.c
-        ${CMAKE_CURRENT_LIST_DIR}/fixed_delay/aec/aec_process_frame_1thread.c
 )
-target_include_directories(fixed_delay_aec_ic_ns_agc_2mic_2ref
+target_include_directories(fixed_delay_4mic_1ref
     INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/fixed_delay
 )
-target_link_libraries(fixed_delay_aec_ic_ns_agc_2mic_2ref
+target_link_libraries(fixed_delay_4mic_1ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
-        fwk_voice::aec
+        fph::aec_4y
         fwk_voice::agc
-        fwk_voice::ic
+        fph::ic_4y
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
+target_compile_definitions(fixed_delay_4mic_1ref INTERFACE
+    appconfMIC_PIPELINE_PROC_CHANNELS=4
+    appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR=1)
+set_property(TARGET fixed_delay_4mic_1ref PROPERTY INTERFACE_FPH_MIC_CHANNELS 4)
+set_property(TARGET fixed_delay_4mic_1ref APPEND PROPERTY
+    COMPATIBLE_INTERFACE_STRING FPH_MIC_CHANNELS)
 
 ##******************************************
 ## Create ADEC "prevarch" AEC+IC+NS+AGC 
@@ -53,6 +57,7 @@ target_include_directories(adec_aec_ic_ns_agc_2mic_2ref
 )
 target_link_libraries(adec_aec_ic_ns_agc_2mic_2ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
@@ -61,8 +66,7 @@ target_link_libraries(adec_aec_ic_ns_agc_2mic_2ref
         fwk_voice::agc
         fwk_voice::ic
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
 ##******************************************
@@ -89,6 +93,7 @@ target_include_directories(adec_altarch_aec_ic_ns_agc_2mic_2ref
 )
 target_link_libraries(adec_altarch_aec_ic_ns_agc_2mic_2ref
     INTERFACE
+        voice_compat
         core::general
         rtos::freertos
         rtos::sw_services::generic_pipeline
@@ -97,8 +102,7 @@ target_link_libraries(adec_altarch_aec_ic_ns_agc_2mic_2ref
         fwk_voice::agc
         fwk_voice::ic
         fwk_voice::ns
-        fwk_voice::vnr::features
-        fwk_voice::vnr::inference
+        fwk_voice::vnr
 )
 
 ##******************************************
@@ -128,6 +132,6 @@ target_link_libraries(empty_2mic_2ref
 ##*********************************************
 
 add_library(fph::ffva::ap::adec_altarch ALIAS adec_altarch_aec_ic_ns_agc_2mic_2ref)
-add_library(fph::ffva::ap::fixed_delay ALIAS fixed_delay_aec_ic_ns_agc_2mic_2ref)
+add_library(fph::ffva::ap::fixed_delay ALIAS fixed_delay_4mic_1ref)
 add_library(fph::ffva::ap::adec ALIAS adec_aec_ic_ns_agc_2mic_2ref)
 add_library(fph::ffva::ap::empty ALIAS empty_2mic_2ref)

@@ -15,10 +15,10 @@
 
 /* Library headers */
 #include "generic_pipeline.h"
-#include "aec_api.h"
-#include "agc_api.h"
-#include "ic_api.h"
-#include "ns_api.h"
+#include "aec.h"
+#include "agc.h"
+#include "ic.h"
+#include "ns.h"
 #include "vnr_features_api.h"
 #include "vnr_inference_api.h"
 
@@ -68,8 +68,23 @@ static int audio_pipeline_output_i(frame_data_t *frame_data,
 
     return audio_pipeline_output(output_app_data,
                                (int32_t **)frame_data->samples,
-                               6,
+                               appconfMIC_PIPELINE_PROC_CHANNELS + appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
                                appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+}
+
+static void stage_average_aec_residuals(frame_data_t *frame_data)
+{
+#if !appconfPIPELINE_BYPASS
+    _Static_assert(AP_MAX_Y_CHANNELS == 4, "Residual averaging requires four microphones");
+    for (size_t i = 0; i < appconfAUDIO_PIPELINE_FRAME_ADVANCE; ++i) {
+        /* Widen before addition; division rounds toward zero for either sign. */
+        int64_t sum = (int64_t)frame_data->samples[0][i] +
+                      frame_data->samples[1][i] +
+                      frame_data->samples[2][i] +
+                      frame_data->samples[3][i];
+        frame_data->samples[0][i] = (int32_t)(sum / 4);
+    }
+#endif
 }
 
 static void stage_vnr_and_ic(frame_data_t *frame_data)
@@ -82,13 +97,12 @@ static void stage_vnr_and_ic(frame_data_t *frame_data)
               frame_data->samples[1],
               ic_output);
 
-    vnr_pred_state_t *vnr_pred_state = &vnr_pred_stage_state.vnr_pred_state;
-    ic_calc_vnr_pred(&ic_stage_state.state, &vnr_pred_state->input_vnr_pred, &vnr_pred_state->output_vnr_pred);
+    voice_ic_calc_vnr_pred(&ic_stage_state.state, &vnr_pred_stage_state.vnr_pred_state);
 
     float_s32_t agc_vnr_threshold = f32_to_float_s32(VNR_AGC_THRESHOLD);
     frame_data->vnr_pred_flag = float_s32_gt(vnr_pred_stage_state.vnr_pred_state.output_vnr_pred, agc_vnr_threshold);
 
-    ic_adapt(&ic_stage_state.state, vnr_pred_stage_state.vnr_pred_state.input_vnr_pred);
+    ic_adapt(&ic_stage_state.state);
 
     /* Intentionally ignoring comms ch from here on out */
     memcpy(frame_data->samples[0], ic_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
@@ -122,9 +136,10 @@ static void stage_agc(frame_data_t *frame_data)
     int32_t DWORD_ALIGNED agc_output[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     configASSERT(AGC_FRAME_ADVANCE == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 
-    agc_stage_state.md.vnr_flag = frame_data->vnr_pred_flag;
+    agc_stage_state.md.vnr_flag = f32_to_float_s32(frame_data->vnr_pred_flag);
     agc_stage_state.md.aec_ref_power = frame_data->max_ref_energy;
     agc_stage_state.md.aec_corr_factor = frame_data->aec_corr_factor;
+    agc_stage_state.md.ref_active_flag = frame_data->ref_active_flag;
 
     agc_process_frame(
             &agc_stage_state.state,
@@ -137,7 +152,8 @@ static void stage_agc(frame_data_t *frame_data)
 
 static void initialize_pipeline_stages(void)
 {
-    ic_init(&ic_stage_state.state);
+    int32_t ic_status = voice_ic_init(&ic_stage_state.state, &vnr_pred_stage_state.vnr_pred_state);
+    configASSERT(ic_status == 0);
 
     ns_init(&ns_stage_state.state);
 
@@ -150,15 +166,17 @@ void audio_pipeline_init(
     void *input_app_data,
     void *output_app_data)
 {
-    const int stage_count = 3;
+    const int stage_count = 4;
     const pipeline_stage_t stages[] = {
+        (pipeline_stage_t)stage_average_aec_residuals,
         (pipeline_stage_t)stage_vnr_and_ic,
         (pipeline_stage_t)stage_ns,
         (pipeline_stage_t)stage_agc,
     };
 
     const configSTACK_DEPTH_TYPE stage_stack_sizes[] = {
-        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_vnr_and_ic) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_average_aec_residuals) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_vnr_and_ic),
         configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_ns),
         configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_agc) + RTOS_THREAD_STACK_SIZE(audio_pipeline_output_i),
     };
