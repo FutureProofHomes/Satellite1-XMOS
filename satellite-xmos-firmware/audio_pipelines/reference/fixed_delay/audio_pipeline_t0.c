@@ -15,10 +15,10 @@
 
 /* Library headers */
 #include "generic_pipeline.h"
-#include "aec_api.h"
-#include "agc_api.h"
-#include "ic_api.h"
-#include "ns_api.h"
+#include "aec.h"
+#include "agc.h"
+#include "ic.h"
+#include "ns.h"
 #include "vnr_features_api.h"
 #include "vnr_inference_api.h"
 
@@ -82,13 +82,12 @@ static void stage_vnr_and_ic(frame_data_t *frame_data)
               frame_data->samples[1],
               ic_output);
 
-    vnr_pred_state_t *vnr_pred_state = &vnr_pred_stage_state.vnr_pred_state;
-    ic_calc_vnr_pred(&ic_stage_state.state, &vnr_pred_state->input_vnr_pred, &vnr_pred_state->output_vnr_pred);
+    voice_ic_calc_vnr_pred(&ic_stage_state.state, &vnr_pred_stage_state.vnr_pred_state);
 
     float_s32_t agc_vnr_threshold = f32_to_float_s32(VNR_AGC_THRESHOLD);
     frame_data->vnr_pred_flag = float_s32_gt(vnr_pred_stage_state.vnr_pred_state.output_vnr_pred, agc_vnr_threshold);
 
-    ic_adapt(&ic_stage_state.state, vnr_pred_stage_state.vnr_pred_state.input_vnr_pred);
+    ic_adapt(&ic_stage_state.state);
 
     /* Intentionally ignoring comms ch from here on out */
     memcpy(frame_data->samples[0], ic_output, appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
@@ -122,9 +121,10 @@ static void stage_agc(frame_data_t *frame_data)
     int32_t DWORD_ALIGNED agc_output[appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     configASSERT(AGC_FRAME_ADVANCE == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 
-    agc_stage_state.md.vnr_flag = frame_data->vnr_pred_flag;
+    agc_stage_state.md.vnr_flag = f32_to_float_s32(frame_data->vnr_pred_flag);
     agc_stage_state.md.aec_ref_power = frame_data->max_ref_energy;
     agc_stage_state.md.aec_corr_factor = frame_data->aec_corr_factor;
+    agc_stage_state.md.ref_active_flag = frame_data->ref_active_flag;
 
     agc_process_frame(
             &agc_stage_state.state,
@@ -137,7 +137,8 @@ static void stage_agc(frame_data_t *frame_data)
 
 static void initialize_pipeline_stages(void)
 {
-    ic_init(&ic_stage_state.state);
+    int32_t ic_status = voice_ic_init(&ic_stage_state.state, &vnr_pred_stage_state.vnr_pred_state);
+    configASSERT(ic_status == 0);
 
     ns_init(&ns_stage_state.state);
 
