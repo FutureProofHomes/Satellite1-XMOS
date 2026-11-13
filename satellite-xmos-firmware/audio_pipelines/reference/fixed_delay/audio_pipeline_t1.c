@@ -31,6 +31,15 @@ static stage_delay_ctx_t DWORD_ALIGNED delay_buf_state = {};
 #endif
 static aec_ctx_t DWORD_ALIGNED aec_state = {};
 
+static void mix_stereo_reference_to_mono(frame_data_t *frame_data)
+{
+    for (size_t i = 0; i < appconfAUDIO_PIPELINE_FRAME_ADVANCE; ++i) {
+        int64_t sum = (int64_t)frame_data->aec_reference_audio_samples[0][i] +
+                      frame_data->aec_reference_audio_samples[1][i];
+        frame_data->aec_reference_audio_samples[0][i] = (int32_t)(sum / 2);
+    }
+}
+
 
 static void *audio_pipeline_input_i(void *input_app_data)
 {
@@ -40,10 +49,11 @@ static void *audio_pipeline_input_i(void *input_app_data)
 
     audio_pipeline_input(input_app_data,
                        (int32_t **)frame_data->aec_reference_audio_samples,
-                       4,
+                       appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
                        appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 
     frame_data->vnr_pred_flag = 0;
+    mix_stereo_reference_to_mono(frame_data);
 
     memcpy(frame_data->samples, frame_data->mic_samples_passthrough, sizeof(frame_data->samples));
 
@@ -113,9 +123,8 @@ static void stage_aec(frame_data_t *frame_data)
 #else
     int32_t DWORD_ALIGNED stage1_output[AEC_MAX_Y_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
 
-    aec_process_frame_1thread(
-            &aec_state.state.main_state,
-            &aec_state.state.shadow_state,
+    aec_process_frame(
+            &aec_state.state,
             stage1_output,
             NULL,
             frame_data->samples,
@@ -144,7 +153,8 @@ static void initialize_pipeline_stages(void)
              AEC_MAX_X_CHANNELS,
              AEC_MAIN_FILTER_PHASES,
              AEC_SHADOW_FILTER_PHASES,
-             &aec_tdist_chans2_threads1);
+             &aec_tdist_chans4_threads1);
+    configASSERT(aec_state.state.shared_state.tdist == &aec_tdist_chans4_threads1);
 }
 
 void audio_pipeline_init(

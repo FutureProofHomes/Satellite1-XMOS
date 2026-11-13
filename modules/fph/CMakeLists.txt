@@ -1,4 +1,6 @@
 add_subdirectory(i2s_sync)
+add_subdirectory(lib_aec_4y)
+add_subdirectory(lib_ic_4y)
 add_subdirectory(qspi_flash_ext)
 add_subdirectory(rtos_mic_array)
 add_subdirectory(rtos_ws2812)
