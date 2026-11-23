@@ -40,6 +40,7 @@ permissions:
 jobs:
   create_release_tag:  
     name: Bump version and create tag
+    if: github.repository == 'FutureProofHomes/Satellite1-XMOS'
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.set_release_tag.outputs.release_tag }} 
