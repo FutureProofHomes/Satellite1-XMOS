@@ -1,0 +1,197 @@
+// Copyright 2022-2024 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
+
+/* STD headers */
+#include <string.h>
+#include <stdint.h>
+#include <xcore/hwtimer.h>
+
+/* FreeRTOS headers */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "timers.h"
+#include "queue.h"
+#include "stream_buffer.h"
+
+/* Library headers */
+#include "generic_pipeline.h"
+
+/* App headers */
+#include "app_conf.h"
+#include "audio_pipeline.h"
+#include "audio_pipeline_dsp.h"
+#include "audio_pipeline_io.h"
+
+#if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
+#error This pipeline is only configured for 240 frame advance
+#endif
+
+#if ON_TILE(1)
+#if appconfINPUT_SAMPLES_MIC_DELAY_MS != 0
+static stage_delay_ctx_t DWORD_ALIGNED delay_buf_state = {};
+#endif
+static aec_ctx_t DWORD_ALIGNED aec_state = {};
+
+static void mix_stereo_reference_to_mono(frame_data_t *frame_data)
+{
+    for (size_t i = 0; i < appconfAUDIO_PIPELINE_FRAME_ADVANCE; ++i) {
+        int64_t sum = (int64_t)frame_data->aec_reference_audio_samples[0][i] +
+                      frame_data->aec_reference_audio_samples[1][i];
+        frame_data->aec_reference_audio_samples[0][i] = (int32_t)(sum / 2);
+    }
+}
+
+
+static void *audio_pipeline_input_i(void *input_app_data)
+{
+    frame_data_t *frame_data;
+    frame_data = pvPortMalloc(sizeof(frame_data_t));
+    configASSERT(frame_data != NULL);
+    memset(frame_data, 0x00, sizeof(frame_data_t));
+
+    (void) input_app_data;
+    audio_pipeline_capture(frame_data->samples,
+                           frame_data->aec_reference_audio_samples[0],
+                           frame_data->aec_reference_audio_samples[1],
+                           appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+#if appconfSAT1_SPEECH_FRONTEND
+    sat1_beamformer_get_diagnostics(&frame_data->voice.calibration);
+#endif
+
+    frame_data->vnr_pred_flag = 0;
+    mix_stereo_reference_to_mono(frame_data);
+
+    return frame_data;
+}
+
+static int audio_pipeline_output_i(frame_data_t *frame_data,
+                                   void *output_app_data)
+{
+
+    rtos_intertile_tx(appconfAUDIOPIPELINE_INTERTILE_CTX,
+                      appconfAUDIOPIPELINE_PORT,
+                      frame_data,
+                      sizeof(frame_data_t));
+
+
+    return AUDIO_PIPELINE_FREE_FRAME;
+}
+
+static void stage_delay(frame_data_t *frame_data)
+{
+#if appconfAUDIO_PIPELINE_SKIP_STATIC_DELAY
+#else
+#if (appconfINPUT_SAMPLES_MIC_DELAY_MS > 0) /* Delay mics */
+    size_t bytes_sent = xStreamBufferSend(
+                                delay_buf_state.delay_buf,
+                                &frame_data->samples,
+                                AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES,
+                                0);
+
+    configASSERT(bytes_sent == AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES);
+
+    if (xStreamBufferBytesAvailable(delay_buf_state.delay_buf) > AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES) {
+        size_t bytes_rx = xStreamBufferReceive(
+                                    delay_buf_state.delay_buf,
+                                    &frame_data->samples,
+                                    AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES,
+                                    0);
+
+        configASSERT(bytes_rx == AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES);
+    }
+#elif (appconfINPUT_SAMPLES_MIC_DELAY_MS < 0) /* Delay Ref*/
+    size_t bytes_sent = xStreamBufferSend(
+                                delay_buf_state.delay_buf,
+                                &frame_data->aec_reference_audio_samples,
+                                AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES,
+                                0);
+
+    configASSERT(bytes_sent == AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES);
+
+    if (xStreamBufferBytesAvailable(delay_buf_state.delay_buf) > AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES) {
+        size_t bytes_rx = xStreamBufferReceive(
+                                    delay_buf_state.delay_buf,
+                                    &frame_data->aec_reference_audio_samples,
+                                    AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES,
+                                    0);
+
+        configASSERT(bytes_rx == AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES);
+    }
+#else /* Delay None */
+#endif
+#endif /* appconfAUDIO_PIPELINE_SKIP_DELAY */
+}
+
+void sat1_post_aec_beam(int32_t samples[4][240]);
+
+static void stage_aec(frame_data_t *frame_data)
+{
+#if appconfAUDIO_PIPELINE_SKIP_AEC
+#else
+    int32_t DWORD_ALIGNED stage1_output[AEC_MAX_Y_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+
+    aec_process_frame(
+            &aec_state.state,
+            stage1_output,
+            NULL,
+            frame_data->samples,
+            frame_data->aec_reference_audio_samples);
+
+    frame_data->max_ref_energy = aec_calc_max_input_energy(
+                                    frame_data->aec_reference_audio_samples,
+                                    aec_state.state.main_state.shared_state->num_x_channels);
+    frame_data->aec_corr_factor = aec_calc_corr_factor(&aec_state.state.main_state, 0);
+    frame_data->ref_active_flag = aec_detect_input_activity(
+            frame_data->aec_reference_audio_samples, f64_to_float_s32(0.001), AEC_MAX_X_CHANNELS);
+    memcpy(frame_data->samples, stage1_output, AEC_MAX_Y_CHANNELS * appconfAUDIO_PIPELINE_FRAME_ADVANCE * sizeof(int32_t));
+#if appconfSAT1_POST_AEC_BEAM && !appconfSAT1_SPEECH_FRONTEND
+    sat1_post_aec_beam(frame_data->samples);
+#endif
+#endif
+}
+
+static void initialize_pipeline_stages(void)
+{
+#if (appconfINPUT_SAMPLES_MIC_DELAY_MS != 0)
+    configASSERT(AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES > 0);
+    delay_buf_state.delay_buf = xStreamBufferCreate((size_t)AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES + AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES, 0);
+    configASSERT(delay_buf_state.delay_buf);
+#endif
+
+    aec_init(&aec_state.state,
+             AEC_MAX_Y_CHANNELS,
+             AEC_MAX_X_CHANNELS,
+             AEC_MAIN_FILTER_PHASES,
+             AEC_SHADOW_FILTER_PHASES,
+             &aec_tdist_chans4_threads1);
+    configASSERT(aec_state.state.shared_state.tdist == &aec_tdist_chans4_threads1);
+}
+
+void audio_pipeline_init(
+    void *input_app_data,
+    void *output_app_data)
+{
+    const int stage_count = 2;
+    const pipeline_stage_t stages[] = {
+        (pipeline_stage_t)stage_delay,
+        (pipeline_stage_t)stage_aec,
+    };
+
+    const configSTACK_DEPTH_TYPE stage_stack_sizes[] = {
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_delay) + RTOS_THREAD_STACK_SIZE(audio_pipeline_input_i),
+        configMINIMAL_STACK_SIZE + RTOS_THREAD_STACK_SIZE(stage_aec) + RTOS_THREAD_STACK_SIZE(audio_pipeline_output_i),
+    };
+
+    initialize_pipeline_stages();
+
+    generic_pipeline_init((pipeline_input_t)audio_pipeline_input_i,
+                        (pipeline_output_t)audio_pipeline_output_i,
+                        input_app_data,
+                        output_app_data,
+                        stages,
+                        (const size_t*) stage_stack_sizes,
+                        appconfAUDIO_PIPELINE_TASK_PRIORITY,
+                        stage_count);
+
+}
+#endif /* ON_TILE(1) */

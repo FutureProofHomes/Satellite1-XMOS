@@ -101,6 +101,7 @@ static void ws2812_start(void)
 void platform_start(void)
 {
     rtos_intertile_start(intertile_ctx);
+    rtos_intertile_start(intertile_audio_ctx);
     gpio_start();
     flash_start();
     spi_start();

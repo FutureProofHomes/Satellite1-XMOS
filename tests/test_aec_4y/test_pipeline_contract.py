@@ -72,6 +72,9 @@ static size_t rtos_mic_array_rx(void *ctx, int32_t **p, size_t frames, int wait)
 static void rtos_i2s_tx(void *ctx, int32_t *p, size_t frames, int wait) {
     memcpy(transmitted, p, frames * 2 * sizeof(int32_t));
 }
+static size_t receive_mic_array_frame(int32_t **p, size_t frames, unsigned wait) {
+    return rtos_mic_array_rx(mic_array_ctx, p, frames, (int)wait);
+}
 static void ns_process_frame(int *state, int32_t *out, const int32_t *in) {
     for (unsigned i = 0; i < 240; ++i) out[i] = in[i] / 2;
 }

@@ -9,6 +9,13 @@ Uses the 'Automatic Delay Estimation and Correction' pipeline of the sln_voice e
 
 A variant which bypasses the mic-pipeline. Hence, the raw mic signal is streamed to the ESP32-S3.
 
+**satellite1_firmware_speech_tracking** (optional)
+
+Four-microphone AEC followed by speech-aware direction tracking, calibrated
+beamforming, protected interference/echo cleanup, NS and AGC. The existing
+`fixed_delay` target and release selection remain unchanged. See
+[build, integration and validation details](docs/speech-tracking.md).
+
 ## Firmware Files
 
 **variant_name.factory.bin**

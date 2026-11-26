@@ -57,7 +57,7 @@ static void *audio_pipeline_input_i(void *input_app_data)
 static int audio_pipeline_output_i(frame_data_t *frame_data,
                                    void *output_app_data)
 {
-    rtos_intertile_tx(intertile_ctx,
+    rtos_intertile_tx(appconfAUDIOPIPELINE_INTERTILE_CTX,
                       appconfAUDIOPIPELINE_PORT,
                       frame_data,
                       sizeof(frame_data_t));

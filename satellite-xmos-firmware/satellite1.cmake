@@ -2,6 +2,11 @@ query_tools_version()
 
 foreach(FFVA_AP ${FFVA_PIPELINES_INT})
 
+    set(SAT1_DIRECTION_FINDING "$<AND:$<BOOL:${ENABLE_SAT1_DIRECTION_FINDING}>,$<STREQUAL:$<TARGET_PROPERTY:FPH_MIC_CHANNELS>,4>>")
+    if(FFVA_AP STREQUAL "calibrated_beam" OR FFVA_AP STREQUAL "speech_tracking")
+        set(SAT1_DIRECTION_FINDING 1)
+    endif()
+
     set(FFVA_INT_COMPILE_DEFINITIONS
     ${APP_COMPILE_DEFINITIONS}
         appconfEXTERNAL_MCLK=0
@@ -9,6 +14,7 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
         appconfI2S_MODE=appconfI2S_MODE_MASTER
         appconfI2S_AUDIO_SAMPLE_RATE=48000
         appconfDEVICE_CTRL_SPI=1
+        appconfSAT1_DIRECTION_FINDING=${SAT1_DIRECTION_FINDING}
     )
 
     if(${FFVA_AP} STREQUAL bypass )
@@ -67,7 +73,11 @@ foreach(FFVA_AP ${FFVA_PIPELINES_INT})
     #*********************
     # Create version.h
     #*********************
-    SET(VERSIONING_CMD "build")
+    set(VERSIONING_CMD)
+    if(NOT SAT1_FIRMWARE_VERSION STREQUAL "")
+        list(APPEND VERSIONING_CMD --version "${SAT1_FIRMWARE_VERSION}")
+    endif()
+    list(APPEND VERSIONING_CMD build)
     if(ALLOW_DIRTY_VERSIONING)
         list(APPEND VERSIONING_CMD "--allow-dirty")
     endif()

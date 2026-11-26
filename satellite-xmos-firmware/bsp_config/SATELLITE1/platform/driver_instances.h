@@ -49,6 +49,13 @@
 #define LED_RING_PORT_PIN    3
 
 extern rtos_intertile_t *intertile_ctx;
+extern rtos_intertile_t *intertile_audio_ctx;
+
+#if appconfSAT1_SPEECH_FRONTEND
+#define DOA_TILE_NO 0
+#else
+#define DOA_TILE_NO MICARRAY_TILE_NO
+#endif
 extern rtos_qspi_flash_t *qspi_flash_ctx;
 extern rtos_gpio_t *gpio_ctx_t0;
 extern rtos_gpio_t *gpio_ctx_t1;

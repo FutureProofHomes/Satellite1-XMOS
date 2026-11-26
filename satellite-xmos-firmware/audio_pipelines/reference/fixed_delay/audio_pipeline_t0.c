@@ -48,14 +48,14 @@ static void *audio_pipeline_input_i(void *input_app_data)
 
     size_t bytes_received = 0;
     bytes_received = rtos_intertile_rx_len(
-            intertile_ctx,
+            appconfAUDIOPIPELINE_INTERTILE_CTX,
             appconfAUDIOPIPELINE_PORT,
             portMAX_DELAY);
 
     xassert(bytes_received == sizeof(frame_data_t));
 
     rtos_intertile_rx_data(
-            intertile_ctx,
+            appconfAUDIOPIPELINE_INTERTILE_CTX,
             frame_data,
             bytes_received);
 

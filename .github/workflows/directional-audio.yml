@@ -1,0 +1,56 @@
+name: Directional audio bench builds
+
+on:
+  push:
+    branches: [feature/tater-directional-audio]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash scripts/test_doa_estimator_host.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pytest
+      - run: pytest -q tests/test_doa_protocol.py tests/test_aec_4y
+
+  firmware:
+    runs-on: ubuntu-latest
+    needs: host
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [upstream, diagnostics, calibrated_beam, speech_tracking]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Build and verify the test image
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" -w /ws -v "$GITHUB_WORKSPACE:/ws" \
+            -e PROFILE ghcr.io/xmos/xcore_builder:v3.1 bash -l -c '
+              set -e
+              export PYTHON_BIN=python3
+              if [ "$PROFILE" != calibrated_beam ] && [ "$PROFILE" != speech_tracking ]; then export SAT1_RUN_SIM_TESTS=0; fi
+              bash scripts/build_directional.sh "$PROFILE"
+              .venv/bin/python scripts/package_directional.py "$PROFILE"
+              if [ "$PROFILE" = speech_tracking ]; then
+                .venv/bin/python -m pip install -r requirements_tests.txt
+                .venv/bin/python -m pytest -q tests/test_doa_protocol.py tests/test_aec_4y/test_pipeline_contract.py tests/test_aec_4y/test_speech_pipeline_contract.py
+              fi
+            '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: satellite1-xmos-${{ matrix.profile }}
+          path: build_test/artifacts/
+          if-no-files-found: error

@@ -18,13 +18,33 @@
 #define FS_TILE_NO                      FLASH_TILE_NO //currently not used, is it?
 
 
+/* Keep blocking DSP frame transfers independent of I2S/GPIO RPC. */
+#define appconfAUDIOPIPELINE_INTERTILE_CTX intertile_audio_ctx
+#ifndef appconfSAT1_SPEECH_FRONTEND
+#define appconfSAT1_SPEECH_FRONTEND 0
+#endif
+#ifndef appconfSAT1_POST_AEC_BEAM
+#define appconfSAT1_POST_AEC_BEAM 0
+#endif
+
 /* Audio Pipeline Configuration */
+#ifndef appconfSAT1_DIRECTION_FINDING
+#define appconfSAT1_DIRECTION_FINDING 0
+#endif
+#ifndef appconfSAT1_CALIBRATED_BEAM
+#define appconfSAT1_CALIBRATED_BEAM 0
+#endif
+
 #define appconfAUDIO_CLOCK_FREQUENCY            MIC_ARRAY_CONFIG_MCLK_FREQ
 #define appconfPDM_CLOCK_FREQUENCY              MIC_ARRAY_CONFIG_PDM_FREQ
 #define appconfAUDIO_PIPELINE_SAMPLE_RATE       16000
+#ifndef appconfAUDIO_PIPELINE_CHANNELS
 #define appconfAUDIO_PIPELINE_CHANNELS          MIC_ARRAY_CONFIG_MIC_COUNT
+#endif
 #define appconfMIC_PIPELINE_REF_CHANNELS        2
+#ifndef appconfMIC_PIPELINE_INPUT_CHANNELS
 #define appconfMIC_PIPELINE_INPUT_CHANNELS      MIC_ARRAY_CONFIG_MIC_COUNT
+#endif
 #ifndef appconfMIC_PIPELINE_PROC_CHANNELS
 #define appconfMIC_PIPELINE_PROC_CHANNELS       appconfAUDIO_PIPELINE_CHANNELS
 #endif

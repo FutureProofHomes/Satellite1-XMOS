@@ -16,6 +16,8 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/audio_pipelines)
 set(VERSIONING_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/versioning.py)
 option(USE_DEV_TRACKING "Enable dev-build tracking" OFF)
 option(ALLOW_DIRTY_VERSIONING "Allow versioning.py to run from a dirty workspace for controlled CI inputs or local throwaway builds" OFF)
+option(ENABLE_SAT1_DIRECTION_FINDING "Expose raw four-mic direction and health diagnostics without changing audio" OFF)
+set(SAT1_FIRMWARE_VERSION "" CACHE STRING "Optional firmware version override for isolated bench builds")
 
 #**********************
 # Flags
@@ -89,4 +91,6 @@ endif()
 #**********************
 # XMOS Firmware Targets
 #**********************
+# Optional targets are excluded from default builds and the release manifest.
+list(APPEND FFVA_PIPELINES_INT calibrated_beam speech_tracking)
 include(${CMAKE_CURRENT_LIST_DIR}/satellite1.cmake)

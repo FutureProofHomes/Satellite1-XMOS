@@ -99,7 +99,7 @@ static void spi_init(void)
     
     device_control_init(device_control_spi_ctx,
                         DEVICE_CONTROL_HOST_MODE,
-                        3, //number of servicers
+                        3 + appconfSAT1_DIRECTION_FINDING, // optional DoA servicer
                         client_intertile_ctx,
                         1); 
     
@@ -222,6 +222,7 @@ static void servicer_init(void)
 void platform_init(chanend_t other_tile_c)
 {
     rtos_intertile_init(intertile_ctx, other_tile_c);
+    rtos_intertile_init(intertile_audio_ctx, other_tile_c);
     mclk_init(other_tile_c);
     gpio_init();
     flash_init();

@@ -1,0 +1,114 @@
+// Copyright 2022-2023 XMOS LIMITED.
+// This Software is subject to the terms of the XMOS Public Licence: Version 1.
+
+#ifndef AUDIO_PIPELINE_DSP_H_
+#define AUDIO_PIPELINE_DSP_H_
+
+#include <stdint.h>
+#include <stddef.h>
+#include "FreeRTOS.h"
+#include "stream_buffer.h"
+#include "app_conf.h"
+#if appconfSAT1_SPEECH_FRONTEND
+#include "voice_frontend/sat1_voice_policy.h"
+#endif
+
+/* Pipeline config */
+#define AP_MAX_Y_CHANNELS (appconfMIC_PIPELINE_PROC_CHANNELS)
+#define AP_MAX_X_CHANNELS (1)
+#define AP_FRAME_ADVANCE (240)
+
+/* Delay buffer config */
+#define MAX_DELAY_BUF_CHANNELS (AP_MAX_Y_CHANNELS)
+#define DELAY_BUF_MAX_DELAY_MS                ( 150 )
+#define DELAY_BUF_MAX_DELAY_SAMPLES           ( 16000*DELAY_BUF_MAX_DELAY_MS/1000 )
+
+#include "aec.h"
+#include "aec_schedule_4y.h"
+#include "agc.h"
+#include "ic.h"
+#include "ns.h"
+#include "voice_compat.h"
+
+_Static_assert(AEC_MAX_Y_CHANNELS == AP_MAX_Y_CHANNELS, "AEC microphone ABI mismatch");
+_Static_assert(AEC_MAX_X_CHANNELS == AP_MAX_X_CHANNELS, "AEC reference ABI mismatch");
+_Static_assert(AEC_MAIN_FILTER_PHASES == 10 && AEC_SHADOW_FILTER_PHASES == 5, "AEC phase ABI mismatch");
+_Static_assert(appconfMIC_PIPELINE_REF_CHANNELS == 2, "Reference mixing requires stereo input");
+_Static_assert(appconfMIC_PIPELINE_INPUT_CHANNELS == AP_MAX_Y_CHANNELS, "Capture and processing channel mismatch");
+
+
+#if appconfSAT1_SPEECH_FRONTEND
+#define SAT1_VOICE_METADATA_BYTES 48
+#else
+#define SAT1_VOICE_METADATA_BYTES 0
+#endif
+
+/* Intertile payload shared by tile 1 (capture/AEC) and tile 0 (postprocessing).
+ * Capture writes directly into samples; reference slot 1 also carries NS output.
+ */
+typedef struct {
+    _Alignas(8) int32_t samples[appconfMIC_PIPELINE_PROC_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    int32_t aec_reference_audio_samples[appconfMIC_PIPELINE_REF_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+
+    /* Below is additional context needed by other stages on a per frame basis */
+    int32_t vnr_pred_flag;
+    float_s32_t max_ref_energy;
+    float_s32_t aec_corr_factor;
+    int32_t ref_active_flag;
+#if appconfSAT1_SPEECH_FRONTEND
+    sat1_voice_frame_t voice;
+#endif
+} frame_data_t;
+
+_Static_assert(sizeof(frame_data_t) == 5784 + SAT1_VOICE_METADATA_BYTES, "Fixed-delay intertile frame size");
+_Static_assert(offsetof(frame_data_t, samples) == 0, "Microphone row offset");
+_Static_assert(offsetof(frame_data_t, aec_reference_audio_samples) == 3840, "Reference row offset");
+_Static_assert(offsetof(frame_data_t, vnr_pred_flag) == 5760, "VNR flag offset");
+_Static_assert(offsetof(frame_data_t, max_ref_energy) == 5764, "Reference energy offset");
+_Static_assert(offsetof(frame_data_t, aec_corr_factor) == 5772, "AEC correlation offset");
+_Static_assert(offsetof(frame_data_t, ref_active_flag) == 5780, "Reference activity flag offset");
+_Static_assert(_Alignof(frame_data_t) == 8 && portBYTE_ALIGNMENT % _Alignof(frame_data_t) == 0,
+               "FreeRTOS must allocate doubleword-aligned frames");
+_Static_assert(sizeof(((frame_data_t *)0)->samples[0]) % 8 == 0 &&
+               offsetof(frame_data_t, aec_reference_audio_samples) % 8 == 0,
+               "Every audio row must be doubleword aligned");
+
+typedef struct stage_delay_ctx {
+    StreamBufferHandle_t delay_buf;
+} stage_delay_ctx_t;
+
+typedef struct aec_ctx {
+    aec_state_t DWORD_ALIGNED state;
+} aec_ctx_t;
+
+typedef struct ic_stage_ctx {
+    ic_state_t DWORD_ALIGNED state;
+} ic_stage_ctx_t;
+
+typedef struct vnr_pred_stage_ctx {
+    voice_output_vnr_state_t vnr_pred_state;
+} vnr_pred_stage_ctx_t;
+
+typedef struct ns_stage_ctx {
+    ns_state_t DWORD_ALIGNED state;
+} ns_stage_ctx_t;
+
+typedef struct agc_stage_ctx {
+    agc_meta_data_t md;
+    agc_state_t DWORD_ALIGNED state;
+} agc_stage_ctx_t;
+
+/**
+ * Delay buffer contains the configured buffer delay size + 1 frame worth of audio
+ * When appconfINPUT_SAMPLES_MIC_DELAY_MS  is positive, the mic is delayed
+ * When appconfINPUT_SAMPLES_MIC_DELAY_MS is negative, the mic is "advanced" by delaying ref
+ */
+#define ABS(A) ((A >= 0) ? A : -A)
+#define AP_INPUT_SAMPLES_MIC_DELAY_SIZE_PER_CHAN        ( 16000*ABS(appconfINPUT_SAMPLES_MIC_DELAY_MS)/1000 )
+#define AP_INPUT_SAMPLES_MIC_DELAY_CHAN_CNT             ( (appconfINPUT_SAMPLES_MIC_DELAY_MS > 0) ? AEC_MAX_Y_CHANNELS : AEC_MAX_X_CHANNELS )
+#define AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CHAN            ( AP_INPUT_SAMPLES_MIC_DELAY_SIZE_PER_CHAN * AP_INPUT_SAMPLES_MIC_DELAY_CHAN_CNT )
+#define AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CUR_FRAME_WORDS ( AP_INPUT_SAMPLES_MIC_DELAY_CHAN_CNT * appconfAUDIO_PIPELINE_FRAME_ADVANCE)
+#define AP_INPUT_SAMPLES_MIC_DELAY_CUR_FRAME_BYTES      ( AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CUR_FRAME_WORDS * sizeof(int32_t))
+#define AP_INPUT_SAMPLES_MIC_DELAY_BUF_SIZE_BYTES       ( AP_INPUT_SAMPLES_MIC_DELAY_SIZE_CHAN * sizeof(int32_t) )
+
+#endif /* AUDIO_PIPELINE_DSP_H_ */
