@@ -26,6 +26,7 @@
 #include "app_conf.h"
 #include "audio_pipeline.h"
 #include "audio_pipeline_dsp.h"
+#include "audio_pipeline_io.h"
 
 #if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
 #error This pipeline is only configured for 240 frame advance
@@ -65,11 +66,10 @@ static void *audio_pipeline_input_i(void *input_app_data)
 static int audio_pipeline_output_i(frame_data_t *frame_data,
                                    void *output_app_data)
 {
-
-    return audio_pipeline_output(output_app_data,
-                               (int32_t **)frame_data->samples,
-                               appconfMIC_PIPELINE_PROC_CHANNELS + appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
-                               appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+    (void) output_app_data;
+    return audio_pipeline_output_channels(frame_data->samples[0],
+                                          frame_data->aec_reference_audio_samples[1],
+                                          appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 }
 
 static void stage_average_aec_residuals(frame_data_t *frame_data)

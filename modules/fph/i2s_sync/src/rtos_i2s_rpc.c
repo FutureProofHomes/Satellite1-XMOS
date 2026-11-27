@@ -1,13 +1,79 @@
 // Copyright 2020-2023 XMOS LIMITED.
 // This Software is subject to the terms of the XMOS Public Licence: Version 1.
 
+#include <platform.h>
+
 #include "rtos_rpc.h"
 #include "rtos_i2s.h"
+
+#if !defined(I2S_TILE_NO) || !defined(FPH_I2S_TX0_FRAMES)
+#error "The board must define the I2S host tile and fixed TX0 frame count"
+#endif
+
+#if ON_TILE(I2S_TILE_NO)
+#define I2S_RPC_FIXED_TX0_HOST 1
+#endif
 
 enum {
     fcode_rx,
     fcode_tx,
 };
+
+#ifdef I2S_RPC_FIXED_TX0_HOST
+enum {
+    TX0_RPC_PARAM_COUNT = 6,
+    TX0_RPC_SAMPLE_COUNT = FPH_I2S_TX0_FRAMES * 2,
+    TX0_RPC_REQUEST_BYTES =
+        2 * sizeof(int) + TX0_RPC_PARAM_COUNT * sizeof(rpc_param_desc_t) +
+        sizeof(rtos_i2s_t *) + sizeof(size_t) + sizeof(unsigned) + sizeof(int) +
+        TX0_RPC_SAMPLE_COUNT * sizeof(int32_t),
+};
+
+typedef struct {
+    int fcode, param_count;
+    rpc_param_desc_t params[TX0_RPC_PARAM_COUNT];
+    rtos_i2s_t *ctx;
+    int32_t samples[TX0_RPC_SAMPLE_COUNT];
+    size_t frame_count;
+    unsigned timeout;
+    int out_select;
+} tx0_rpc_request_t;
+
+_Static_assert(sizeof(tx0_rpc_request_t) == TX0_RPC_REQUEST_BYTES,
+               "TX0 request must match the packed RPC layout");
+
+/* The single remote client submits one fixed-size stereo TX0 block at a time. */
+static _Alignas(8) tx0_rpc_request_t tx0_rpc_request;
+static rtos_i2s_t *tx0_rpc_host_ctx;
+
+static void parse_fixed_tx0_request(rpc_msg_t *rpc_msg, tx0_rpc_request_t *request)
+{
+    if (request->ctx != tx0_rpc_host_ctx ||
+        request->fcode != fcode_tx || request->param_count != TX0_RPC_PARAM_COUNT ||
+        request->out_select != 0 || request->frame_count != FPH_I2S_TX0_FRAMES) {
+        __builtin_trap();
+    }
+
+    static const rpc_param_desc_t expected[] = {
+        {sizeof(rtos_i2s_t *), 0, 1, 0},
+        {TX0_RPC_SAMPLE_COUNT * sizeof(int32_t), 1, 1, 0},
+        {sizeof(size_t), 0, 1, 0},
+        {sizeof(unsigned), 0, 1, 0},
+        {sizeof(int), 0, 1, 0},
+        RPC_PARAM_RETURN(size_t),
+    };
+    _Static_assert(sizeof(expected) / sizeof(expected[0]) == TX0_RPC_PARAM_COUNT,
+                   "TX0 request descriptor count");
+    for (size_t i = 0; i < TX0_RPC_PARAM_COUNT; ++i) {
+        const rpc_param_desc_t *param = &request->params[i];
+        if (param->length != expected[i].length || param->ptr != expected[i].ptr ||
+            param->input != expected[i].input || param->output != expected[i].output) {
+            __builtin_trap();
+        }
+    }
+    rpc_request_parse(rpc_msg, (uint8_t *)request);
+}
+#endif
 
 __attribute__((fptrgroup("rtos_i2s_rx_fptr_grp")))
 static size_t i2s_remote_rx(
@@ -105,6 +171,7 @@ static size_t i2s_remote_1_tx(
 }
 
 
+#ifndef I2S_RPC_FIXED_TX0_HOST
 static int i2s_rx_rpc_host(rpc_msg_t *rpc_msg, uint8_t **resp_msg)
 {
     int msg_length;
@@ -139,6 +206,7 @@ static int i2s_rx_rpc_host(rpc_msg_t *rpc_msg, uint8_t **resp_msg)
 
     return msg_length;
 }
+#endif
 
 static int i2s_tx_rpc_host(rpc_msg_t *rpc_msg, uint8_t **resp_msg)
 {
@@ -172,14 +240,24 @@ static int i2s_tx_rpc_host(rpc_msg_t *rpc_msg, uint8_t **resp_msg)
 static void i2s_rpc_thread(rtos_intertile_address_t *client_address)
 {
     int msg_length;
-    uint8_t *req_msg;
     uint8_t *resp_msg;
     rpc_msg_t rpc_msg;
     rtos_intertile_t *intertile_ctx = client_address->intertile_ctx;
     uint8_t intertile_port = client_address->port;
 
     for (;;) {
+#ifdef I2S_RPC_FIXED_TX0_HOST
+        size_t request_length = rtos_intertile_rx_len(intertile_ctx, intertile_port, RTOS_OSAL_WAIT_FOREVER);
+        /* Both tiles are built together; any other length is a protocol fault. */
+        if (request_length != sizeof(tx0_rpc_request)) {
+            __builtin_trap();
+        }
+        rtos_intertile_rx_data(intertile_ctx, &tx0_rpc_request, sizeof(tx0_rpc_request));
+        parse_fixed_tx0_request(&rpc_msg, &tx0_rpc_request);
+        msg_length = i2s_tx_rpc_host(&rpc_msg, &resp_msg);
+#else
         /* receive RPC request message from client */
+        uint8_t *req_msg;
         msg_length = rtos_intertile_rx(intertile_ctx, intertile_port, (void **) &req_msg, RTOS_OSAL_WAIT_FOREVER);
 
         rpc_request_parse(&rpc_msg, req_msg);
@@ -194,6 +272,7 @@ static void i2s_rpc_thread(rtos_intertile_address_t *client_address)
         }
 
         rtos_osal_free(req_msg);
+#endif
 
         /* send RPC response message to client */
         rtos_intertile_tx(intertile_ctx, intertile_port, resp_msg, msg_length);
@@ -276,6 +355,10 @@ void rtos_i2s_rpc_host_init(
         size_t remote_client_count)
 {
     xassert(i2s_ctx->is_slave == false);
+#ifdef I2S_RPC_FIXED_TX0_HOST
+    xassert(remote_client_count == 1 && tx0_rpc_host_ctx == NULL);
+    tx0_rpc_host_ctx = i2s_ctx;
+#endif
 
     i2s_ctx->rpc_config = rpc_config;
     rpc_config->rpc_host_start = i2s_rpc_start;
