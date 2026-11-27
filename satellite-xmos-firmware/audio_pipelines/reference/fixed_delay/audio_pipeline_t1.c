@@ -20,6 +20,7 @@
 #include "app_conf.h"
 #include "audio_pipeline.h"
 #include "audio_pipeline_dsp.h"
+#include "audio_pipeline_io.h"
 
 #if appconfAUDIO_PIPELINE_FRAME_ADVANCE != 240
 #error This pipeline is only configured for 240 frame advance
@@ -47,15 +48,14 @@ static void *audio_pipeline_input_i(void *input_app_data)
     frame_data = pvPortMalloc(sizeof(frame_data_t));
     memset(frame_data, 0x00, sizeof(frame_data_t));
 
-    audio_pipeline_input(input_app_data,
-                       (int32_t **)frame_data->aec_reference_audio_samples,
-                       appconfMIC_PIPELINE_REF_CHANNELS + appconfMIC_PIPELINE_INPUT_CHANNELS,
-                       appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+    (void) input_app_data;
+    audio_pipeline_capture(frame_data->samples,
+                           frame_data->aec_reference_audio_samples[0],
+                           frame_data->aec_reference_audio_samples[1],
+                           appconfAUDIO_PIPELINE_FRAME_ADVANCE);
 
     frame_data->vnr_pred_flag = 0;
     mix_stereo_reference_to_mono(frame_data);
-
-    memcpy(frame_data->samples, frame_data->mic_samples_passthrough, sizeof(frame_data->samples));
 
     return frame_data;
 }

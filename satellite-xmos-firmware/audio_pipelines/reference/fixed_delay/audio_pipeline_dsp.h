@@ -9,7 +9,6 @@
 #include "FreeRTOS.h"
 #include "stream_buffer.h"
 #include "app_conf.h"
-#include <stdint.h>
 
 /* Pipeline config */
 #define AP_MAX_Y_CHANNELS (appconfMIC_PIPELINE_PROC_CHANNELS)
@@ -35,13 +34,12 @@ _Static_assert(appconfMIC_PIPELINE_REF_CHANNELS == 2, "Reference mixing requires
 _Static_assert(appconfMIC_PIPELINE_INPUT_CHANNELS == AP_MAX_Y_CHANNELS, "Capture and processing channel mismatch");
 
 
-/* Note: Changing the order here will effect the channel order for
- * audio_pipeline_input() and audio_pipeline_output()
+/* Intertile payload shared by tile 1 (capture/AEC) and tile 0 (postprocessing).
+ * Capture writes directly into samples; reference slot 1 also carries NS output.
  */
 typedef struct {
-    int32_t samples[appconfMIC_PIPELINE_PROC_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
+    _Alignas(8) int32_t samples[appconfMIC_PIPELINE_PROC_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
     int32_t aec_reference_audio_samples[appconfMIC_PIPELINE_REF_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
-    int32_t mic_samples_passthrough[appconfMIC_PIPELINE_INPUT_CHANNELS][appconfAUDIO_PIPELINE_FRAME_ADVANCE];
 
     /* Below is additional context needed by other stages on a per frame basis */
     int32_t vnr_pred_flag;
@@ -50,11 +48,18 @@ typedef struct {
     int32_t ref_active_flag;
 } frame_data_t;
 
-_Static_assert(offsetof(frame_data_t, aec_reference_audio_samples) == sizeof(((frame_data_t *)0)->samples),
-               "Output channels must be contiguous");
-_Static_assert(offsetof(frame_data_t, mic_samples_passthrough) ==
-               offsetof(frame_data_t, aec_reference_audio_samples) + sizeof(((frame_data_t *)0)->aec_reference_audio_samples),
-               "Capture channels must follow the stereo reference");
+_Static_assert(sizeof(frame_data_t) == 5784, "Fixed-delay intertile frame size");
+_Static_assert(offsetof(frame_data_t, samples) == 0, "Microphone row offset");
+_Static_assert(offsetof(frame_data_t, aec_reference_audio_samples) == 3840, "Reference row offset");
+_Static_assert(offsetof(frame_data_t, vnr_pred_flag) == 5760, "VNR flag offset");
+_Static_assert(offsetof(frame_data_t, max_ref_energy) == 5764, "Reference energy offset");
+_Static_assert(offsetof(frame_data_t, aec_corr_factor) == 5772, "AEC correlation offset");
+_Static_assert(offsetof(frame_data_t, ref_active_flag) == 5780, "Reference activity flag offset");
+_Static_assert(_Alignof(frame_data_t) == 8 && portBYTE_ALIGNMENT % _Alignof(frame_data_t) == 0,
+               "FreeRTOS must allocate doubleword-aligned frames");
+_Static_assert(sizeof(((frame_data_t *)0)->samples[0]) % 8 == 0 &&
+               offsetof(frame_data_t, aec_reference_audio_samples) % 8 == 0,
+               "Every audio row must be doubleword aligned");
 
 typedef struct stage_delay_ctx {
     StreamBufferHandle_t delay_buf;
