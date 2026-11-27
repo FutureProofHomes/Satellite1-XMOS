@@ -50,52 +50,31 @@ static int32_t mic_gain_10x(int32_t sample)
 
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
 rtos_osal_queue_t *ref_input_queue;
-#endif
 
-void speaker_pipeline_input(void *input_app_data,
-                        int32_t **input_audio_frames,
-                        size_t ch_count,
-                        size_t frame_count)
+void speaker_pipeline_input(speaker_pcm_t *pcm)
 {
-#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
-    /* This shouldn't need to block given it shares a clock with the PDM mics */
+    const size_t frame_count = appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE;
+    /* I2S provides interleaved samples. */
+    int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][appconfI2S_AUDIO_INPUTS][appconfAUDIO_SPK_CHANNELS];
 
-        xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
-        /* I2S provides sample channel format */
-        int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][appconfI2S_AUDIO_INPUTS][appconfAUDIO_SPK_CHANNELS];
-        int32_t *tmpptr = (int32_t *)input_audio_frames;
+    size_t rx_count = rtos_i2s_rx(i2s_ctx, (int32_t *)tmp, frame_count, portMAX_DELAY);
+    xassert(rx_count == frame_count);
 
-        size_t rx_count =
-        rtos_i2s_rx(i2s_ctx,
-                    (int32_t*) tmp,
-                    frame_count,
-                    portMAX_DELAY);
-        xassert(rx_count == frame_count);
-
-        for (int i=0; i<frame_count; i++) {
-            /* ref is first */
-            *(tmpptr + i) = tmp[i][0][0];
-            *(tmpptr + i + frame_count) = tmp[i][0][1];
-        }
-#endif
+    for (size_t i = 0; i < frame_count; ++i) {
+        pcm->samples[0][i] = tmp[i][0][0];
+        pcm->samples[1][i] = tmp[i][0][1];
+    }
 }
 
-int speaker_pipeline_output(void *output_app_data,
-                        int32_t **output_audio_frames,
-                        size_t ch_count,
-                        size_t frame_count)
+void speaker_pipeline_output(const speaker_pcm_t *pcm)
 {
-#if ON_TILE(SPEAKER_PIPELINE_TILE_NO)    
-    (void) output_app_data;
-
-    xassert(frame_count == appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE);
+    const size_t frame_count = appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE;
     
     /* I2S expects sample channel format */
     int32_t tmp[appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE][1][appconfAUDIO_SPK_CHANNELS];
-    int32_t *tmpptr = (int32_t *)output_audio_frames;
-    for (int j=0; j<frame_count; j++) {
-        tmp[j][0][0] = *(tmpptr+j+(0*frame_count));    // ref 0 -> DAC
-        tmp[j][0][1] = *(tmpptr+j+(1*frame_count));    // ref 1 -> DAC
+    for (size_t j = 0; j < frame_count; ++j) {
+        tmp[j][0][0] = pcm->samples[0][j];
+        tmp[j][0][1] = pcm->samples[1][j];
     }
     
     // send to DAC
@@ -130,10 +109,8 @@ int speaker_pipeline_output(void *output_app_data,
     
     // send to microphone pipeline as reference
     (void) rtos_osal_queue_send(ref_input_queue, &frame_data, RTOS_OSAL_WAIT_FOREVER);
-
-#endif
-    return AUDIO_PIPELINE_FREE_FRAME;
 }
+#endif
 
 
 
@@ -391,7 +368,7 @@ void startup_task(void *arg)
 #if ON_TILE(SPEAKER_PIPELINE_TILE_NO)
     ref_input_queue = rtos_osal_malloc( sizeof(rtos_osal_queue_t) );
     rtos_osal_queue_create(ref_input_queue, NULL, 2, sizeof(void *));
-    speaker_pipeline_init(NULL, NULL);
+    speaker_pipeline_init();
 #endif
 
     audio_pipeline_init(NULL, NULL);

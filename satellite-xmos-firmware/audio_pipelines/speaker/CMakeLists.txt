@@ -16,7 +16,6 @@ target_link_libraries(empty_2ch_pt
     INTERFACE
         core::general
         rtos::freertos
-        rtos::sw_services::generic_pipeline
 )
 
 
