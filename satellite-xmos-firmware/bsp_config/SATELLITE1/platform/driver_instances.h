@@ -22,7 +22,6 @@
 #define SPI_CLIENT_TILE_NO 0
 
 #define MICARRAY_TILE_NO   1
-#define I2S_TILE_NO        1
 #define SPEAKER_PIPELINE_TILE_NO I2S_TILE_NO 
 #define WS2812_TILE_NO     1
 
