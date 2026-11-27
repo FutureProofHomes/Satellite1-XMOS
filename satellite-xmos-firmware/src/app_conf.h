@@ -32,10 +32,6 @@
 #define appconfAUDIO_SPK_CHANNELS               2
 #define appconfMIC_PIPELINE_NS_CHANNEL          (appconfMIC_PIPELINE_PROC_CHANNELS + 1)
 
-#ifndef appconfAUDIO_SPK_PL_SR_FACTOR
-#define appconfAUDIO_SPK_PL_SR_FACTOR           3
-#endif
-
 /* If in channel sample format, appconfAUDIO_PIPELINE_FRAME_ADVANCE == MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME*/
 #define appconfAUDIO_PIPELINE_FRAME_ADVANCE     MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME
 #define appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE appconfAUDIO_SPK_PL_SR_FACTOR * appconfAUDIO_PIPELINE_FRAME_ADVANCE
