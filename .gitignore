@@ -57,6 +57,8 @@ dev_tracking
 .waf-*/
 
 build/
+build-host/
+.venv-dsp/
 
 # filesystem cruft
 **/fat.fs
