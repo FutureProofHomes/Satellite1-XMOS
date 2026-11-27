@@ -27,6 +27,25 @@ The XMOS executable (XE) binary format stores programs for XMOS devices and incl
 
 ## Flashing via Satellite1 ESPHome Firmware
 
+The ESPHome firmware includes a `memory_flasher` component that can write the
+XMOS factory image to QSPI flash over SPI. This is the **only method** for the
+initial flash (the Satellite1 ships without pre-flashed XMOS firmware).
+
+**Prerequisites:**
+- ESPHome firmware with the `satellite1` board platform is running
+- The `embed_flash_image` package is included in the ESPHome configuration
+
+**Steps:**
+1. Build the factory image: `make create_flash_img_satellite1_firmware_fixed_delay`
+2. Copy `satellite1_firmware_fixed_delay.factory.bin` and `.factory.md5` to
+   the ESPHome build directory (or use the auto-generated
+   `build/embed_flash_imag.yaml`).
+3. Update the `image_version` in your ESPHome config to match
+   `firmware_version.txt`.
+4. Re-flash the ESPHome firmware. On boot, the `memory_flasher` component
+   writes the XMOS image to QSPI and verifies the MD5 checksum.
+
+See `docs/versioning.md` for the full ESPHome YAML integration.
 
 ## Flashing via dfu-util
 > **Note:** The Satellite1 does not come with a pre-flashed XMOS firmware. Hence, the initial firmware needs to be written directly to the flash memory via SPI. Use 'Flashing via Satellite1 ESPHome Firmware' in this case.  
