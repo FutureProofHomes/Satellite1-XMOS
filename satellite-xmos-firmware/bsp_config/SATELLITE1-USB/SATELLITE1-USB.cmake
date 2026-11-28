@@ -40,7 +40,8 @@ target_link_options(fph_ffva_board_support_satellite1_usb
 # pins 2 & 3 are not used
 
 # use East as first and West as second mic
-set(MIC_MAPPING "4, 5")
+set(RAW_CAPTURE "$<BOOL:$<TARGET_PROPERTY:SAT1_RAW_CAPTURE>>")
+set(MIC_MAPPING "$<IF:${RAW_CAPTURE},4$<COMMA>5$<COMMA>0$<COMMA>1,4$<COMMA>5>")
 
 target_compile_definitions(fph_ffva_board_support_satellite1_usb
     INTERFACE
@@ -57,7 +58,7 @@ target_compile_definitions(fph_ffva_board_support_satellite1_usb
         MIC_ARRAY_CONFIG_SAMPLES_PER_FRAME=240
         MIC_ARRAY_CONFIG_USE_DDR=1
         MIC_ARRAY_CONFIG_MIC_INPUT=8
-        MIC_ARRAY_CONFIG_MIC_COUNT=2
+        MIC_ARRAY_CONFIG_MIC_COUNT=$<IF:${RAW_CAPTURE},4,2>
         MIC_ARRAY_CONFIG_INPUT_MAPPING={${MIC_MAPPING}}
         
         MIC_ARRAY_CONFIG_CLOCK_BLOCK_A=XS1_CLKBLK_1

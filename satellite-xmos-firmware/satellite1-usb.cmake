@@ -7,6 +7,7 @@ set(FFVA_FD_PIPELINE_CONFIGS
     vnr_ic__ns
     vnr_ic
     ns
+    raw_capture
 )
 
 set(FFVA_AP "fixed_delay")
@@ -37,7 +38,9 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
         #appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR=0
         #appconfAUDIO_PIPELINE_SKIP_AGC=1
     )
-    if(${FFVA_PL_CFG} STREQUAL aec__vnr_ic__ns__agc)
+    if(FFVA_PL_CFG STREQUAL raw_capture)
+        list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfUSB_RAW_CAPTURE=1)
+    elseif(${FFVA_PL_CFG} STREQUAL aec__vnr_ic__ns__agc)
         list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfAUDIO_PIPELINE_SKIP_AEC=0)
         list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfAUDIO_PIPELINE_SKIP_NS=0)
         list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfAUDIO_PIPELINE_SKIP_IC_AND_VNR=0)
@@ -69,7 +72,9 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
         list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfAUDIO_PIPELINE_SKIP_AGC=1)
     endif()     
     
-    if(${FFVA_AP} STREQUAL bypass )
+    if(FFVA_PL_CFG STREQUAL raw_capture)
+      set(PL_NAME raw_capture)
+    elseif(${FFVA_AP} STREQUAL bypass )
       set(PL_NAME fixed_delay)
       list(APPEND FFVA_INT_COMPILE_DEFINITIONS appconfPIPELINE_BYPASS=1)
     else()
@@ -84,6 +89,9 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
     #**********************
     set(TARGET_NAME tile0_satellite1_usb_firmware_${FFVA_PL_CFG})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
+    if(FFVA_PL_CFG STREQUAL raw_capture)
+        set_property(TARGET ${TARGET_NAME} PROPERTY SAT1_RAW_CAPTURE TRUE)
+    endif()
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
     target_compile_definitions(${TARGET_NAME}
@@ -104,6 +112,9 @@ foreach(FFVA_PL_CFG ${FFVA_FD_PIPELINE_CONFIGS})
 
     set(TARGET_NAME tile1_satellite1_usb_firmware_${FFVA_PL_CFG})
     add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL)
+    if(FFVA_PL_CFG STREQUAL raw_capture)
+        set_property(TARGET ${TARGET_NAME} PROPERTY SAT1_RAW_CAPTURE TRUE)
+    endif()
     target_sources(${TARGET_NAME} PUBLIC ${APP_SOURCES})
     target_include_directories(${TARGET_NAME} PUBLIC ${APP_INCLUDES})
     target_compile_definitions(${TARGET_NAME}

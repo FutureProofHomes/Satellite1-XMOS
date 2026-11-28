@@ -131,3 +131,9 @@ add_library(fph::ffva::ap::adec_altarch ALIAS adec_altarch_aec_ic_ns_agc_2mic_2r
 add_library(fph::ffva::ap::fixed_delay ALIAS fixed_delay_aec_ic_ns_agc_2mic_2ref)
 add_library(fph::ffva::ap::adec ALIAS adec_aec_ic_ns_agc_2mic_2ref)
 add_library(fph::ffva::ap::empty ALIAS empty_2mic_2ref)
+
+add_library(raw_capture INTERFACE)
+target_sources(raw_capture INTERFACE ${CMAKE_CURRENT_LIST_DIR}/raw_capture/audio_pipeline.c)
+target_include_directories(raw_capture INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(raw_capture INTERFACE core::general rtos::freertos)
+add_library(fph::ffva::ap::raw_capture ALIAS raw_capture)
