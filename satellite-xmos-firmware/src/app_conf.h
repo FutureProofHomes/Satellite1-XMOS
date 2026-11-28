@@ -24,6 +24,11 @@
 #define appconfPDM_CLOCK_FREQUENCY              MIC_ARRAY_CONFIG_PDM_FREQ
 #define appconfAUDIO_PIPELINE_SAMPLE_RATE       16000
 #define appconfAUDIO_PIPELINE_CHANNELS          MIC_ARRAY_CONFIG_MIC_COUNT
+#define appconfSPEAKER_CHANNELS                 2
+
+#ifndef appconfUSB_RAW_CAPTURE
+#define appconfUSB_RAW_CAPTURE                  0
+#endif
 
 #ifndef appconfAUDIO_SPK_PL_SR_FACTOR
 #define appconfAUDIO_SPK_PL_SR_FACTOR           3

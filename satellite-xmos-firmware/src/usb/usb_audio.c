@@ -125,6 +125,22 @@ void usb_audio_send(rtos_intertile_t *intertile_ctx,
                     int32_t **frame_buffers,
                     size_t num_chans)
 {
+#if appconfUSB_RAW_CAPTURE
+    /* Single producer on the USB tile. Keep the 5760-byte block off-stack. */
+    static samp_t usb_audio_in_frame[appconfAUDIO_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
+    _Static_assert(CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX == 6, "Expected four mics and stereo reference");
+    xassert(num_chans == CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX);
+    xassert(frame_count == appconfAUDIO_PIPELINE_FRAME_ADVANCE);
+    if (!mic_interface_open) {
+        return;
+    }
+    const int32_t (*input)[appconfAUDIO_PIPELINE_FRAME_ADVANCE] = (const void *)frame_buffers;
+    for (size_t i = 0; i < frame_count; ++i) {
+        for (size_t ch = 0; ch < num_chans; ++ch) {
+            usb_audio_in_frame[i][ch] = input[(ch + appconfSPEAKER_CHANNELS) % num_chans][i];
+        }
+    }
+#else
     samp_t usb_audio_in_frame[appconfAUDIO_PIPELINE_FRAME_ADVANCE][CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX];
     int32_t *frame_buf_ptr = (int32_t *) frame_buffers;
 
@@ -146,12 +162,18 @@ void usb_audio_send(rtos_intertile_t *intertile_ctx,
             }
         }
     }
+#endif
 
     if (mic_interface_open) {
         if (xStreamBufferSpacesAvailable(samples_to_host_stream_buf) >= sizeof(usb_audio_in_frame)) {
             xStreamBufferSend(samples_to_host_stream_buf, usb_audio_in_frame, sizeof(usb_audio_in_frame), 0);
         } else {
+#if appconfUSB_RAW_CAPTURE
+            static unsigned dropped_blocks;
+            rtos_printf("Raw capture: dropped blocks=%u\n", ++dropped_blocks);
+#else
             rtos_printf("lost VFE output samples\n");
+#endif
         }
 
     }
@@ -193,7 +215,8 @@ void usb_audio_recv(rtos_intertile_t *intertile_ctx,
         for(int ch=0; ch<CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX; ch++) {
             for (int i=0; i<appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE; i++) {
                 if (ch < num_chans) {
-                    frame_buf_ptr[i+(appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE*ch)] = usb_audio_out_frame[i][ch] << src_32_shift;
+                    frame_buf_ptr[i+(appconfAUDIO_SPK_PIPELINE_FRAME_ADVANCE*ch)] =
+                        (int32_t)usb_audio_out_frame[i][ch] * (1 << src_32_shift);
                 }
             }
         }
@@ -557,7 +580,7 @@ bool tud_audio_rx_done_post_read_cb(uint8_t rhport,
     {
         size_t num_rx_total = 0;
         while(num_rx_total < sizeof(usb_audio_frames)){
-            size_t num_rx = xStreamBufferReceive(rx_buffer, &usb_audio_frames[num_rx_total], sizeof(usb_audio_frames)-num_rx_total, 0);
+            size_t num_rx = xStreamBufferReceive(rx_buffer, (uint8_t *)usb_audio_frames + num_rx_total, sizeof(usb_audio_frames)-num_rx_total, 0);
             num_rx_total += num_rx;
         }
     }
@@ -666,12 +689,14 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport,
      * maintain a good fill level again.
      */
 
+#if !appconfUSB_RAW_CAPTURE
     if (xStreamBufferIsFull(samples_to_host_stream_buf)) {
         xStreamBufferReset(samples_to_host_stream_buf);
         ready = 0;
         rtos_printf("Oops buffer is full\n");
         return true;
     }
+#endif
 
     bytes_available = xStreamBufferBytesAvailable(samples_to_host_stream_buf);
 
@@ -704,12 +729,17 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport,
         } else {
             memset(stream_buffer_audio_frames, 0, tx_size_bytes);
         }
+#if appconfUSB_RAW_CAPTURE
+        static unsigned padded_packets;
+        rtos_printf("Raw capture: padded packets=%u\n", ++padded_packets);
+#else
         rtos_printf("Oops tx buffer underflowed!\n");
+#endif
     }
 
     size_t num_rx_total = 0;
     while(num_rx_total < ready_data_bytes){
-        size_t num_rx =  xStreamBufferReceive(samples_to_host_stream_buf, &stream_buffer_audio_frames[num_rx_total], ready_data_bytes-num_rx_total, 0);
+        size_t num_rx = xStreamBufferReceive(samples_to_host_stream_buf, (uint8_t *)stream_buffer_audio_frames + num_rx_total, ready_data_bytes-num_rx_total, 0);
         num_rx_total += num_rx;
     }
 

@@ -11,10 +11,12 @@
 
 
 /*
- * frame_buffers format assumes:
+ * Normal builds take these channel-major frames:
  *   processed_audio_frame
  *   reference_audio_frame
  *   raw_mic_audio_frame
+ * Raw capture takes stereo reference followed by four mic channels and
+ * exports the four mics first, followed by the stereo reference.
  */
 void usb_audio_send(rtos_intertile_t *intertile_ctx,
                     size_t frame_count,

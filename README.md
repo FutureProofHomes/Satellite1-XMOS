@@ -118,6 +118,8 @@ make create_flash_img_variant_name
 make create_upgrade_img_variant_name
 ```
 
+For offline audio experiments, see [recording all four microphones over USB](docs/raw-mic-capture.md).
+
 On Windows run:
 ```bash
 cmake -G Ninja -B build --toolchain xmos_cmake_toolchain/xs3a.cmake
@@ -146,7 +148,6 @@ cd build
 
 ninja variant_name
 ```
-
 
 
 
